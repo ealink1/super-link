@@ -8,7 +8,7 @@ from unittest.mock import patch
 import zipfile
 
 from package_installers import create_windows_icon, desktop_entry, package
-from publish_release import verify_uploaded, upload_files
+from publish_release import created_release, verify_uploaded, upload_files
 from release_notes import render, changes
 from release_platforms import PLATFORMS, download_record, platform_drivers, version_text
 from verify_release import verify, write_checksums
@@ -138,6 +138,17 @@ class ReleaseContracts(unittest.TestCase):
         pages[0][0]['digest'] = 'sha256:' + '0' * 64
         with self.assertRaisesRegex(ValueError, 'SHA256'):
             verify_uploaded([p], pages)
+
+    def test_new_draft_lookup_uses_recent_releases(self):
+        draft = {'id': 42, 'tag_name': 'v0.1.1', 'draft': True}
+        with patch('publish_release.gh', return_value=json.dumps([
+                {'id': 41, 'tag_name': 'dev-latest', 'draft': False}, draft])) as api:
+            self.assertEqual(created_release('v0.1.1'), draft)
+            self.assertIn('releases?per_page=100', api.call_args.args[1])
+        for releases in ([], [draft, draft]):
+            with patch('publish_release.gh', return_value=json.dumps(releases)):
+                with self.assertRaisesRegex(ValueError, 'uniquely found'):
+                    created_release('v0.1.1')
 
     def test_invalid_versions_and_platform_support(self):
         for value in ['../v0.1.0', 'v0.1.0\noutput=bad', '01.2.3', '1.0.0-..', '1.0.0-01', 'latest']:

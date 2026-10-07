@@ -17,6 +17,16 @@ def gh(*args):
     return subprocess.check_output(['gh', *args], text=True, timeout=1800)
 
 
+def created_release(tag):
+    # GitHub's by-tag endpoint excludes drafts. A newly created release is in
+    # the bounded recent-release listing, which includes authorized drafts.
+    recent = json.loads(gh('api', f'repos/{REPO}/releases?per_page=100'))
+    matches = [release for release in recent if release['tag_name'] == tag]
+    if len(matches) != 1:
+        raise ValueError('new release was not uniquely found in the recent release listing')
+    return matches[0]
+
+
 def verify_uploaded(files, pages):
     expected = {p.name: (p.stat().st_size, 'sha256:' + digest(p)) for p in files}
     actual = {}
@@ -80,7 +90,7 @@ def main():
         options.append('--prerelease')
     # Never overwrite an existing release/tag. A failed upload remains a draft.
     url = gh(*options, *(str(p) for p in files)).strip()
-    info = json.loads(gh('api', f'repos/{REPO}/releases/tags/{tag}'))
+    info = created_release(tag)
     if not info['draft'] or info['tag_name'] != tag or info['target_commitish'] != args.source:
         raise ValueError('created release identity or draft state mismatch')
     pages = json.loads(gh('api', '--paginate', '--slurp', f'repos/{REPO}/releases/{info["id"]}/assets?per_page=100'))
@@ -89,7 +99,7 @@ def main():
         options = ['release', 'edit', tag, '--repo', REPO, '--draft=false']
         options += ['--latest=false'] if '-' in version else ['--latest']
         gh(*options)
-        info = json.loads(gh('api', f'repos/{REPO}/releases/tags/{tag}'))
+        info = json.loads(gh('api', f'repos/{REPO}/releases/{info["id"]}'))
         if info['draft'] or info['prerelease'] != ('-' in version):
             raise ValueError('release publication status mismatch')
     print('Verified public release:' if publish else 'Verified release draft:', url)

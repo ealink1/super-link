@@ -3,8 +3,9 @@
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
 当前版本为 v0.1.0 Alpha。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
-尚未发布 GitHub Release、注入正式更新公钥、配置平台签名证书或完成 Windows / Linux
-的运行验收。以下是已实现的发布工具和维护者操作流程。新增自动流程和安装包验证见后文。
+2026-10-07 已完成六个平台的原生构建、数据库测试、驱动握手及安装包验证，并配置
+正式更新签名公钥和私钥。平台代码签名证书及 Apple 公证尚未配置；原生安装验证
+不能替代各平台图形界面全流程验收。自动流程和验证记录见后文。
 
 ## 1. 产物与平台
 
@@ -66,11 +67,11 @@ macOS 设置 `SUPERLINK_MAC_SIGN_IDENTITY` 后，打包脚本先签名 SQLite Ag
 和主程序，重新计算包内 SQLite 校验值，再签名并严格校验 `.app`，最后生成 ZIP。
 Ed25519 清单签名与操作系统代码签名承担不同职责，两者不能互相替代。
 
-当前脚本没有自动执行 macOS 公证 / stapling，也没有 Windows Authenticode 和系统
-安装器接入。如果后续对最终 ZIP 或 Agent 做代码签名、重新压缩、公证附加或其他会改变
+当前脚本没有自动执行 macOS 公证 / stapling，也没有 Windows Authenticode。
+DMG、Inno Setup 和 DEB / tar 安装器已接入自动构建。如果后续对最终 ZIP 或 Agent 做代码签名、重新压缩、公证附加或其他会改变
 字节的操作，必须重新生成对应的资产长度和 SHA256，之后再签清单。
 
-本次产物未使用正式签名身份，未完成隔离下载后的 Gatekeeper 验收，不视为正式可分发包。
+本次产物未使用平台开发者签名，未完成隔离下载后的 Gatekeeper 验收；安装说明明确提示。
 Portable 更新要求当前应用目录及其父目录可写；系统包管理器目录的更新暂不支持提权。
 
 ## 4. 合并资产与签名清单
@@ -109,10 +110,9 @@ go run ./cmd/release-sign \
 并绑定 Release tag 与签名清单版本。签名工具能生成 preview 清单，但本版界面尚未提供
 preview 渠道切换。
 
-`.github/workflows/build.yml` 是手动触发的 Linux / macOS / Windows 原生构建并上传
-Actions Artifact；不会自动创建公开 Release。`.github/workflows/ci.yml` 执行测试、
-架构 / 来源检查和默认应用打包。本次没有推送或触发这些云端流程；两份配置不是平台
-运行验收结果。工作流采用 runner 的本机架构，尚未配置六种系统 / CPU 组合的完整矩阵。
+`.github/workflows/build.yml` 原生构建六种系统 / CPU 组合并上传 Actions Artifact；
+不会自动创建公开 Release。`.github/workflows/ci.yml` 执行测试、架构 / 来源检查和
+默认应用打包。2026-10-07 的云端运行已验证完整矩阵，详见第 9 节。
 
 正式分发前核对 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) 的许可缺失记录，
 尤其是专有数据库驱动。本次未获得所有专有驱动的独立再分发条款，也未做公开发布。
@@ -243,3 +243,14 @@ actionlint .github/workflows/*.yml
 
 本地限定平台生成的说明是预览，不允许被完整发布验证器上传。跨平台工作流通过与否、
 GitHub 上传验证、操作系统首次安装和线上更新结果必须以真实 CI/宿主机执行结果为准。
+
+
+## 9. 云端验收记录（2026-10-07）
+
+验证提交：`0dda6249b0a392c9ca0ada35785b52e9fb8f3b27`；发布标签：`v0.1.0`。
+
+- [完整 CI](https://github.com/ealink1/super-link/actions/runs/37642766797)：通过全量测试、竞态检查、静态检查和原生 Linux 构建。
+- [六平台原生构建](https://github.com/ealink1/super-link/actions/runs/37642963455)：macOS、Windows、Linux 的 amd64 / arm64 全部通过。
+- 六个平台均执行 UI、状态存储、SQLite 数据库及 Agent 协议测试；逐个构建、启动并验证全部可用驱动身份。Windows ARM64 为 21 个驱动，其余平台为 22 个。
+- macOS 验证 DMG 挂载及包内文件；Windows 执行实际安装、应用版本检查及卸载；Linux 验证 DEB 解包、tar 用户安装和重复安装保护。
+- Apple 公证、Windows Authenticode 及各系统完整图形交互验收仍未完成。本次未使用浏览器测试。
