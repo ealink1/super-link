@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -10,6 +11,41 @@ import (
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/upstream/connection"
 )
+
+func TestDatabaseURIAndPersistenceAtExactPath(t *testing.T) {
+	for path, want := range map[string]string{
+		"C:/Users/测试/state # ?.sqlite": "file:///C:/Users/%E6%B5%8B%E8%AF%95/state%20%23%20%3F.sqlite",
+		"/tmp/state # ?.sqlite":        "file:///tmp/state%20%23%20%3F.sqlite",
+	} {
+		if got := databaseURI(path); got != want {
+			t.Fatalf("databaseURI(%q) = %q, want %q", path, got, want)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "工作区 # ?.sqlite")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetSetting(context.Background(), "fixture", "persisted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || len(raw) < 16 || string(raw[:16]) != "SQLite format 3\x00" {
+		t.Fatal("state was not written to the requested database path", err)
+	}
+	store, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	value, err := store.Setting(context.Background(), "fixture")
+	if err != nil || value != "persisted" {
+		t.Fatal("state did not survive reopen", err)
+	}
+}
 
 func TestStoreRevisionAndCascadeWithReservedURICharacters(t *testing.T) {
 	ctx := context.Background()

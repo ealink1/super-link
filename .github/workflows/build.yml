@@ -105,7 +105,7 @@ jobs:
         shell: bash
         run: |
           python -m unittest discover -s tools -p 'test_release_*.py' -v
-          go test -tags ci ./internal/ui ./internal/infra/release ./internal/infra/drivers
+          go test -tags ci ./internal/ui ./internal/infra/state ./internal/infra/release ./internal/infra/drivers
       - name: Build and probe every supported driver
         shell: bash
         run: python tools/build.py --all-drivers --package --version "$SUPERLINK_BUILD_VERSION"

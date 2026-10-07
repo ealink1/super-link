@@ -36,8 +36,7 @@ func Open(path string) (*Store, error) {
 	if err = os.Chmod(path, 0600); err != nil {
 		return nil, err
 	}
-	u := url.URL{Scheme: "file", Path: filepath.ToSlash(path)}
-	database, err := sql.Open("sqlite", u.String()+"?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
+	database, err := sql.Open("sqlite", databaseURI(filepath.ToSlash(path))+"?_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +49,14 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	return s, nil
+}
+
+func databaseURI(path string) string {
+	// A drive letter must be a URI path, never an authority (file://C:/...).
+	if len(path) >= 2 && path[1] == ':' {
+		path = "/" + path
+	}
+	return (&url.URL{Scheme: "file", Path: path}).String()
 }
 
 func (s *Store) migrate(ctx context.Context) error {

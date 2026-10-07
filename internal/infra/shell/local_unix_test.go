@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -78,9 +79,21 @@ func TestLocalCloseReleasesBackgroundJob(t *testing.T) {
 		if err := syscall.Kill(pid, 0); err == syscall.ESRCH {
 			return
 		}
+		// Linux CI can leave a terminated orphan as a zombie until PID 1
+		// reaps it. kill(pid, 0) alone then incorrectly reports a live job.
+		if runtime.GOOS == "linux" {
+			raw, err := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+			if err == nil {
+				_, fields, ok := strings.Cut(string(raw), ") ")
+				if ok && strings.HasPrefix(fields, "Z ") {
+					return
+				}
+			}
+		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	t.Fatal("background job survived PTY close")
+	stat, _ := os.ReadFile("/proc/" + strconv.Itoa(pid) + "/stat")
+	t.Fatalf("background job survived PTY close: %s", stat)
 }
 
 func TestLocalCloseUnblocksRead(t *testing.T) {
