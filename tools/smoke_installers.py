@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import tarfile
 import tempfile
+import time
 import zipfile
 
 from release_platforms import version_text
@@ -26,6 +27,17 @@ def compare_package(directory, zip_path, goos):
             target = directory / entry.filename.removeprefix(root)
             if not target.is_file() or hashlib.sha256(target.read_bytes()).digest() != hashlib.sha256(z.read(entry)).digest():
                 raise ValueError('installer content differs from verified ZIP: ' + entry.filename)
+
+
+def wait_for_removal(directory, timeout=30):
+    # Inno's uninstaller spawns a temporary copy to delete its own executable.
+    # Waiting for the initial process does not guarantee that cleanup is done.
+    deadline = time.monotonic() + timeout
+    while directory.exists():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('uninstaller did not remove the installed application directory')
+        time.sleep(min(0.2, remaining))
 
 
 def smoke(dist, version, goos, arch):
@@ -79,6 +91,7 @@ def smoke(dist, version, goos, arch):
                 uninstaller = installed / 'unins000.exe'
                 if uninstaller.is_file():
                     run([uninstaller, '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'])
+                    wait_for_removal(installed)
     print(f'Native {goos}/{arch} installer extraction and application bytes verified')
 
 

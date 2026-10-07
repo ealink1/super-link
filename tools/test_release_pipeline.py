@@ -195,6 +195,21 @@ class ReleaseContracts(unittest.TestCase):
         self.assertEqual(groups['fix'], [r'\[link\](bad)'])
         self.assertEqual(groups['perf'], ['faster'])
 
+    def test_uninstall_waits_for_cleanup_and_enforces_deadline(self):
+        import threading
+        from smoke_installers import wait_for_removal
+        installed = self.root / 'installed'; installed.mkdir()
+        with self.assertRaises(TimeoutError):
+            wait_for_removal(installed, timeout=0.01)
+        self.assertTrue(installed.exists())
+        cleanup = threading.Timer(0.05, installed.rmdir)
+        cleanup.start()
+        try:
+            wait_for_removal(installed, timeout=2)
+        finally:
+            cleanup.join()
+        self.assertFalse(installed.exists())
+
 
 if __name__ == '__main__':
     unittest.main()
