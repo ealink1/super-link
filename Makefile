@@ -12,6 +12,7 @@ test:
 vet:
 	go vet ./...
 selfcheck:
+	python3 -m unittest discover -s tools -p 'test_release_*.py' -v
 	python3 tools/check-architecture.py
 	go run ./tools/check-go-size
 	python3 tools/verify-upstream.py

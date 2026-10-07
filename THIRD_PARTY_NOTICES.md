@@ -17238,9 +17238,9 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
-## Embedded derivative fonts
+## Archived derivative font sources
 
-NaviUI and NaviMono combine Noto Sans SC with Inter, Noto Sans and DejaVu Sans Mono Powerline glyphs. Family names have been changed. Generation and source records are in tools/build_fonts.py and third_party/fonts.
+These historical font assets are retained in the source tree but are no longer embedded in the application. NaviUI and NaviMono combine Noto Sans SC with Inter, Noto Sans and DejaVu Sans Mono Powerline glyphs. Family names have been changed. Generation and source records are in tools/build_fonts.py and third_party/fonts.
 
 ### LICENSE.txt
 

@@ -23,6 +23,11 @@ func icon(name string) fyne.Resource {
 		raw, err = sourceIcons.ReadFile("assets/gonavi/" + file)
 	}
 	if err != nil {
+		if strings.HasPrefix(name, "db-") {
+			// Database badges stay white in both themes; theme foreground icons
+			// disappear against that white background in dark mode.
+			return coloredIcon("database", "#64748b")
+		}
 		return theme.DocumentIcon()
 	}
 	resource := fyne.NewStaticResource(file, raw)

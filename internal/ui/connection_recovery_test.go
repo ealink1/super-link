@@ -59,7 +59,7 @@ func TestCredentialRecoveryDoesNotLeaveAStaleWarning(t *testing.T) {
 				t.Fatal("recovery fields or inline explanation missing")
 			}
 			password.SetText("remembered-recovery-fixture")
-			test.Tap(remember)
+			test.TapAt(remember, fyne.NewPos(16, remember.Size().Height/2))
 			button := findButton(content, finish)
 			if button == nil {
 				t.Fatal("recovery action missing")

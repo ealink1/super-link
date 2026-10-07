@@ -385,7 +385,9 @@
     {
       "file": "internal/ui/assets/gonavi/db-chroma.svg",
       "source": "frontend/public/db-icons/chroma.svg",
-      "sha256": "6da06571ed993d1f97b1c612d4e08d2bc9b58f6902e820206242aed68f393119"
+      "sha256": "265689f4d99f2d9eaa1f9b69fb94ba98f533ec3320105105b7306f69272b9a24",
+      "original_sha256": "6da06571ed993d1f97b1c612d4e08d2bc9b58f6902e820206242aed68f393119",
+      "transformation": "Expand compact SVG paths with FontTools SVGPathPen so the complete wordmark renders with Fyne/oksvg."
     },
     {
       "file": "internal/ui/assets/gonavi/db-clickhouse.svg",
@@ -415,7 +417,9 @@
     {
       "file": "internal/ui/assets/gonavi/db-mariadb.svg",
       "source": "frontend/public/db-icons/mariadb.svg",
-      "sha256": "477435746bb2024048c7b71529f615fb70d7e679618f37bac49f78fd07e67dfe"
+      "sha256": "07e07343ec0066210f9a5caef9d276166ba0190f77d486d13da00b070bb23744",
+      "original_sha256": "477435746bb2024048c7b71529f615fb70d7e679618f37bac49f78fd07e67dfe",
+      "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
       "file": "internal/ui/assets/gonavi/db-milvus.svg",
@@ -425,7 +429,9 @@
     {
       "file": "internal/ui/assets/gonavi/db-mongodb.svg",
       "source": "frontend/public/db-icons/mongodb.svg",
-      "sha256": "3e71d5fe44f2e1545363d0902354f0a3f572373184733a14fbf81c61ef9578de"
+      "sha256": "efec6559e512e842a7371c0e57bf3fef5c1dda21d1fd35116984a16d9077af20",
+      "original_sha256": "3e71d5fe44f2e1545363d0902354f0a3f572373184733a14fbf81c61ef9578de",
+      "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
       "file": "internal/ui/assets/gonavi/db-mqtt.svg",
@@ -435,12 +441,16 @@
     {
       "file": "internal/ui/assets/gonavi/db-mysql.svg",
       "source": "frontend/public/db-icons/mysql.svg",
-      "sha256": "67c144cc3e44ad14062a3f20ebe29c5e7eeb2c2c9c0f43cf48d87fe6291a8b2d"
+      "sha256": "7c1249a142087eb906bd843cd19799cd5aa9b1740ad9caf4fe4b35e4a9c4d8ba",
+      "original_sha256": "67c144cc3e44ad14062a3f20ebe29c5e7eeb2c2c9c0f43cf48d87fe6291a8b2d",
+      "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
       "file": "internal/ui/assets/gonavi/db-nacos.svg",
       "source": "frontend/public/db-icons/nacos.svg",
-      "sha256": "d3565ec24d2983d2c06a6ec04b39fa8da5a1b7553273398025e5e9ce4fea9eb9"
+      "sha256": "8816eaefd3a978ee81c9a186b3d322c62a088967e07535ea8c9b413318ba6031",
+      "original_sha256": "d3565ec24d2983d2c06a6ec04b39fa8da5a1b7553273398025e5e9ce4fea9eb9",
+      "transformation": "Rebase viewBox to zero and translate artwork by -680 on X for Fyne/oksvg."
     },
     {
       "file": "internal/ui/assets/gonavi/db-postgres.svg",

@@ -1,24 +1,11 @@
 package ui
 
 import (
-	_ "embed"
 	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
 )
-
-//go:embed assets/NaviUI-Regular.otf
-var cjkFont []byte
-
-//go:embed assets/NaviUI-Bold.otf
-var cjkBoldFont []byte
-
-//go:embed assets/NaviMono-Regular.otf
-var monoFont []byte
-var fontResource = fyne.NewStaticResource("NaviUI-Regular.otf", cjkFont)
-var boldFontResource = fyne.NewStaticResource("NaviUI-Bold.otf", cjkBoldFont)
-var monoFontResource = fyne.NewStaticResource("NaviMono-Regular.otf", monoFont)
 
 type Theme struct {
 	Dark    bool
@@ -35,13 +22,7 @@ func (t Theme) appearancePalette() *appearancePalette {
 }
 
 func (t Theme) Font(style fyne.TextStyle) fyne.Resource {
-	if style.Monospace {
-		return monoFontResource
-	}
-	if style.Bold {
-		return boldFontResource
-	}
-	return fontResource
+	return desktopFonts.font(style)
 }
 func (t Theme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	if name == theme.IconNameNavigateNext || name == theme.IconNameMoveDown {

@@ -13,9 +13,8 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-DRIVERS = ['mariadb','oceanbase','diros','starrocks','sphinx','sqlserver','sqlite','duckdb',
-           'dameng','kingbase','highgo','vastbase','opengauss','gaussdb','iris','cache',
-           'mongodb','tdengine','iotdb','clickhouse','elasticsearch','trino']
+from release_platforms import DRIVERS, platform_drivers, version_text
+
 
 
 def run(args, **kwargs):
@@ -37,10 +36,15 @@ def main():
     agents = binary / 'drivers'
     agents.mkdir(parents=True, exist_ok=True)
     artifacts, records = [], []
-    chosen = DRIVERS if args.all_drivers else (args.driver or ['sqlite'])
-    version = args.version.removeprefix('v')
-    if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-[A-Za-z0-9.-]+)?(?:\+[A-Za-z0-9.-]+)?',version):
-        raise SystemExit('invalid package version')
+    available = platform_drivers(goos, arch)
+    chosen = available if args.all_drivers else (args.driver or ['sqlite'])
+    if any(driver not in available for driver in chosen):
+        raise SystemExit('requested driver is unavailable on this platform')
+    if len(chosen) != len(set(chosen)):
+        raise SystemExit('duplicate driver selection')
+    if args.all_drivers and len(available) != len(DRIVERS):
+        print('DuckDB is unavailable on Windows ARM64; other drivers will be built.', flush=True)
+    version = version_text(args.version)
     public_key = os.environ.get('SUPERLINK_RELEASE_PUBLIC_KEY','').strip()
     if public_key and len(base64.b64decode(public_key,validate=True)) != 32:
         raise SystemExit('release public key must be a base64 Ed25519 32-byte key')
@@ -50,7 +54,7 @@ def main():
     for driver in chosen:
         print(f'Building {driver} agent ({goos}/{arch})', flush=True)
         output = agents / f'{driver}-driver-agent{suffix}'
-        run(['go','build','-trimpath','-tags',f'gonavi_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
+        run(['go','build','-trimpath','-ldflags','-s -w','-tags',f'gonavi_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
         probe = subprocess.run([str(output)], input='{"id":1,"method":"metadata"}\n',
                                capture_output=True, text=True, timeout=45, check=True)
         response = json.loads(probe.stdout.strip())
@@ -71,6 +75,8 @@ def main():
     (agents / 'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':records},indent=2)+'\n')
     if not args.skip_app:
         flags = f'-s -w -X main.version={version}'
+        if goos == 'windows':
+            flags += ' -H windowsgui'
         if public_key:
             flags += f' -X main.releasePublicKey={public_key}'
         run(['go','build','-trimpath','-ldflags',flags,'-o',str(binary/f'superlink{suffix}'),'./cmd/superlink'])
@@ -147,6 +153,7 @@ def main():
         artifacts.append({'id':'superlink','kind':'app','os':goos,'arch':arch,'filename':filename,
                           'url':release_url+filename,'size':output.stat().st_size,
                           'sha256':hashlib.sha256(output.read_bytes()).hexdigest()})
+    (dist/f'build-info-{goos}-{arch}.json').write_text(json.dumps({'version': version, 'os': goos, 'arch': arch, 'releasePublicKey': public_key}, indent=2)+'\n')
     (dist/f'assets-{goos}-{arch}.json').write_text(json.dumps(artifacts,indent=2)+'\n')
     print(f'Built {len(chosen)} driver(s). Artifacts: {dist}',flush=True)
 

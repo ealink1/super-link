@@ -4,7 +4,7 @@
 
 当前版本为 v0.1.0 Alpha。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
 尚未发布 GitHub Release、注入正式更新公钥、配置平台签名证书或完成 Windows / Linux
-的运行验收。以下是已实现的发布工具和维护者操作流程。
+的运行验收。以下是已实现的发布工具和维护者操作流程。新增自动流程和安装包验证见后文。
 
 ## 1. 产物与平台
 
@@ -169,3 +169,72 @@ python3 tools/native-smoke.py --upgrade
 v0.1.1 测试版本并运行实际 Helper，检查完整包替换、新进程健康确认、应用 / 数据备份。
 它不替换用户日常应用，也不发布 Release。清单认证由独立测试覆盖；该本地测试不能
 替代线上下载、平台签名、系统权限和实际发行版本的验收。
+
+
+## 8. 自动跨平台 Release
+
+`.github/workflows/build.yml` 是手动构建及可复用构建流程；发布流程统一调用它，避免
+手动包和正式包使用不同构建参数。`release.yml` 支持推送 `v*` 标签或手动选择已有标签，
+先解析不可变提交 SHA，再由六个原生 runner 构建、执行驱动握手、应用版本探测和 UI 测试。
+
+| 系统 | 架构 | Runner | 下载格式 |
+| --- | --- | --- | --- |
+| macOS | amd64 | macos-15-intel | DMG、ZIP |
+| macOS | arm64 | macos-15 | DMG、ZIP |
+| Windows | amd64 | windows-2025 + UCRT64 GCC | 安装 EXE、ZIP |
+| Windows | arm64 | windows-11-arm + CLANGARM64 | 安装 EXE、ZIP |
+| Linux | amd64 | ubuntu-22.04 | DEB、tar.gz、ZIP |
+| Linux | arm64 | ubuntu-24.04-arm | DEB、tar.gz、ZIP |
+
+Windows 使用 Inno Setup 6.3+，默认安装到当前用户的 LocalAppData/Programs/SuperLink，
+无需管理员权限。Linux tar 提供 `install.sh`，安装到用户数据目录并拒绝覆盖现有应用；
+DEB 安装到 `/opt/superlink`，通过系统包管理器升级。两者都不包含或删除用户工作区数据。
+基础包均包含 SQLite；DuckDB 的现有原生绑定不支持 Windows ARM64，该平台不发布
+DuckDB Agent，其余平台构建全部 22 个 Agent。
+
+macOS 的 DMG 校验后只读挂载，逐文件对照更新 ZIP；Windows 在一次性 CI runner
+静默安装到临时目录，检查文件及版本后卸载；Linux 解包 DEB/tar，对照 ZIP，再在临时
+用户目录验证便携安装及重复安装保护。额外下载清单为 `downloads-<os>-<arch>.json`。
+运行时的 `assets-*.json` 仍只记录更新 ZIP 和驱动，不改变客户端协议。
+
+发布汇总任务拒绝缺平台、缺驱动、旧版本、错误编译公钥、坏哈希、ZIP 越界路径及包内
+SQLite 哈希不符。签名任务校验公私钥匹配，再签署已有应用更新协议的清单。
+发布说明由 `feat` / `fix` / `perf` 等提交标题分类，包含带体积的下载表格和安装说明。
+`SHA256SUMS.txt` 覆盖全部上传文件。上传时拒绝未声明的额外文件（包括意外放入 dist
+的密钥），再对照 GitHub API 返回的每个资产名称、长度和 SHA256 digest。
+
+推送标签默认只创建 **草稿**。勾选手动流程的 `publish` 才会在全部验证成功后公开发布；
+公开发布必须同时配置以下两项。未配置密钥时允许生成验证用草稿，发布说明明确提示
+在线更新及在线驱动安装不可用。已有 Release 不会被覆盖；失败上传保留草稿供检查。
+
+- Repository Variable：`SUPERLINK_RELEASE_PUBLIC_KEY`（Base64 32 字节公钥）。
+- Repository Secret：`SUPERLINK_RELEASE_PRIVATE_KEY`（Base64 64 字节私钥）。
+
+维护者仍需自行配置 Apple Developer / Windows 代码签名和 Apple 公证；更新清单签名
+不等同于操作系统代码签名。当前自动流程没有导入平台证书或执行公证，发布说明会提示。
+
+首次执行前，应提交全部构建输入并完成云端构建验证。在 GitHub Actions 手动运行
+**Build native application packages** 即可只构建六个平台、不创建 Release。正式发版时：
+
+```sh
+git tag -a v0.1.0 -m "SuperLink v0.1.0"
+git push origin v0.1.0
+```
+
+如需通过 CLI 配置密钥，先完成 GitHub CLI 认证，再从安全存储读取私钥给
+`gh secret set SUPERLINK_RELEASE_PRIVATE_KEY` 的标准输入，禁止粘贴到命令参数或日志。
+已有正式签名身份不得覆盖；生成命令见前文。
+
+本地验证（完整六平台合并验证由 CI 执行）：
+
+```sh
+python3 -m unittest discover -s tools -p 'test_release_*.py' -v
+python3 tools/package_installers.py --version 0.1.0
+python3 tools/smoke_installers.py --version 0.1.0
+python3 tools/verify_release.py --version 0.1.0 --platform darwin/arm64
+python3 tools/release_notes.py --version 0.1.0 --platform darwin/arm64
+actionlint .github/workflows/*.yml
+```
+
+本地限定平台生成的说明是预览，不允许被完整发布验证器上传。跨平台工作流通过与否、
+GitHub 上传验证、操作系统首次安装和线上更新结果必须以真实 CI/宿主机执行结果为准。

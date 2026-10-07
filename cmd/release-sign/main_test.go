@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ealink1/super-link/internal/infra/release"
@@ -20,6 +21,7 @@ func TestSigningChecksActualAssetsAndProducesVerifiableManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SUPERLINK_RELEASE_PRIVATE_KEY", base64.StdEncoding.EncodeToString(private))
+	t.Setenv("SUPERLINK_RELEASE_PUBLIC_KEY", base64.StdEncoding.EncodeToString(public))
 	directory := t.TempDir()
 	contents := []byte("application fixture")
 	sum := sha256.Sum256(contents)
@@ -31,6 +33,14 @@ func TestSigningChecksActualAssetsAndProducesVerifiableManifest(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(directory, "app.zip"), contents, 0600); err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("SUPERLINK_RELEASE_PUBLIC_KEY", base64.StdEncoding.EncodeToString(make([]byte, ed25519.PublicKeySize)))
+	if err = sign(directory, "0.2.0", "stable", ""); err == nil || !strings.Contains(err.Error(), "does not match") {
+		t.Fatal("accepted a key different from application public key", err)
+	}
+	if _, err := os.Stat(filepath.Join(directory, "manifest.json")); !os.IsNotExist(err) {
+		t.Fatal("published manifest despite key mismatch")
+	}
+	t.Setenv("SUPERLINK_RELEASE_PUBLIC_KEY", base64.StdEncoding.EncodeToString(public))
 	if err = sign(directory, "0.2.0", "stable", ""); err != nil {
 		t.Fatal(err)
 	}

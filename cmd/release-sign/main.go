@@ -114,6 +114,9 @@ func sign(directory, version, channel, keyPath string) error {
 	raw = append(raw, '\n')
 	sig := base64.StdEncoding.EncodeToString(ed25519.Sign(ed25519.PrivateKey(key), raw)) + "\n"
 	public := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Public().(ed25519.PublicKey))
+	if expected := strings.TrimSpace(os.Getenv("SUPERLINK_RELEASE_PUBLIC_KEY")); expected != "" && public != expected {
+		return errors.New("signing key does not match the application release public key")
+	}
 	if _, err = release.Verify(raw, []byte(sig), public); err != nil {
 		return err
 	}

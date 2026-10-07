@@ -24,7 +24,7 @@
 - [连接状态圆点与原生自检](docs/connection-status-2026-10-02.md)
 - [AI 右侧普通问答、配置方法与自检](docs/ai-chat-2026-10-03.md)
 - [界面对照验收与剩余差距](design-qa.md)
-- [构建、签名与应用内更新](docs/releases.md)
+- [构建、签名、跨平台安装包与自动 Release](docs/releases.md)
 - [上游来源与改动](UPSTREAM.md)
 
 ## 运行与构建

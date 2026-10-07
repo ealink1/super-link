@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
 	"github.com/ealink1/super-link/internal/domain"
 	adapter "github.com/ealink1/super-link/internal/infra/runtime"
@@ -40,7 +41,7 @@ func TestRememberPasswordEditorSaveRestoresWithoutKeychain(t *testing.T) {
 	e := &connectionEditor{owner: w, original: p}
 	e.show()
 	e.password.SetText("editor-fixture")
-	test.Tap(e.persist)
+	test.TapAt(e.persist, fyne.NewPos(16, e.persist.Size().Height/2))
 	e.connectAfterSave.SetChecked(false)
 	// Exercise the actual Save button, collection, background persistence and
 	// completion callback, then restore credentials through a fresh vault.

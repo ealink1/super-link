@@ -3,49 +3,129 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Package version (for example 0.1.0)'
+        description: 'Semantic version (for example 0.1.0 or 0.1.0-rc.1)'
         default: '0.1.0'
         required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      source_ref:
+        required: true
+        type: string
 permissions:
   contents: read
 jobs:
   package:
+    name: ${{ matrix.goos }} / ${{ matrix.goarch }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - runner: windows-2025
+            goos: windows
+            goarch: amd64
+            msystem: UCRT64
+            compiler: gcc
+            compiler_dir: ucrt64
+            compiler_package: mingw-w64-ucrt-x86_64-gcc
+          - runner: windows-11-arm
+            goos: windows
+            goarch: arm64
+            msystem: CLANGARM64
+            compiler: clang
+            compiler_dir: clangarm64
+            compiler_package: mingw-w64-clang-aarch64-clang
+          - runner: ubuntu-22.04
+            goos: linux
+            goarch: amd64
+          - runner: ubuntu-24.04-arm
+            goos: linux
+            goarch: arm64
     runs-on: ${{ matrix.runner }}
     env:
       CGO_ENABLED: '1'
+      PYTHONUTF8: '1'
       SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
       SUPERLINK_BUILD_VERSION: ${{ inputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.3'
           cache: true
-      - name: Linux Fyne dependencies
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify native target and version
+        shell: bash
+        env:
+          EXPECTED_OS: ${{ matrix.goos }}
+          EXPECTED_ARCH: ${{ matrix.goarch }}
+        run: |
+          test "$(go env GOOS)" = "$EXPECTED_OS"
+          test "$(go env GOARCH)" = "$EXPECTED_ARCH"
+          python -c 'import sys; sys.path.insert(0,"tools"); from release_platforms import version_text; import os; version_text(os.environ["SUPERLINK_BUILD_VERSION"])'
+      - name: Linux native dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev
+        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev fonts-dejavu-core fonts-noto-cjk dpkg-dev
       - name: Windows CGO compiler
         id: msys2
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
-          msystem: UCRT64
-          install: mingw-w64-ucrt-x86_64-gcc
-      - name: Add Windows compiler to PATH
+          msystem: ${{ matrix.msystem }}
+          install: ${{ matrix.compiler_package }}
+      - name: Configure Windows compiler and installer
         if: runner.os == 'Windows'
         shell: pwsh
         env:
           SUPERLINK_MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
-        run: 'Join-Path $env:SUPERLINK_MSYS2_LOCATION "ucrt64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append'
-      - name: Build and probe all drivers
+          SUPERLINK_COMPILER_DIR: ${{ matrix.compiler_dir }}
+          SUPERLINK_COMPILER: ${{ matrix.compiler }}
+        run: |
+          Join-Path $env:SUPERLINK_MSYS2_LOCATION "$env:SUPERLINK_COMPILER_DIR\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "CC=$env:SUPERLINK_COMPILER" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+      - name: Test release tools and platform UI
+        shell: bash
+        run: |
+          python -m unittest discover -s tools -p 'test_release_*.py' -v
+          go test -tags ci ./internal/ui ./internal/infra/release ./internal/infra/drivers
+      - name: Build and probe every supported driver
         shell: bash
         run: python tools/build.py --all-drivers --package --version "$SUPERLINK_BUILD_VERSION"
+      - name: Verify application version
+        shell: bash
+        run: python tools/probe_application.py --version "$SUPERLINK_BUILD_VERSION"
+      - name: Create native installers
+        shell: bash
+        run: python tools/package_installers.py --version "$SUPERLINK_BUILD_VERSION"
+      - name: Smoke test native installers
+        shell: bash
+        run: python tools/smoke_installers.py --version "$SUPERLINK_BUILD_VERSION"
+      - name: Verify all native release products
+        shell: bash
+        env:
+          SUPERLINK_TARGET: ${{ matrix.goos }}/${{ matrix.goarch }}
+        run: python tools/verify_release.py --version "$SUPERLINK_BUILD_VERSION" --platform "$SUPERLINK_TARGET" --public-key "$SUPERLINK_RELEASE_PUBLIC_KEY"
       - uses: actions/upload-artifact@v4
         with:
-          name: native-${{ runner.os }}-${{ runner.arch }}
+          name: native-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/
+          if-no-files-found: error
           retention-days: 14

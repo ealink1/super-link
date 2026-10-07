@@ -34,7 +34,7 @@ parts.append('\n## Lucide Shell interface icons\n\nOriginal SVG geometry from lu
              'Per-asset source URLs and SHA-256 hashes are in internal/ui/assets/shell/sources.json. '
              'Only currentColor is resolved at render time.\n\n```text\n'
              + (ROOT / 'internal/ui/assets/shell/LICENSE').read_text().rstrip() + '\n```\n')
-parts.append('\n## Embedded derivative fonts\n\nNaviUI and NaviMono combine Noto Sans SC with Inter, Noto Sans and DejaVu Sans Mono Powerline glyphs. '
+parts.append('\n## Archived derivative font sources\n\nThese historical font assets are retained in the source tree but are no longer embedded in the application. NaviUI and NaviMono combine Noto Sans SC with Inter, Noto Sans and DejaVu Sans Mono Powerline glyphs. '
              'Family names have been changed. Generation and source records are in tools/build_fonts.py and third_party/fonts.\n')
 for license_file in sorted((ROOT / 'third_party/fonts').glob('*')):
     if license_file.is_file() and ('LICENSE' in license_file.name or 'OFL' in license_file.name):
