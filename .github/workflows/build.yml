@@ -37,7 +37,7 @@ jobs:
             msystem: UCRT64
             compiler: gcc
             compiler_dir: ucrt64
-            compiler_package: mingw-w64-ucrt-x86_64-gcc
+            compiler_package: mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-lld
           - runner: windows-11-arm
             goos: windows
             goarch: arm64
@@ -106,6 +106,7 @@ jobs:
         run: |
           python -m unittest discover -s tools -p 'test_release_*.py' -v
           go test -tags ci ./internal/ui ./internal/infra/state ./internal/infra/release ./internal/infra/drivers
+          go test -tags ci,gonavi_sqlite_driver ./internal/upstream/db ./cmd/driver-agent
       - name: Build and probe every supported driver
         shell: bash
         run: python tools/build.py --all-drivers --package --version "$SUPERLINK_BUILD_VERSION"

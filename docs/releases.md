@@ -181,7 +181,7 @@ v0.1.1 测试版本并运行实际 Helper，检查完整包替换、新进程健
 | --- | --- | --- | --- |
 | macOS | amd64 | macos-15-intel | DMG、ZIP |
 | macOS | arm64 | macos-15 | DMG、ZIP |
-| Windows | amd64 | windows-2025 + UCRT64 GCC | 安装 EXE、ZIP |
+| Windows | amd64 | windows-2025 + UCRT64 GCC / LLD | 安装 EXE、ZIP |
 | Windows | arm64 | windows-11-arm + CLANGARM64 | 安装 EXE、ZIP |
 | Linux | amd64 | ubuntu-22.04 | DEB、tar.gz、ZIP |
 | Linux | arm64 | ubuntu-24.04-arm | DEB、tar.gz、ZIP |
@@ -191,6 +191,11 @@ Windows 使用 Inno Setup 6.3+，默认安装到当前用户的 LocalAppData/Pro
 DEB 安装到 `/opt/superlink`，通过系统包管理器升级。两者都不包含或删除用户工作区数据。
 基础包均包含 SQLite；DuckDB 的现有原生绑定不支持 Windows ARM64，该平台不发布
 DuckDB Agent，其余平台构建全部 22 个 Agent。
+
+Windows x64 的 DuckDB 静态库使用 GCC 的 UCRT ABI，并通过
+[`mingw-w64-ucrt-x86_64-lld`](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-lld)
+链接，以绕过 GNU ld 链接失败；本地构建全部驱动时也需安装该包。
+六个平台同时运行 SQLite 数据库及 Agent 协议测试，验证离线查询功能。
 
 macOS 的 DMG 校验后只读挂载，逐文件对照更新 ZIP；Windows 在一次性 CI runner
 静默安装到临时目录，检查文件及版本后卸载；Linux 解包 DEB/tar，对照 ZIP，再在临时

@@ -54,7 +54,12 @@ def main():
     for driver in chosen:
         print(f'Building {driver} agent ({goos}/{arch})', flush=True)
         output = agents / f'{driver}-driver-agent{suffix}'
-        run(['go','build','-trimpath','-ldflags','-s -w','-tags',f'gonavi_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
+        driver_flags = '-s -w'
+        if goos == 'windows' and arch == 'amd64' and driver == 'duckdb':
+            # GNU ld can crash while linking DuckDB's large static archives.
+            # Keep the UCRT GCC ABI, using its compatible LLVM linker instead.
+            driver_flags += ' -extldflags=-fuse-ld=lld'
+        run(['go','build','-trimpath','-ldflags',driver_flags,'-tags',f'gonavi_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
         probe = subprocess.run([str(output)], input='{"id":1,"method":"metadata"}\n',
                                capture_output=True, text=True, timeout=45, check=True)
         response = json.loads(probe.stdout.strip())
