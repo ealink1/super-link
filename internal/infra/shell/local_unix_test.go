@@ -46,6 +46,18 @@ func TestLocalPTYResizeInteractiveAndClose(t *testing.T) {
 }
 
 func TestLocalCloseReleasesBackgroundJob(t *testing.T) {
+	t.Run("background process group", func(t *testing.T) {
+		assertLocalCloseReleasesBackgroundJob(t, "sleep 30 & printf 'CHILD_%s_END\\n' $!\n")
+	})
+	if runtime.GOOS == "linux" {
+		t.Run("job ignoring TERM and HUP", func(t *testing.T) {
+			assertLocalCloseReleasesBackgroundJob(t, "sh -c 'trap \"\" TERM HUP; printf \"CHILD_%s_END\\n\" $$; exec sleep 30' &\n")
+		})
+	}
+}
+
+func assertLocalCloseReleasesBackgroundJob(t *testing.T, command string) {
+	t.Helper()
 	t.Setenv("HOME", t.TempDir())
 	s, err := OpenLocal(context.Background(), fixtureLocalShell(t))
 	if err != nil {
@@ -55,7 +67,7 @@ func TestLocalCloseReleasesBackgroundJob(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	context.AfterFunc(ctx, func() { s.Close() })
-	_, err = s.Write([]byte("sleep 30 & printf 'CHILD_%s_END\\n' $!\n"))
+	_, err = s.Write([]byte(command))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -81,6 +81,7 @@ func (s *localSession) Resize(cols, rows int) error {
 func (s *localSession) Close() error {
 	var err error
 	s.once.Do(func() {
+		err = errors.Join(err, signalLocalJobs(s.cmd.Process.Pid, syscall.SIGTERM))
 		var signalErr error
 		// pty.Start creates a distinct session/process group. Terminate children too.
 		select {
@@ -112,6 +113,8 @@ func (s *localSession) Close() error {
 			}
 			<-s.done
 		}
+		// A job can ignore TERM even when its parent shell already exited.
+		err = errors.Join(err, signalLocalJobs(s.cmd.Process.Pid, syscall.SIGKILL))
 	})
 	return err
 }
