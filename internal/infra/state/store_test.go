@@ -21,7 +21,7 @@ func TestDatabaseURIAndPersistenceAtExactPath(t *testing.T) {
 			t.Fatalf("databaseURI(%q) = %q, want %q", path, got, want)
 		}
 	}
-	path := filepath.Join(t.TempDir(), "工作区 # ?.sqlite")
+	path := filepath.Join(t.TempDir(), "工作区 # %.sqlite")
 	store, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +49,7 @@ func TestDatabaseURIAndPersistenceAtExactPath(t *testing.T) {
 
 func TestStoreRevisionAndCascadeWithReservedURICharacters(t *testing.T) {
 	ctx := context.Background()
-	store, err := Open(filepath.Join(t.TempDir(), "state # ? 中文.sqlite"))
+	store, err := Open(filepath.Join(t.TempDir(), "state # % 中文.sqlite"))
 	if err != nil {
 		t.Fatal(err)
 	}
