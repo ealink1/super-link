@@ -181,7 +181,7 @@ v0.1.1 测试版本并运行实际 Helper，检查完整包替换、新进程健
 | --- | --- | --- | --- |
 | macOS | amd64 | macos-15-intel | DMG、ZIP |
 | macOS | arm64 | macos-15 | DMG、ZIP |
-| Windows | amd64 | windows-2025 + UCRT64 GCC / LLD | 安装 EXE、ZIP |
+| Windows | amd64 | windows-2025 + GCC 15.2 POSIX/SEH/UCRT | 安装 EXE、ZIP |
 | Windows | arm64 | windows-11-arm + CLANGARM64 | 安装 EXE、ZIP |
 | Linux | amd64 | ubuntu-22.04 | DEB、tar.gz、ZIP |
 | Linux | arm64 | ubuntu-24.04-arm | DEB、tar.gz、ZIP |
@@ -192,9 +192,9 @@ DEB 安装到 `/opt/superlink`，通过系统包管理器升级。两者都不�
 基础包均包含 SQLite；DuckDB 的现有原生绑定不支持 Windows ARM64，该平台不发布
 DuckDB Agent，其余平台构建全部 22 个 Agent。
 
-Windows x64 的 DuckDB 静态库使用 GCC 的 UCRT ABI，并通过
-[`mingw-w64-ucrt-x86_64-lld`](https://packages.msys2.org/packages/mingw-w64-ucrt-x86_64-lld)
-链接，以绕过 GNU ld 链接失败；本地构建全部驱动时也需安装该包。
+Windows x64 固定下载并校验 [WinLibs GCC 15.2 POSIX/SEH/UCRT](https://github.com/brechtsanders/winlibs_mingw/releases/tag/15.2.0posix-14.0.0-ucrt-r7)
+工具链。本地构建全部驱动时也应使用该工具链：DuckDB 预编译库依赖 GCC 15 的 emutls
+符号，无法链接 [MSYS2 GCC 16 的原生 TLS 运行库](https://www.msys2.org/news/#2026-05-11-native-thread-local-storage-tls-with-gcc-16)。
 六个平台同时运行 SQLite 数据库及 Agent 协议测试，验证离线查询功能。
 
 macOS 的 DMG 校验后只读挂载，逐文件对照更新 ZIP；Windows 在一次性 CI runner
