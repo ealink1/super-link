@@ -2,7 +2,7 @@
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
-当前版本为 v0.1.0 Alpha。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
+当前验证版本为 v0.1.1 Alpha，GitHub Release 保留为草稿。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
 2026-10-07 已完成六个平台的原生构建、数据库测试、驱动握手及安装包验证，并配置
 正式更新签名公钥和私钥。平台代码签名证书及 Apple 公证尚未配置；原生安装验证
 不能替代各平台图形界面全流程验收。自动流程和验证记录见后文。
@@ -68,8 +68,8 @@ macOS 设置 `SUPERLINK_MAC_SIGN_IDENTITY` 后，打包脚本先签名 SQLite Ag
 Ed25519 清单签名与操作系统代码签名承担不同职责，两者不能互相替代。
 
 当前脚本没有自动执行 macOS 公证 / stapling，也没有 Windows Authenticode。
-DMG、Inno Setup 和 DEB / tar 安装器已接入自动构建。如果后续对最终 ZIP 或 Agent 做代码签名、重新压缩、公证附加或其他会改变
-字节的操作，必须重新生成对应的资产长度和 SHA256，之后再签清单。
+DMG、Inno Setup 和 DEB / tar 安装器已接入自动构建。如果后续对最终 ZIP 或 Agent
+做代码签名、重新压缩、公证附加或其他会改变字节的操作，必须重新生成对应的资产长度和 SHA256，之后再签清单。
 
 本次产物未使用平台开发者签名，未完成隔离下载后的 Gatekeeper 验收；安装说明明确提示。
 Portable 更新要求当前应用目录及其父目录可写；系统包管理器目录的更新暂不支持提权。
@@ -98,7 +98,7 @@ go run ./cmd/release-sign \
 
 ## 5. GitHub Release 发布内容
 
-稳定发布使用目标仓库 `ealink1/super-link`、tag `v0.1.0`，上传：
+稳定发布使用目标仓库 `ealink1/super-link`、对应版本 tag（如 `v0.1.1`），上传：
 
 1. 各平台完整应用 ZIP。
 2. 各平台可选 Agent。
@@ -245,12 +245,22 @@ actionlint .github/workflows/*.yml
 GitHub 上传验证、操作系统首次安装和线上更新结果必须以真实 CI/宿主机执行结果为准。
 
 
-## 9. 云端验收记录（2026-10-07）
+## 9. 云端验收记录（2026-10-07 / 08）
 
-验证提交：`0dda6249b0a392c9ca0ada35785b52e9fb8f3b27`；发布标签：`v0.1.0`。
+初次六平台构建提交：`0dda6249b0a392c9ca0ada35785b52e9fb8f3b27`。
+最终发布提交：`cade0256fb335f021c0513e1d601d4290ba3b7f2`；标签：`v0.1.1`。
 
 - [完整 CI](https://github.com/ealink1/super-link/actions/runs/37642766797)：通过全量测试、竞态检查、静态检查和原生 Linux 构建。
 - [六平台原生构建](https://github.com/ealink1/super-link/actions/runs/37642963455)：macOS、Windows、Linux 的 amd64 / arm64 全部通过。
 - 六个平台均执行 UI、状态存储、SQLite 数据库及 Agent 协议测试；逐个构建、启动并验证全部可用驱动身份。Windows ARM64 为 21 个驱动，其余平台为 22 个。
 - macOS 验证 DMG 挂载及包内文件；Windows 执行实际安装、应用版本检查及卸载；Linux 验证 DEB 解包、tar 用户安装和重复安装保护。
 - Apple 公证、Windows Authenticode 及各系统完整图形交互验收仍未完成。本次未使用浏览器测试。
+
+最终发布验收：
+
+- [v0.1.1 完整 CI](https://github.com/ealink1/super-link/actions/runs/37648676735)：通过。
+- [v0.1.1 Release 完整流程](https://github.com/ealink1/super-link/actions/runs/37648677534)：六个平台重建、签名、发布说明、上传与 GitHub 资产校验全部通过。
+- [已验证的 Release 草稿](https://github.com/ealink1/super-link/releases/tag/untagged-70efe7b616c18af71936)：共 167 个文件，含 14 个应用安装 / 更新包、131 个可选驱动、平台元数据、说明、校验文件和签名清单。尚未公开发布，草稿需仓库授权访问，应用内稳定更新不会读取草稿。
+- 独立下载 `manifest.json`、签名、说明和校验文件，以应用实际使用的 `release.Verify` 验证签名、schema 和版本；137 个更新 / 驱动资产验证通过。
+- 独立比对全部 167 个 GitHub 资产 digest 与 `SHA256SUMS.txt`，并检查发布正文与上传说明一致、14 个下载链接均对应上传资产。
+- 首次 v0.1.0 发布在上传后遇到 GitHub 按标签查询草稿返回 404。该标签未修改；发布器改用包含授权草稿的近期列表及 Release ID，新增回归测试（发布测试共 16 项），并在 v0.1.1 完整重跑验证。
