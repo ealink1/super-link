@@ -4,6 +4,8 @@ on:
   pull_request:
 permissions:
   contents: read
+env:
+  GOPROXY: 'https://proxy.golang.org|direct'
 jobs:
   checks:
     runs-on: ubuntu-latest

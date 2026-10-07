@@ -50,6 +50,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       CGO_ENABLED: '1'
+      GOPROXY: 'https://proxy.golang.org|direct'
       PYTHONUTF8: '1'
       SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
       SUPERLINK_BUILD_VERSION: ${{ inputs.version }}
