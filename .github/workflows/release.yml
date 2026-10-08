@@ -8,6 +8,10 @@ on:
         description: 'Existing immutable version tag, e.g. v0.1.0'
         required: true
         type: string
+      build_run_id:
+        description: 'Optional successful native build run for the exact tagged source and version'
+        default: ''
+        type: string
       publish:
         description: 'Publish publicly after validation (requires configured signing keys)'
         default: false
@@ -47,6 +51,24 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'],'a') as output:
               output.write(f'tag={tag}\nversion={version}\nsha={sha}\n')
           PY
+      - name: Verify prebuilt run provenance
+        if: inputs.build_run_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run_id }}
+          SOURCE: ${{ steps.source.outputs.sha }}
+          VERSION: ${{ steps.source.outputs.version }}
+        run: |
+          python - <<'PYTHON'
+          import json, os, subprocess
+          run = os.environ['BUILD_RUN']
+          if not run.isdecimal():
+              raise SystemExit('native build run id must be numeric')
+          data = json.loads(subprocess.check_output(['gh','api',f'repos/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{run}']))
+          if (data['conclusion'] != 'success' or data['head_sha'] != os.environ['SOURCE']
+              or data['path'] != '.github/workflows/build.yml' or data['event'] != 'workflow_dispatch'):
+              raise SystemExit('native build must be successful and match the immutable tagged source')
+          PYTHON
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.3'
@@ -77,6 +99,7 @@ jobs:
           fi
           gh api repos/ealink1/SuperLink-DriverAgents --jq .full_name
   build:
+    if: inputs.build_run_id == ''
     needs: prepare
     uses: ./.github/workflows/build.yml
     with:
@@ -84,6 +107,7 @@ jobs:
       source_ref: ${{ needs.prepare.outputs.sha }}
       reuse_drivers: ${{ needs.prepare.outputs.reuse_drivers == 'true' }}
   release:
+    if: always() && needs.prepare.result == 'success' && (needs.build.result == 'success' || (inputs.build_run_id != '' && needs.build.result == 'skipped'))
     needs: [prepare, build]
     runs-on: ubuntu-22.04
     timeout-minutes: 30
@@ -112,6 +136,8 @@ jobs:
           python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
+          run-id: ${{ inputs.build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
           pattern: native-*
           merge-multiple: true
           path: dist
@@ -119,6 +145,13 @@ jobs:
         shell: bash
         run: |
           python tools/verify_release.py --version "$SUPERLINK_VERSION" --public-key "$SUPERLINK_PUBLIC_KEY"
+          python - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          files = list(Path('dist').glob('build-info-*.json'))
+          if len(files) != 6 or any(json.loads(p.read_text()).get('source') != os.environ['SUPERLINK_SOURCE'] for p in files):
+              raise SystemExit('platform build source differs from immutable release source')
+          PYTHON
           python - <<'PY'
           import os
           public, private = os.environ['SUPERLINK_PUBLIC_KEY'], os.environ['SUPERLINK_PRIVATE_KEY']
