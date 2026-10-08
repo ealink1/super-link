@@ -2,7 +2,7 @@
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
-当前验证版本为 v0.1.4 Alpha，应用与驱动分仓，两个 GitHub Release 均保留为草稿。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
+当前验证版本为 v0.1.5，应用与驱动分仓；v0.1.5 已公开为最新稳定版，既有草稿保留。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
 2026-10-07 已完成六个平台的原生构建、数据库测试、驱动握手及安装包验证，并配置
 正式更新签名公钥和私钥。平台代码签名证书及 Apple 公证尚未配置；原生安装验证
 不能替代各平台图形界面全流程验收。自动流程和验证记录见后文。
@@ -344,3 +344,23 @@ GitHub 上传验证、操作系统首次安装和线上更新结果必须以真�
 - GitHub 发布公钥与本机已安装 0.1.4 的内置公钥一致。
 - 保持草稿状态，尚未公开，不参与应用内稳定更新；既有标签和 Release 未修改。
   本次未使用浏览器测试，安装版按钮点击的原生截图验收仍未完成，详见修复设计。
+
+## 13. v0.1.5 公开稳定版及在线更新验证（2026-10-08）
+
+- 源码：`42c36219189d64149eb3124bd72ce7bed22af78f`；不可变标签 `v0.1.5`。
+  macOS 标题栏工作区选择采用绿色下划线。
+- [主分支 CI](https://github.com/ealink1/super-link/actions/runs/37726667901)、
+  [标签 CI](https://github.com/ealink1/super-link/actions/runs/37726668232)及
+  [六平台完整发布流程](https://github.com/ealink1/super-link/actions/runs/37726668575)全部成功。
+- 上传后独立验证应用 18 / 驱动 134 个资产的 GitHub digest 与 SHA256SUMS；
+  两仓签名清单字节一致。使用 0.1.4 内置公钥验证 0.1.5 的签名、stable 渠道与
+  137 条更新记录（6 个应用 ZIP、131 个驱动）。
+- 校验完成后先公开[驱动版本](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v0.1.5)，
+  再公开[应用版本](https://github.com/ealink1/super-link/releases/tag/v0.1.5)，均设为 latest，
+  draft=false、prerelease=false。历史标签和 Release 保持原样。
+- 使用应用实际更新客户端，在无 GitHub 凭据的请求中发现 0.1.4 → 0.1.5；
+  强制模拟 API 403 后，真实 GitHub 备用入口仍可读取并验证公开的 0.1.5。
+- 通过实际客户端下载公开 macOS arm64 更新 ZIP，长度及 SHA256 通过；安全解压、
+  平台身份、版本、Helper 元数据、原生版本探测和 `codesign --verify --deep --strict` 通过。
+- 未替用户运行应用内安装，用户可从已安装的 0.1.4 测试升级；实际退出、替换、健康确认
+  和下划线视觉效果由此次用户测试验收。本次未使用浏览器测试。
