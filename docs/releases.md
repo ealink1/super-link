@@ -129,6 +129,19 @@ preview 渠道切换。
 
 ## 6. 客户端更新流程
 
+### GitHub API 限流处理（2026-10-08）
+
+默认仓库的 latest API 返回 403/429 时，客户端尝试 GitHub 官方
+`/releases/latest` 入口解析公开稳定标签，再从固定标签下载清单与签名。
+此路线无需 GitHub Token，仍执行相同的签名、版本、渠道、可信域名和大小校验。
+不存在公开稳定版时显示说明；草稿和预发布不会参与更新。
+备用入口也被拒绝时，界面提示稍后重试及检查网络/代理。
+详见 [403 修复设计](plans/2026-10-08-update-check-403-design.md)。
+
+本机修复包版本为 0.1.4（macOS arm64），已验证 DMG 与 ZIP 内容一致、包内版本、
+现有更新公钥及 ad-hoc 签名，并安装至 `/Applications/SuperLink.app`。
+旧版应用备份在 `bin/install-backups/`，已有归档保留；本次未创建或公开新 Release。
+
 ```mermaid
 flowchart TD
     A[检查稳定 Release] --> B[验证清单签名与版本]

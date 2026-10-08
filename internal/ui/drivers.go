@@ -80,7 +80,7 @@ func (w *Window) driverManager() {
 			return nil, w.Drivers.InstallRelease(ctx, w.Releases, manifest, kind, filepath.Join(w.Root, "downloads"))
 		}, func(_ any, err error) {
 			if err != nil {
-				label.SetText(err.Error())
+				label.SetText(updateCheckError(err).Error())
 				return
 			}
 			label.SetText(fmt.Sprintf("%s 安装完成；兼容版本、协议和摘要均已校验。", selected.Selected))

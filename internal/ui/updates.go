@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,24 +23,28 @@ func (w *Window) checkUpdates() {
 		return w.Releases.Check(ctx)
 	}, func(value any, err error) {
 		if errors.Is(err, release.ErrNoRelease) {
-			w.status.SetText("目标仓库尚未发布 Release")
+			w.status.SetText("目标仓库尚未发布公开稳定版本（草稿和预发布不参与更新）")
+			dialog.ShowInformation("检查更新", "暂无可用的公开稳定版本。Release 草稿和预发布不会用于应用更新。", w.Window)
 			return
 		}
 		if err != nil {
-			w.showError(err)
+			w.showError(updateCheckError(err))
 			w.status.SetText("更新检查失败")
 			return
 		}
 		manifest := value.(release.Manifest)
 		if !release.Newer(manifest.Version, w.Version) {
+			w.status.SetText("当前已是最新稳定版本")
 			dialog.ShowInformation("检查更新", "当前已是最新稳定版本。", w.Window)
 			return
 		}
 		artifact, err := manifest.Artifact("app", "superlink", runtime.GOOS, runtime.GOARCH)
 		if err != nil {
 			w.showError(err)
+			w.status.SetText("更新检查失败")
 			return
 		}
+		w.status.SetText("发现新版本 " + manifest.Version)
 		dialog.ShowConfirm("发现新版本", fmt.Sprintf("%s → %s\n签名清单验证通过。下载完整应用包（含配套驱动），大小 %.1f MiB？", w.Version, manifest.Version, float64(artifact.Size)/(1<<20)), func(ok bool) {
 			if !ok {
 				return
@@ -58,6 +63,27 @@ func (w *Window) checkUpdates() {
 			})
 		}, w.Window)
 	})
+}
+
+func updateCheckError(err error) error {
+	if errors.Is(err, release.ErrNoRelease) {
+		return fmt.Errorf("暂无可用的公开稳定版本，Release 草稿和预发布不参与更新：%w", err)
+	}
+	var status *release.HTTPError
+	if !errors.As(err, &status) {
+		return err
+	}
+	if status.StatusCode == http.StatusForbidden || status.StatusCode == http.StatusTooManyRequests {
+		reason := "GitHub 拒绝了更新请求"
+		if status.RateLimited {
+			reason = "GitHub 更新请求已被限流"
+		}
+		return fmt.Errorf("%s。请稍后重试，并检查网络或代理是否允许访问 api.github.com 和 github.com。\n详细信息：%w", reason, err)
+	}
+	if status.StatusCode == http.StatusNotFound {
+		return fmt.Errorf("更新发布缺少可下载的签名清单，请等待维护者补齐发布文件。\n详细信息：%w", err)
+	}
+	return err
 }
 func (w *Window) installUpdate(path, version string) {
 	executable, err := os.Executable()
