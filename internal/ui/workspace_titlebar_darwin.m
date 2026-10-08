@@ -10,13 +10,57 @@ extern void navi_utilities_appearance(uintptr_t pointer, int dark);
 extern void navi_utilities_remove(uintptr_t pointer);
 static const char NaviWorkspaceKey;
 
+// Keep AppKit's segmented-control input and accessibility, but draw the
+// selection as an underline instead of a filled segment bezel.
+@interface NaviWorkspaceSelector : NSSegmentedControl
+@property(nonatomic, retain) NSColor *accentColor;
+@end
+
+@implementation NaviWorkspaceSelector
+- (void)drawRect:(NSRect)dirtyRect {
+    NSRect bounds = self.bounds;
+    [[NSColor.controlBackgroundColor colorWithAlphaComponent:0.45] setFill];
+    [[NSBezierPath bezierPathWithRoundedRect:bounds xRadius:6 yRadius:6] fill];
+    CGFloat width = NSWidth(bounds) / self.segmentCount;
+    NSDictionary *attributes = @{
+        NSFontAttributeName: self.font,
+        NSForegroundColorAttributeName: NSColor.labelColor
+    };
+    for (NSInteger i = 0; i < self.segmentCount; i++) {
+        NSString *label = [self labelForSegment:i];
+        NSSize size = [label sizeWithAttributes:attributes];
+        CGFloat x = NSMinX(bounds) + width * i;
+        [label drawAtPoint:NSMakePoint(x + (width - size.width) / 2,
+            NSMidY(bounds) - size.height / 2) withAttributes:attributes];
+        if (i == self.selectedSegment) {
+            [(self.accentColor ?: NSColor.systemGreenColor) setFill];
+            CGFloat y = self.isFlipped ? NSMaxY(bounds) - 3 : NSMinY(bounds);
+            [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(x + 12, y, width - 24, 3)
+                xRadius:1.5 yRadius:1.5] fill];
+        }
+    }
+    if (self.window.firstResponder == self) {
+        [NSColor.keyboardFocusIndicatorColor setStroke];
+        NSBezierPath *focus = [NSBezierPath bezierPathWithRoundedRect:NSInsetRect(bounds, 1, 1)
+            xRadius:5 yRadius:5];
+        focus.lineWidth = 2;
+        [focus stroke];
+    }
+}
+- (void)dealloc {
+    [_accentColor release];
+    [super dealloc];
+}
+@end
+
 @interface NaviWorkspaceTitlebar : NSTitlebarAccessoryViewController
 @property(nonatomic, assign) uintptr_t callback;
-@property(nonatomic, retain) NSSegmentedControl *selector;
+@property(nonatomic, retain) NaviWorkspaceSelector *selector;
 @end
 
 @implementation NaviWorkspaceTitlebar
 - (void)selectWorkspace:(NSSegmentedControl *)sender {
+    [sender setNeedsDisplay:YES];
     if (self.callback != 0) {
         naviWorkspaceChanged(self.callback, (int)sender.selectedSegment);
     }
@@ -41,7 +85,7 @@ int navi_workspace_install(uintptr_t pointer, uintptr_t callback) {
         accessory.callback = callback;
         accessory.layoutAttribute = NSLayoutAttributeLeft;
         NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 310, 36)];
-        NSSegmentedControl *selector = [[NSSegmentedControl alloc] initWithFrame:NSMakeRect(0, 3, 310, 30)];
+        NaviWorkspaceSelector *selector = [[NaviWorkspaceSelector alloc] initWithFrame:NSMakeRect(0, 3, 310, 30)];
         selector.segmentCount = 3;
         [selector setLabel:@"SQL" forSegment:0];
         [selector setLabel:@"Shell" forSegment:1];
@@ -84,7 +128,8 @@ void navi_workspace_select(uintptr_t pointer, int mode, int dark, uint32_t backg
         window.titlebarAppearsTransparent = YES;
         window.appearance = [NSAppearance appearanceNamed:dark ? NSAppearanceNameDarkAqua : NSAppearanceNameAqua];
         window.backgroundColor = NaviColor(background);
-        accessory.selector.selectedSegmentBezelColor = NaviColor(accent);
+        accessory.selector.accentColor = NaviColor(accent);
+        [accessory.selector setNeedsDisplay:YES];
         navi_utilities_appearance(pointer, dark);
     });
 }
