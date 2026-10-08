@@ -9,6 +9,16 @@
 
 ## 1. 产物与平台
 
+### macOS 局域网连接权限（2026-10-08）
+
+安装版连接局域网数据库或 SSH 服务器时，需要允许 SuperLink 访问本地网络。
+若出现 `no route to host`，而终端能连通同一地址，请检查系统设置 → 隐私与安全性 → 本地网络中的 SuperLink 开关；终端启动的命令行工具可能自动获准，不能作为安装版权限验证。
+参见 [Apple TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy)。
+
+构建流程现在写入 `NSLocalNetworkUsageDescription`，并在未配置证书时对整个应用包进行 ad-hoc 签名，绑定 Info.plist 与资源、更新已签名 SQLite Agent 的校验和。
+ad-hoc 签名不能保证更新后隐私身份的连续性；可靠分发仍需 `SUPERLINK_MAC_SIGN_IDENTITY` 对应的 Apple 签发证书。构建不会修改用户的网络权限。
+本次已通过 UI 测试、静态检查、原生 Mac 构建、DMG 解包与签名检查；安装版真实局域网连接仍需用户授权后验证，既有 GitHub 草稿尚未替换。
+
 在目标平台运行：
 
 ```sh

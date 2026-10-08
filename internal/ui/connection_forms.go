@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/secrets"
@@ -32,7 +33,9 @@ func (e *connectionEditor) show() {
 	appearance := e.appearanceForm()
 	tabs := container.NewAppTabs(container.NewTabItem("基本", container.NewVScroll(e.basicForm())), container.NewTabItem("网络与安全", container.NewVScroll(e.networkPanels())), container.NewTabItem("外观", appearance), container.NewTabItem("高级", advanced))
 	d, _ := domain.Resolve(c.Type)
-	header := container.NewHBox(newDatabaseBadge("db-"+d.Key), widget.NewLabelWithStyle(d.Name+" 连接", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), layout.NewSpacer(), widget.NewLabel("1 类型  ›  2 参数  ›  3 保存"), action("", "stop", e.close))
+	closeButton := widget.NewButtonWithIcon("", theme.CancelIcon(), e.close)
+	closeButton.Importance = widget.LowImportance
+	header := container.NewHBox(newDatabaseBadge("db-"+d.Key), widget.NewLabelWithStyle(d.Name+" 连接", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), layout.NewSpacer(), widget.NewLabel("1 类型  ›  2 参数  ›  3 保存"), closeButton)
 	testButton := widget.NewButton("测试连接", nil)
 	testButton.OnTapped = func() {
 		profile, err := e.collect()
@@ -56,10 +59,12 @@ func (e *connectionEditor) show() {
 	}
 	saveButton := widget.NewButton("保存", e.save)
 	saveButton.Importance = widget.HighImportance
-	footer := container.NewBorder(nil, nil, action("上一步", "undo", func() { e.close(); e.owner.typePicker() }), container.NewHBox(testButton, widget.NewButton("取消", e.close), saveButton), e.hint)
+	buttons := container.NewHBox(testButton, widget.NewButton("取消", e.close), saveButton)
+	footer := container.NewVBox(e.hint, container.NewBorder(nil, nil, action("上一步", "undo", func() { e.close(); e.owner.typePicker() }), buttons, nil))
 	content := container.NewPadded(container.NewBorder(header, footer, nil, nil, tabs))
 	e.modal = widget.NewModalPopUp(content, e.owner.Window.Canvas())
-	e.modal.Resize(fyne.NewSize(920, 740))
+	size := e.owner.Window.Canvas().Size()
+	e.modal.Resize(fyne.NewSize(min(920, size.Width-32), min(640, size.Height-48)))
 	e.modal.Show()
 }
 func (e *connectionEditor) close() {

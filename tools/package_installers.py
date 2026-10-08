@@ -41,6 +41,8 @@ def macos_installer(bundle, dist, version, arch, temporary):
     (source / 'Applications').symlink_to('/Applications', target_is_directory=True)
     (source / '安装说明.txt').write_text('将 SuperLink 拖入 Applications 后打开。\n'
         '用户数据保存在系统配置目录，不在安装包中。\n'
+        '连接局域网数据库或 SSH 服务器时，请允许 SuperLink 访问本地网络。\n'
+        '若已拒绝，请前往系统设置 → 隐私与安全性 → 本地网络，启用 SuperLink 后重新测试。\n'
         '未使用开发者证书签名及 Apple 公证时，首次打开可能需要在系统设置中允许。\n')
     target = dist / f'SuperLink-{version}-macos-{arch}.dmg'
     run(['hdiutil', 'create', '-ov', '-format', 'UDZO', '-volname',

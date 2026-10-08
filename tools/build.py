@@ -126,6 +126,7 @@ def main():
                 'CFBundleIconFile':'SuperLink.icns',
                 'CFBundlePackageType':'APPL','CFBundleShortVersionString':version,
                 'CFBundleVersion':version,'NSHighResolutionCapable':True,
+                'NSLocalNetworkUsageDescription':'SuperLink 需要访问本地网络，以连接你配置的数据库、SSH 服务器及其他数据源。',
                 'NSHumanReadableCopyright':'Apache-2.0; see included licenses'}))
         prefix='Contents/MacOS/' if goos=='darwin' else ''
         marker={'id':'io.github.ealink1.superlink','version':version,'os':goos,'arch':arch,
@@ -133,16 +134,22 @@ def main():
         (resources/'superlink.package.json').write_text(json.dumps(marker,indent=2)+'\n')
         # Distribution signing/notarization happens before zip creation in the
         # release workflow when its platform signing credentials are available.
-        if goos=='darwin' and os.environ.get('SUPERLINK_MAC_SIGN_IDENTITY'):
-            identity=os.environ['SUPERLINK_MAC_SIGN_IDENTITY']
+        if goos=='darwin':
+            identity=os.environ.get('SUPERLINK_MAC_SIGN_IDENTITY') or '-'
+            signing_options=['--options','runtime','--timestamp'] if identity != '-' else []
             for target in [destination/'sqlite-driver-agent',executable_dir/'update-helper',executable_dir/'superlink']:
-                run(['codesign','--force','--options','runtime','--timestamp','--sign',identity,str(target)])
+                run(['codesign','--force',*signing_options,'--identifier',
+                     'io.github.ealink1.superlink.'+target.name,'--sign',identity,str(target)])
             # Signing changes executable bytes. The package's trusted bundle
             # checksum must describe the signed copy before sealing the bundle.
             bundled = [dict(record) for record in bundled]
             bundled[0]['sha256'] = hashlib.sha256((destination/'sqlite-driver-agent').read_bytes()).hexdigest()
             (destination/'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':bundled},indent=2)+'\n')
-            run(['codesign','--force','--options','runtime','--timestamp','--sign',identity,str(package_root)])
+            # Seal Info.plist and resources even without a distribution certificate.
+            # Ad-hoc signing does not provide a persistent privacy identity across
+            # updates; Apple-issued signing credentials are still recommended.
+            run(['codesign','--force',*signing_options,'--identifier',
+                 'io.github.ealink1.superlink','--sign',identity,str(package_root)])
             run(['codesign','--verify','--deep','--strict',str(package_root)])
         filename=f'SuperLink_{version}_{goos}_{arch}.zip'
         output=dist/filename

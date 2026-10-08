@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import plistlib
 from pathlib import Path
 import subprocess
 import tarfile
@@ -50,6 +51,11 @@ def smoke(dist, version, goos, arch):
             run(['hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', mount, dmg], capture_output=True)
             try:
                 compare_package(mount / 'SuperLink.app', zip_path, goos)
+                bundle = mount / 'SuperLink.app'
+                info = plistlib.loads((bundle / 'Contents/Info.plist').read_bytes())
+                if not info.get('NSLocalNetworkUsageDescription'):
+                    raise ValueError('macOS local network usage description missing')
+                run(['codesign', '--verify', '--deep', '--strict', bundle], capture_output=True)
                 if not (mount / 'Applications').is_symlink() or os.readlink(mount / 'Applications') != '/Applications':
                     raise ValueError('DMG Applications shortcut missing')
             finally:
