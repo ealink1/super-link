@@ -44,7 +44,6 @@ func (w *Window) startExport(source exportSource, options datafile.Options, path
 			return nil
 		})
 	}, func(value any, err error) {
-		modal.SetOnClosed(nil)
 		modal.Hide()
 		if err != nil {
 			w.showError(err)

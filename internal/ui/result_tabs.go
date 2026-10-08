@@ -25,7 +25,7 @@ type resultTabs struct {
 }
 
 type resultTabButton struct {
-	button  *widget.Button
+	button  *shellAlignedButton
 	content fyne.CanvasObject
 	state   *resultButtonState
 }
@@ -110,7 +110,9 @@ func (t *resultTabs) sync() {
 		}
 		cached, ok := t.buttons[item]
 		if !ok {
-			button := widget.NewButton(label, func() { t.Select(item) })
+			button := &shellAlignedButton{}
+			button.ExtendBaseWidget(button)
+			button.Text, button.OnTapped = label, func() { t.Select(item) }
 			state := &resultButtonState{selected: item == t.Selected()}
 			cached = resultTabButton{button: button, state: state, content: container.NewThemeOverride(button, resultButtonTheme{state: state})}
 			t.buttons[item] = cached

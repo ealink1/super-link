@@ -37,7 +37,7 @@ type tableWorkspace struct {
 	inserts                 []domain.RowChange
 	selected                map[int]bool
 	grid                    *dataGrid
-	commitButton            *widget.Button
+	commitButton            *tableActionButton
 }
 
 func (w *Window) openTable(p domain.Profile, object domain.Object) *tableWorkspace {
@@ -62,20 +62,16 @@ func (w *Window) openTable(p domain.Profile, object domain.Object) *tableWorkspa
 	t.filterPanel.Hide()
 	t.views = newResultTabs(container.NewTabItem("数据", t.body), container.NewTabItem("字段", widget.NewLabel("加载元数据后显示")), container.NewTabItem("DDL", widget.NewLabel("加载元数据后显示")))
 	t.views.bottom = true
-	t.commitButton = action("", "save", func() { t.submitChanges("") })
+	t.commitButton = w.tableAction("save", func() { t.submitChanges("") })
 	t.commitButton.Disable()
-	name := object.Name
-	if object.Schema != "" {
-		name = object.Schema + "." + name
-	}
-	tools := container.NewHBox(widget.NewLabel(name), action("", "refresh", t.refresh), action("", "filter", func() {
+	tools := container.NewHBox(w.tableAction("refresh", t.refresh), w.tableAction("filter", func() {
 		if t.filterPanel.Visible() {
 			t.filterPanel.Hide()
 		} else {
 			t.filterPanel.Show()
 		}
-	}), action("", "add-row", t.addRow), action("", "trash", t.deleteRows), action("", "cell-select", t.previewChanges), t.commitButton, action("", "rollback", t.discardEdits), action("", "table-design", t.design), action("", "copy", t.copy), action("", "export", t.export), action("", "sql-doc", t.newQuery))
-	tools.Add(action("", "import", func() { w.importTable(t.profile, t.object, t.page.Info) }))
+	}), w.tableAction("add-row", t.addRow), w.tableAction("trash", t.deleteRows), w.tableAction("cell-select", t.previewChanges), t.commitButton, w.tableAction("rollback", t.discardEdits), w.tableAction("table-design", t.design), w.tableAction("copy", t.copy), w.tableAction("export", t.export), w.tableAction("sql-doc", t.newQuery))
+	tools.Add(w.tableAction("import", func() { w.importTable(t.profile, t.object, t.page.Info) }))
 	top := container.NewVBox(tools, t.filterPanel)
 	footer := container.NewHBox(layout.NewSpacer(), t.paging, action("首页", "scroll-top", func() { t.gotoPage(1) }), action("上一页", "undo", func() { t.gotoPage(t.request.Page - 1) }), t.jump, action("跳", "jump-column", func() {
 		page, err := strconv.Atoi(t.jump.Text)
@@ -136,12 +132,12 @@ func (t *tableWorkspace) refresh() {
 func (t *tableWorkspace) showPage() {
 	t.body.Objects = []fyne.CanvasObject{t.tableGrid()}
 	t.body.Refresh()
-	t.views.Items[1].Content = t.owner.columnsView(t.page.Info)
+	t.views.Items[1].Content = t.fieldsView()
 	ddl := widget.NewMultiLineEntry()
 	ddl.SetText(t.page.Info.DDL)
 	ddl.TextStyle = fyne.TextStyle{Monospace: true}
 	ddl.Disable()
-	t.views.Items[2].Content = ddl
+	t.views.Items[2].Content = container.NewThemeOverride(ddl, ddlTextTheme{fyne.CurrentApp().Settings().Theme()})
 	t.views.Refresh()
 	t.paging.SetText(fmt.Sprintf("当前 %d 条 / 共 %d 条   %d / %d", len(t.page.Result.Rows), t.page.Total, t.page.Page, t.pageCount()))
 	t.jump.SetText(strconv.Itoa(t.request.Page))

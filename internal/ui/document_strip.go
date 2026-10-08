@@ -3,6 +3,7 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
 
@@ -14,7 +15,7 @@ func (w *Window) buildDocuments() {
 	strip.SetMinSize(fyne.NewSize(0, 32))
 	controls := container.NewHBox(action("", "add-row", w.newSelectedQuery), action("", "connection-menu", w.documentMenu))
 	controls.Layout = &toolbarLayout{height: 32}
-	w.docHeader = container.NewStack(container.NewBorder(nil, nil, nil, controls, strip))
+	w.docHeader = container.NewStack(container.NewBorder(nil, widget.NewSeparator(), nil, nil, container.NewBorder(nil, nil, nil, controls, strip)))
 	w.docBody = container.NewStack()
 	w.docHost = container.NewStack(container.NewBorder(w.docHeader, nil, nil, nil, w.docBody), w.docTooltip.layer)
 }

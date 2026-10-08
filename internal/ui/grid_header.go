@@ -16,14 +16,16 @@ type gridHeader struct {
 	name, kind *canvas.Text
 	check      *widget.Check
 	column     int
+	divider    *canvas.Rectangle
 }
 
 func newGridHeader(model gridModel, table *widget.Table) *gridHeader {
-	h := &gridHeader{model: model, table: table, name: canvas.NewText("", theme.ForegroundColor()), kind: canvas.NewText("", theme.DisabledColor()), check: widget.NewCheck("", nil)}
+	h := &gridHeader{model: model, table: table, name: canvas.NewText("", theme.ForegroundColor()), kind: canvas.NewText("", color.NRGBA{R: 65, G: 112, B: 164, A: 255}), check: widget.NewCheck("", nil)}
+	h.divider = canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 38})
 	h.name.TextSize = 14
-	h.name.TextStyle = fyne.TextStyle{Monospace: true}
-	h.kind.TextSize = 10
-	h.kind.TextStyle = fyne.TextStyle{Monospace: true}
+	h.name.TextStyle = fyne.TextStyle{Bold: true}
+	h.kind.TextSize = 13
+
 	h.ExtendBaseWidget(h)
 	return h
 }
@@ -34,7 +36,7 @@ func (h *gridHeader) bind(col int) {
 	h.name.Show()
 	h.kind.Show()
 	h.kind.Text = ""
-	h.kind.Color = theme.DisabledColor()
+	h.kind.Color = color.NRGBA{R: 65, G: 112, B: 164, A: 255}
 	switch {
 	case col == 0:
 		h.name.Hide()
@@ -64,8 +66,10 @@ func (h *gridHeader) bind(col int) {
 		for _, c := range h.model.info.Columns {
 			if c.Name == h.name.Text {
 				h.kind.Text = c.Type
-				if c.Key == "PRI" {
-					h.kind.Color = color.NRGBA{R: 217, G: 119, B: 6, A: 255}
+				if gridNumericColumn(h.model, col-2) {
+					h.kind.Text = "#  " + c.Type
+				} else {
+					h.kind.Text = "Abc  " + c.Type
 				}
 				break
 			}
@@ -80,32 +84,26 @@ type gridHeaderRenderer struct{ h *gridHeader }
 func (r *gridHeaderRenderer) MinSize() fyne.Size { return fyne.NewSize(28, 26) }
 func (r *gridHeaderRenderer) Layout(size fyne.Size) {
 	r.h.check.Resize(size)
+	r.h.divider.Move(fyne.NewPos(size.Width-1, 6))
+	r.h.divider.Resize(fyne.NewSize(1, max(0, size.Height-12)))
 	nameY := float32(6)
 	if r.h.column == 1 {
 		nameY = 12
 	}
 	r.h.name.Move(fyne.NewPos(6, nameY))
 	r.h.name.Resize(fyne.NewSize(max(0, size.Width-12), 18))
-	r.h.kind.Move(fyne.NewPos(6, 24))
-	r.h.kind.Resize(fyne.NewSize(max(0, size.Width-12), 12))
+	r.h.kind.Move(fyne.NewPos(6, 28))
+	r.h.kind.Resize(fyne.NewSize(max(0, size.Width-12), 18))
 	if r.h.column >= 2 && r.h.column < len(r.h.model.columns)+2 {
 		r.h.name.Text = fitText(r.h.model.columns[r.h.column-2].Name, max(0, size.Width-12), r.h.name.TextSize, r.h.name.TextStyle)
 	}
 }
 func (r *gridHeaderRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.h.name, r.h.kind, r.h.check}
+	return []fyne.CanvasObject{r.h.name, r.h.kind, r.h.check, r.h.divider}
 }
 func (r *gridHeaderRenderer) Refresh() {
 	r.h.name.Color = theme.ForegroundColor()
-	r.h.kind.Color = theme.DisabledColor()
-	if r.h.column >= 2 && r.h.column < len(r.h.model.columns)+2 {
-		for _, column := range r.h.model.info.Columns {
-			if column.Name == r.h.model.columns[r.h.column-2].Name && column.Key == "PRI" {
-				r.h.kind.Color = color.NRGBA{R: 217, G: 119, B: 6, A: 255}
-				break
-			}
-		}
-	}
+	r.h.kind.Color = color.NRGBA{R: 65, G: 112, B: 164, A: 255}
 	r.Layout(r.h.Size())
 	r.h.name.Refresh()
 	r.h.kind.Refresh()

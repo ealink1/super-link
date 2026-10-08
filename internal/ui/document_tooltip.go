@@ -19,7 +19,7 @@ type documentTooltip struct {
 	layer, box *fyne.Container
 	label      *widget.Label
 	background *canvas.Rectangle
-	active     *documentTab
+	active     fyne.CanvasObject
 }
 
 func newDocumentTooltip() *documentTooltip {
@@ -51,16 +51,20 @@ func (t *documentTab) hideTooltip() {
 }
 
 func (h *documentTooltip) show(t *documentTab) {
+	text := t.title
+	if t.subtitle != "" {
+		text += "\n" + t.subtitle
+	}
+	h.showContent(t, text)
+}
+
+func (h *documentTooltip) showContent(t fyne.CanvasObject, text string) {
 	driver := fyne.CurrentApp().Driver()
 	parent := driver.CanvasForObject(t)
 	if parent == nil || len(parent.Overlays().List()) != 0 || h.layer.Size().IsZero() {
 		return
 	}
 	h.active = t
-	text := t.title
-	if t.subtitle != "" {
-		text += "\n" + t.subtitle
-	}
 	h.label.SetText(text)
 	h.background.FillColor = theme.OverlayBackgroundColor()
 	h.background.StrokeColor = theme.InputBorderColor()

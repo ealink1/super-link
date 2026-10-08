@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image/color"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -30,7 +31,7 @@ type gridModel struct {
 	current      func() bool
 }
 
-// dataGrid keeps Fyne's virtualization, frozen columns and header resizing.
+// dataGrid keeps Fyne's virtualization and header resizing.
 type dataGrid struct {
 	*widget.Table
 	model gridModel
@@ -50,14 +51,17 @@ func newDataGrid(model gridModel) *dataGrid {
 	})
 	g.ExtendBaseWidget(g)
 	g.ShowHeaderRow = true
-	g.StickyColumnCount = 2
+	g.HideSeparators = true
+	// Fyne skips visible trailing columns when custom-width columns are sticky.
+	// Keep all columns in the same scroll surface until that calculation is fixed.
+	g.StickyColumnCount = 0
 	g.CreateHeader = func() fyne.CanvasObject { return newGridHeader(model, g.Table) }
 	g.UpdateHeader = func(id widget.TableCellID, item fyne.CanvasObject) { item.(*gridHeader).bind(id.Col) }
-	g.SetRowHeight(-1, 40)
+	g.SetRowHeight(-1, 52)
 	g.SetColumnWidth(0, 28)
 	g.SetColumnWidth(1, 28)
 	for i := range model.columns {
-		g.SetColumnWidth(i+2, 180)
+		g.SetColumnWidth(i+2, 140)
 	}
 	g.Refresh()
 	return g
@@ -67,8 +71,8 @@ func (g *dataGrid) Refresh() {
 }
 func (g *dataGrid) Resize(size fyne.Size) {
 	if len(g.model.columns) > 0 {
-		width := size.Width - 56 - float32(len(g.model.columns)-1)*184 - 16
-		g.SetColumnWidth(len(g.model.columns)+1, max(180, width))
+		width := size.Width - 56 - float32(len(g.model.columns)-1)*144 - 16
+		g.SetColumnWidth(len(g.model.columns)+1, max(140, width))
 	}
 	g.Table.Resize(size)
 }
@@ -81,6 +85,7 @@ type gridCell struct {
 	check        *widget.Check
 	entry        *gridEditEntry
 	background   *canvas.Rectangle
+	divider      *canvas.Rectangle
 	editing      bool
 	fullText     string
 	originalText string
@@ -90,8 +95,7 @@ type gridCell struct {
 func newGridCell(model gridModel) *gridCell {
 	c := &gridCell{model: model, text: canvas.NewText("", theme.ForegroundColor()), check: widget.NewCheck("", nil), entry: newGridEditEntry(), background: canvas.NewRectangle(color.Transparent)}
 	c.text.TextSize = 14
-	c.text.TextStyle = fyne.TextStyle{Monospace: true}
-	c.entry.TextStyle = fyne.TextStyle{Monospace: true}
+	c.divider = canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 38})
 	c.entry.Hide()
 	c.check.Hide()
 	c.ExtendBaseWidget(c)
@@ -119,6 +123,13 @@ func (c *gridCell) bind(id widget.TableCellID) {
 	c.text.Show()
 	c.text.Color = theme.ForegroundColor()
 	c.background.FillColor = color.Transparent
+	if id.Row%2 == 1 {
+		c.background.FillColor = color.NRGBA{R: 128, G: 128, B: 128, A: 8}
+	}
+	c.text.Alignment = fyne.TextAlignLeading
+	if id.Col == 1 || id.Col >= 2 && gridNumericColumn(c.model, id.Col-2) {
+		c.text.Alignment = fyne.TextAlignTrailing
+	}
 	if id.Col == 0 {
 		c.check.Enable()
 		c.text.Hide()
@@ -237,6 +248,8 @@ type gridCellRenderer struct{ c *gridCell }
 func (r *gridCellRenderer) MinSize() fyne.Size { return fyne.NewSize(32, 28) }
 func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.background.Resize(size)
+	r.c.divider.Move(fyne.NewPos(size.Width-1, 0))
+	r.c.divider.Resize(fyne.NewSize(1, size.Height))
 	r.c.check.Resize(size)
 	r.c.entry.Resize(size)
 	r.c.text.Move(fyne.NewPos(8, (size.Height-r.c.text.MinSize().Height)/2))
@@ -249,10 +262,10 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 		text[len(text)-1] = '…'
 	}
 	r.c.text.Text = string(text)
-	r.c.text.Resize(size)
+	r.c.text.Resize(fyne.NewSize(max(0, size.Width-16), r.c.text.MinSize().Height))
 }
 func (r *gridCellRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.c.background, r.c.text, r.c.check, r.c.entry}
+	return []fyne.CanvasObject{r.c.background, r.c.divider, r.c.text, r.c.check, r.c.entry}
 }
 func (r *gridCellRenderer) Refresh() {
 	r.Layout(r.c.Size())
@@ -261,3 +274,21 @@ func (r *gridCellRenderer) Refresh() {
 	r.c.check.Refresh()
 }
 func (r *gridCellRenderer) Destroy() {}
+
+func gridNumericColumn(model gridModel, index int) bool {
+	if index < 0 || index >= len(model.columns) {
+		return false
+	}
+	for _, column := range model.info.Columns {
+		if column.Name != model.columns[index].Name {
+			continue
+		}
+		kind := strings.ToLower(column.Type)
+		for _, prefix := range []string{"int", "tinyint", "smallint", "mediumint", "bigint", "decimal", "numeric", "float", "double", "real", "number", "serial"} {
+			if strings.HasPrefix(kind, prefix) {
+				return true
+			}
+		}
+	}
+	return false
+}

@@ -139,7 +139,7 @@ func (n *navigator) selectNode(id string) {
 	} else {
 		n.contextLabel.Show()
 	}
-	if node.kind == "database" {
+	if node.kind == "database" || node.kind == "category" && strings.HasSuffix(node.id, "/table") {
 		if p, ok := n.nodeProfile(node); ok {
 			n.owner.openDatabaseTables(p, node.scope)
 		}

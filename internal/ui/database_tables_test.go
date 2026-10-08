@@ -51,3 +51,24 @@ func TestSelectingDatabaseOpensTablesTab(t *testing.T) {
 		t.Fatal("profile cleanup retained database tab")
 	}
 }
+
+func TestSelectingTableCategoryReusesDatabaseTab(t *testing.T) {
+	w, p := parityWindow(t)
+	page := w.openDatabaseTables(p, "main")
+	waitUI(t, w)
+	table := w.openTable(p, page.objects[0])
+	waitUI(t, w)
+	node := &navNode{id: "database/schema/table", kind: "category", profileID: p.ID, scope: "main"}
+	w.sidebar.nodes[node.id] = node
+	w.sidebar.selectNode(node.id)
+	if len(w.databases) != 1 || w.tabs.Selected() != page.item {
+		t.Fatal("table category did not select existing catalog")
+	}
+	w.closeTab(page.item)
+	w.tabs.Select(table.item)
+	w.sidebar.selectNode(node.id)
+	waitUI(t, w)
+	if len(w.databases) != 1 || w.tabs.Selected().Text != "main" {
+		t.Fatal("table category did not open catalog")
+	}
+}

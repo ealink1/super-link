@@ -2,7 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/theme"
 	"github.com/ealink1/super-link/internal/domain"
+	"image/color"
 	"strconv"
 	"time"
 
@@ -15,16 +18,23 @@ var tableCatalogHeaders = []string{"名称", "行", "数据长度", "引擎", "�
 
 func (p *databaseTables) buildTableGrid() *widget.Table {
 	grid := widget.NewTable(func() (int, int) { return len(p.shown), len(tableCatalogHeaders) }, func() fyne.CanvasObject {
-		row := &databaseTableRow{open: func(object domain.Object) { p.owner.openTable(p.profile, object) }}
+		row := &databaseTableRow{contextMenu: p.showTableMenu, hoverRow: p.hoverTableRow, open: func(object domain.Object) { p.owner.openTable(p.profile, object) }}
 		row.ExtendBaseWidget(row)
 		row.Wrapping = fyne.TextTruncate
 		image := widget.NewIcon(icon("table"))
-		return container.NewBorder(nil, nil, image, nil, row)
+		return container.NewStack(canvas.NewRectangle(color.Transparent), container.NewBorder(nil, nil, image, nil, row))
 	}, func(id widget.TableCellID, object fyne.CanvasObject) {
-		box := object.(*fyne.Container)
+		stack := object.(*fyne.Container)
+		background := stack.Objects[0].(*canvas.Rectangle)
+		box := stack.Objects[1].(*fyne.Container)
 		row := box.Objects[0].(*databaseTableRow)
 		image := box.Objects[1].(*widget.Icon)
 		row.object = p.shown[id.Row]
+		background.FillColor = color.Transparent
+		if p.hoveredTable == row.object.Schema+"."+row.object.Name {
+			background.FillColor = catalogHoverColor()
+		}
+		background.Refresh()
 		row.Alignment = fyne.TextAlignLeading
 		image.Hide()
 		value := ""
@@ -42,6 +52,7 @@ func (p *databaseTables) buildTableGrid() *widget.Table {
 		}
 		row.SetText(value)
 	})
+	grid.OnSelected = func(widget.TableCellID) { grid.UnselectAll() }
 	grid.HideSeparators = true
 	grid.ShowHeaderRow = true
 	grid.CreateHeader = func() fyne.CanvasObject { return widget.NewLabel("") }
@@ -83,4 +94,31 @@ func catalogBytes(value any) string {
 		return fmt.Sprintf("%.0f %s", bytes, units[unit])
 	}
 	return fmt.Sprintf("%.1f %s", bytes, units[unit])
+}
+
+func (p *databaseTables) hoverTableRow(object domain.Object, inside bool) {
+	key := object.Schema + "." + object.Name
+	if inside {
+		p.hoveredTable = key
+	} else if p.hoveredTable == key {
+		p.hoveredTable = ""
+	}
+	p.list.Refresh()
+}
+
+// Zero column spacing keeps the row highlight continuous between cells.
+// Inner padding remains unchanged so labels keep their text inset.
+type catalogGridTheme struct{ fyne.Theme }
+
+func (t catalogGridTheme) Size(name fyne.ThemeSizeName) float32 {
+	if name == theme.SizeNamePadding {
+		return 0
+	}
+	return t.Theme.Size(name)
+}
+
+func catalogHoverColor() color.Color {
+	shade := color.NRGBAModel.Convert(theme.SelectionColor()).(color.NRGBA)
+	shade.A /= 2
+	return shade
 }
