@@ -10,6 +10,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/test"
 	transport "github.com/ealink1/super-link/internal/infra/shell"
 )
 
@@ -21,6 +22,10 @@ func TestShellFileRowPaintedContentIsVerticallyAligned(t *testing.T) {
 	w.Window.SetContent(container.NewThemeOverride(row, newShellTheme()))
 	w.Window.Resize(fyne.NewSize(420, 74))
 	row.Resize(fyne.NewSize(420, 74))
+	// A first paint can initialize system fallback fonts, especially under
+	// race instrumentation. Lay out once more with the resolved metrics.
+	w.Window.Canvas().Capture()
+	test.WidgetRenderer(row).Layout(row.Size())
 	im := w.Window.Canvas().Capture()
 	icon, ok := shellFileInkBounds(im, image.Rect(10, 0, 40, 74), color.NRGBA{112, 101, 255, 255})
 	if !ok {
