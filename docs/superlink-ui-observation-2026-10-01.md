@@ -1,14 +1,14 @@
-# GoNavi 实际页面、操作流程与 SuperLink 对齐清单
+# 参考界面、操作流程与 SuperLink 对齐清单
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
-日期：2026-10-01。参考对象：本机已安装的 **GoNavi 1.0.0，macOS 原生应用**。
+日期：2026-10-01。参考对象：本机已安装的 **上游参考应用 1.0.0，macOS 原生应用**。
 本次通过电脑控制查看页面、展开菜单、执行只读查询和检查未提交的编辑状态，使用 Product Design 的截图审查流程记录证据。
-本文保留原生观察事实，并于 2026-10-02 更新 Fyne 实施状态；完整范围以[对齐设计](plans/2026-10-01-gonavi-parity-design.md)为准，当前实现和验证见 [README](../README.md)、[最新自检](selfcheck-2026-10-02.md)与[视觉验收](../design-qa.md)。
+本文保留原生观察事实，并于 2026-10-02 更新 Fyne 实施状态；完整范围以[对齐设计](plans/2026-10-01-superlink-parity-design.md)为准，当前实现和验证见 [README](../README.md)、[最新自检](selfcheck-2026-10-02.md)与[视觉验收](../design-qa.md)。
 
 ## 1. 核心结论
 
-GoNavi 的主要工作路径是：**连接 → 数据库 → 模式 / 对象分类 → 表或其他对象 → 独立工作标签页**。
+SuperLink 的主要工作路径是：**连接 → 数据库 → 模式 / 对象分类 → 表或其他对象 → 独立工作标签页**。
 查询、表数据、结构设计、导入、比较、同步和设置都有各自的页面与状态。
 连接类型数量只是接入范围，不能证明这些工作流程已经对齐。
 
@@ -29,7 +29,7 @@ SuperLink 已补入惰性连接树、独立表数据页、筛选分页、受保�
 
 本轮保存并逐张查看了 **28 张截图**。最初无法辨认的台前调度缩略图未作为证据；后续使用完整应用窗口。
 截图保留电脑控制返回的原始 JPEG 字节，文件后缀已按实际格式校正，未重新压缩或编辑图片。
-截图留在本机 `.cache/gonavi-observation-2026-10-01/`，受 Git 忽略，包含连接和对象名称等本地上下文。
+截图留在本机 `.cache/superlink-observation-2026-10-01/`，受 Git 忽略，包含连接和对象名称等本地上下文。
 本文使用通用称谓，不复制用户凭据、地址或业务行内容。截图编号和文件名见第 8 节；尺寸及 SHA256 记录在该目录的 `evidence-manifest.json`。
 
 已执行的 SQL 包括常量 SELECT 和用于显示空表的条件 `1=0`。没有提交数据库写入，没有保存连接配置，没有安装驱动或更新应用。
@@ -88,7 +88,7 @@ SELECT 1 AS id, 'Fyne parity' AS name, NULL AS optional_value;
 更多菜单包含重命名、SQL 文件导出、执行历史、诊断、慢查询历史和隐藏结果区。
 
 初次输入时内容接在延迟出现的默认 `SELECT * FROM` 模板之后，执行得到语法错误；替换编辑器全文后查询成功。
-错误页面可见解释、位置、原始数据库错误和 AI 诊断入口。这个输入过程不作为 GoNavi SQL 执行缺陷。
+错误页面可见解释、位置、原始数据库错误和 AI 诊断入口。这个输入过程不作为 SuperLink SQL 执行缺陷。
 
 结果区具备列排序 / 筛选入口、列显示选择、跳转列、刷新、复制和导出入口，以及数据、字段信息、DDL、ER 图、日志等切换。
 常量查询的字段信息中，类型、主键和默认值等为“–”；本轮不能证明任意查询都能完整还原源字段元数据。
@@ -153,7 +153,7 @@ SQL 预览显示“无变更”，三类 SQL 数量均为 0。后来尝试输入
 状态：**页面已查看；SQLite 本地演示受驱动未启用阻断**。
 
 驱动管理列出 22 个可选驱动，具有搜索、版本 / 大小 / 状态、下载启用、导入包、日志、批量操作和目录入口。
-这台 GoNavi 当时所有可选驱动均未启用；SQLite 选择器直接提示先启用驱动。
+这台 SuperLink 当时所有可选驱动均未启用；SQLite 选择器直接提示先启用驱动。
 已准备本地 SQLite 演示库和 CSV，但没有连接成功，也没有安装驱动，因此未用它补做写入验证。
 
 关于页显示当前版本 1.0.0，页面报告最新版本 1.0.1，并提供 latest / dev、自动检查、30 分钟间隔、镜像源和更新日志 / 下载入口。
@@ -270,34 +270,34 @@ P0 是日常操作及视觉复查，P1 是数据管理完整度，P2 是独立�
 
 | 编号 | 页面 / 状态 | 本地证据 |
 | --- | --- | --- |
-| S01 | 主窗口、设置分类、版本和更新页 | [01-settings-and-shell.jpg](../.cache/gonavi-observation-2026-10-01/01-settings-and-shell.jpg) |
-| S02 | 数据源选择 | [02-datasource-picker.jpg](../.cache/gonavi-observation-2026-10-01/02-datasource-picker.jpg) |
-| S03 | 空白 MySQL 基本表单 | [03-connection-basic.jpg](../.cache/gonavi-observation-2026-10-01/03-connection-basic.jpg) |
-| S04 | 网络配置 | [04-connection-network.jpg](../.cache/gonavi-observation-2026-10-01/04-connection-network.jpg) |
-| S05 | 高级参数 | [05-connection-advanced.jpg](../.cache/gonavi-observation-2026-10-01/05-connection-advanced.jpg) |
-| S06 | 连接外观 | [06-connection-appearance.jpg](../.cache/gonavi-observation-2026-10-01/06-connection-appearance.jpg) |
-| S07 | 生产保护，部分区域 | [07-production-protection.jpg](../.cache/gonavi-observation-2026-10-01/07-production-protection.jpg) |
-| S08 | 数据库、模式、对象树 | [08-connection-tree.jpg](../.cache/gonavi-observation-2026-10-01/08-connection-tree.jpg) |
-| S09 | 常量查询与结果网格 | [09-query-result-grid.jpg](../.cache/gonavi-observation-2026-10-01/09-query-result-grid.jpg) |
-| S10 | 查询更多菜单 | [10-query-more-menu.jpg](../.cache/gonavi-observation-2026-10-01/10-query-more-menu.jpg) |
-| S11 | 常量查询字段信息 | [11-query-field-info.jpg](../.cache/gonavi-observation-2026-10-01/11-query-field-info.jpg) |
-| S12 | 查询导出配置 | [12-export-query-dialog.jpg](../.cache/gonavi-observation-2026-10-01/12-export-query-dialog.jpg) |
-| S13 | 六种导出格式 | [13-export-formats.jpg](../.cache/gonavi-observation-2026-10-01/13-export-formats.jpg) |
-| S14 | 表右键菜单，部分区域 | [14-table-context-menu.jpg](../.cache/gonavi-observation-2026-10-01/14-table-context-menu.jpg) |
-| S15 | 表设计字段 | [15-table-designer-fields.jpg](../.cache/gonavi-observation-2026-10-01/15-table-designer-fields.jpg) |
-| S16 | 索引列表 | [16-table-designer-indexes.jpg](../.cache/gonavi-observation-2026-10-01/16-table-designer-indexes.jpg) |
-| S17 | 新建索引与 SQL 预览 | [17-add-index-dialog.jpg](../.cache/gonavi-observation-2026-10-01/17-add-index-dialog.jpg) |
-| S18 | 外键空列表 | [18-table-designer-foreign-keys.jpg](../.cache/gonavi-observation-2026-10-01/18-table-designer-foreign-keys.jpg) |
-| S19 | 触发器空列表 | [19-table-designer-triggers.jpg](../.cache/gonavi-observation-2026-10-01/19-table-designer-triggers.jpg) |
-| S20 | DDL 页面 | [20-table-designer-ddl.jpg](../.cache/gonavi-observation-2026-10-01/20-table-designer-ddl.jpg) |
-| S21 | 导入工作台初始步骤 | [21-import-workbench.jpg](../.cache/gonavi-observation-2026-10-01/21-import-workbench.jpg) |
-| S22 | 结构比较未保存草稿 | [22-structure-compare-draft.jpg](../.cache/gonavi-observation-2026-10-01/22-structure-compare-draft.jpg) |
-| S23 | 同步工作台初始步骤 | [23-sync-workbench.jpg](../.cache/gonavi-observation-2026-10-01/23-sync-workbench.jpg) |
-| S24 | SQLite 缺驱动提示 | [24-sqlite-driver-disabled.jpg](../.cache/gonavi-observation-2026-10-01/24-sqlite-driver-disabled.jpg) |
-| S25 | 驱动管理列表 | [25-driver-management.jpg](../.cache/gonavi-observation-2026-10-01/25-driver-management.jpg) |
-| S26 | 执行前快照列表及范围说明 | [26-pre-execution-snapshots.jpg](../.cache/gonavi-observation-2026-10-01/26-pre-execution-snapshots.jpg) |
-| S27 | 空结果筛选、表头元数据、分页 | [27-table-filter-and-pagination.jpg](../.cache/gonavi-observation-2026-10-01/27-table-filter-and-pagination.jpg) |
-| S28 | 未提交空白行与操作工具栏 | [28-pending-row-change.jpg](../.cache/gonavi-observation-2026-10-01/28-pending-row-change.jpg) |
+| S01 | 主窗口、设置分类、版本和更新页 | [01-settings-and-shell.jpg](../.cache/superlink-observation-2026-10-01/01-settings-and-shell.jpg) |
+| S02 | 数据源选择 | [02-datasource-picker.jpg](../.cache/superlink-observation-2026-10-01/02-datasource-picker.jpg) |
+| S03 | 空白 MySQL 基本表单 | [03-connection-basic.jpg](../.cache/superlink-observation-2026-10-01/03-connection-basic.jpg) |
+| S04 | 网络配置 | [04-connection-network.jpg](../.cache/superlink-observation-2026-10-01/04-connection-network.jpg) |
+| S05 | 高级参数 | [05-connection-advanced.jpg](../.cache/superlink-observation-2026-10-01/05-connection-advanced.jpg) |
+| S06 | 连接外观 | [06-connection-appearance.jpg](../.cache/superlink-observation-2026-10-01/06-connection-appearance.jpg) |
+| S07 | 生产保护，部分区域 | [07-production-protection.jpg](../.cache/superlink-observation-2026-10-01/07-production-protection.jpg) |
+| S08 | 数据库、模式、对象树 | [08-connection-tree.jpg](../.cache/superlink-observation-2026-10-01/08-connection-tree.jpg) |
+| S09 | 常量查询与结果网格 | [09-query-result-grid.jpg](../.cache/superlink-observation-2026-10-01/09-query-result-grid.jpg) |
+| S10 | 查询更多菜单 | [10-query-more-menu.jpg](../.cache/superlink-observation-2026-10-01/10-query-more-menu.jpg) |
+| S11 | 常量查询字段信息 | [11-query-field-info.jpg](../.cache/superlink-observation-2026-10-01/11-query-field-info.jpg) |
+| S12 | 查询导出配置 | [12-export-query-dialog.jpg](../.cache/superlink-observation-2026-10-01/12-export-query-dialog.jpg) |
+| S13 | 六种导出格式 | [13-export-formats.jpg](../.cache/superlink-observation-2026-10-01/13-export-formats.jpg) |
+| S14 | 表右键菜单，部分区域 | [14-table-context-menu.jpg](../.cache/superlink-observation-2026-10-01/14-table-context-menu.jpg) |
+| S15 | 表设计字段 | [15-table-designer-fields.jpg](../.cache/superlink-observation-2026-10-01/15-table-designer-fields.jpg) |
+| S16 | 索引列表 | [16-table-designer-indexes.jpg](../.cache/superlink-observation-2026-10-01/16-table-designer-indexes.jpg) |
+| S17 | 新建索引与 SQL 预览 | [17-add-index-dialog.jpg](../.cache/superlink-observation-2026-10-01/17-add-index-dialog.jpg) |
+| S18 | 外键空列表 | [18-table-designer-foreign-keys.jpg](../.cache/superlink-observation-2026-10-01/18-table-designer-foreign-keys.jpg) |
+| S19 | 触发器空列表 | [19-table-designer-triggers.jpg](../.cache/superlink-observation-2026-10-01/19-table-designer-triggers.jpg) |
+| S20 | DDL 页面 | [20-table-designer-ddl.jpg](../.cache/superlink-observation-2026-10-01/20-table-designer-ddl.jpg) |
+| S21 | 导入工作台初始步骤 | [21-import-workbench.jpg](../.cache/superlink-observation-2026-10-01/21-import-workbench.jpg) |
+| S22 | 结构比较未保存草稿 | [22-structure-compare-draft.jpg](../.cache/superlink-observation-2026-10-01/22-structure-compare-draft.jpg) |
+| S23 | 同步工作台初始步骤 | [23-sync-workbench.jpg](../.cache/superlink-observation-2026-10-01/23-sync-workbench.jpg) |
+| S24 | SQLite 缺驱动提示 | [24-sqlite-driver-disabled.jpg](../.cache/superlink-observation-2026-10-01/24-sqlite-driver-disabled.jpg) |
+| S25 | 驱动管理列表 | [25-driver-management.jpg](../.cache/superlink-observation-2026-10-01/25-driver-management.jpg) |
+| S26 | 执行前快照列表及范围说明 | [26-pre-execution-snapshots.jpg](../.cache/superlink-observation-2026-10-01/26-pre-execution-snapshots.jpg) |
+| S27 | 空结果筛选、表头元数据、分页 | [27-table-filter-and-pagination.jpg](../.cache/superlink-observation-2026-10-01/27-table-filter-and-pagination.jpg) |
+| S28 | 未提交空白行与操作工具栏 | [28-pending-row-change.jpg](../.cache/superlink-observation-2026-10-01/28-pending-row-change.jpg) |
 
 ## 9. 本文自检与后续实现验证
 

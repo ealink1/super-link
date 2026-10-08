@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_clickhouse_driver
+//go:build superlink_full_drivers || superlink_clickhouse_driver
 
 package db
 
@@ -19,7 +19,7 @@ import (
 const (
 	clickHouseLegacyHTTPFormat       = "JSONCompactEachRowWithNamesAndTypes"
 	clickHouseLegacyHTTPErrorLimit   = 64 << 10
-	clickHouseLegacyHTTPUserAgent    = "GoNavi ClickHouse legacy HTTP client"
+	clickHouseLegacyHTTPUserAgent    = "SuperLink ClickHouse legacy HTTP client"
 	clickHouseLegacyHTTPDatabaseName = "database"
 )
 

@@ -6,7 +6,7 @@ Third-party driver implementations retain their original license notices.
 
 UI icons and database icon assets are derived from the same GoNavi reference
 commit; original paths and content hashes are recorded in
-internal/ui/assets/gonavi/sources.json. See UPSTREAM.md for conversions.
+internal/ui/assets/superlink/sources.json. See UPSTREAM.md for conversions.
 NaviUI/NaviMono fonts are renamed derivatives of Inter, Noto Sans,
 Noto Sans SC and DejaVu Sans Mono Powerline. Their original license texts are
 retained in third_party/fonts, THIRD_PARTY_NOTICES.md and packaged resources.

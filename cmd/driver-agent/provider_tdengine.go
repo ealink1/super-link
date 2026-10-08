@@ -1,4 +1,4 @@
-//go:build gonavi_tdengine_driver
+//go:build superlink_tdengine_driver
 
 package main
 

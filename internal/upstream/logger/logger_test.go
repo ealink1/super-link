@@ -16,8 +16,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	// Package tests must never append to the user's real GoNavi log.
-	testLogDir, err := os.MkdirTemp("", "gonavi-logger-test-")
+	// Package tests must never append to the user's real SuperLink log.
+	testLogDir, err := os.MkdirTemp("", "superlink-logger-test-")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "create logger test directory: %v\n", err)
 		os.Exit(2)

@@ -25,6 +25,7 @@ def rewrite(text):
     text = text.replace(".GoNavi", ".SuperLink")
     text = text.replace("gonavi-driver-agent-", "superlink-driver-agent-")
     text = text.replace('"gonavi.log"', '"superlink.log"')
+    text = text.replace("GoNavi", "SuperLink").replace("Gonavi", "SuperLink").replace("gonavi", "superlink")
     return text
 
 

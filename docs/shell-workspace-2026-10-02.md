@@ -56,7 +56,7 @@
 - `go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign`：全部通过。
 - Shell 专项 `go test -race ./internal/infra/shell -count=1`：密码 / 加密私钥、指纹首次 / 变化、交互输入 / resize、握手取消、SFTP 传输 / 同名保护、辅助通道取消后终端存活、监控解析与预算、本地后台子进程释放。
 - `go vet ./...`、架构、Go 文件体积、上游来源、固定 Fyne 及界面资产检查：通过。
-- `go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent`：通过。
+- `go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent`：通过。
 - 全部 22 个数据库 Agent 重建及 JSON 协议身份探测：通过。依赖升级后重新验证，没有缩减驱动清单。
 - 软件渲染截图已检查空状态、主机列表和中文彩色终端，见 `.cache/shell-qa/screenshots/`。仅测试夹具，不是 AppKit 或原版 iShell Pro 的视觉验收。
 

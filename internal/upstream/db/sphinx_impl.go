@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_sphinx_driver
+//go:build superlink_full_drivers || superlink_sphinx_driver
 
 package db
 

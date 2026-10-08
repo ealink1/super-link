@@ -19,8 +19,6 @@ static const char NaviWorkspaceKey;
 @implementation NaviWorkspaceSelector
 - (void)drawRect:(NSRect)dirtyRect {
     NSRect bounds = self.bounds;
-    [[NSColor.controlBackgroundColor colorWithAlphaComponent:0.45] setFill];
-    [[NSBezierPath bezierPathWithRoundedRect:bounds xRadius:6 yRadius:6] fill];
     CGFloat width = NSWidth(bounds) / self.segmentCount;
     NSDictionary *attributes = @{
         NSFontAttributeName: self.font,
@@ -28,14 +26,18 @@ static const char NaviWorkspaceKey;
     };
     for (NSInteger i = 0; i < self.segmentCount; i++) {
         NSString *label = [self labelForSegment:i];
-        NSSize size = [label sizeWithAttributes:attributes];
+        NSMutableDictionary *labelAttributes = [attributes mutableCopy];
+        labelAttributes[NSForegroundColorAttributeName] = i == self.selectedSegment
+            ? (self.accentColor ?: NSColor.systemBlueColor) : NSColor.secondaryLabelColor;
+        NSSize size = [label sizeWithAttributes:labelAttributes];
         CGFloat x = NSMinX(bounds) + width * i;
         [label drawAtPoint:NSMakePoint(x + (width - size.width) / 2,
-            NSMidY(bounds) - size.height / 2) withAttributes:attributes];
+            NSMidY(bounds) - size.height / 2) withAttributes:labelAttributes];
+        [labelAttributes release];
         if (i == self.selectedSegment) {
-            [(self.accentColor ?: NSColor.systemGreenColor) setFill];
-            CGFloat y = self.isFlipped ? NSMaxY(bounds) - 3 : NSMinY(bounds);
-            [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(x + 12, y, width - 24, 3)
+            [(self.accentColor ?: NSColor.systemBlueColor) setFill];
+            CGFloat y = self.isFlipped ? NSMaxY(bounds) - 2 : NSMinY(bounds);
+            [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(x + (width - size.width) / 2, y, size.width, 2)
                 xRadius:1.5 yRadius:1.5] fill];
         }
     }
@@ -84,16 +86,16 @@ int navi_workspace_install(uintptr_t pointer, uintptr_t callback) {
         NaviWorkspaceTitlebar *accessory = [[NaviWorkspaceTitlebar alloc] init];
         accessory.callback = callback;
         accessory.layoutAttribute = NSLayoutAttributeLeft;
-        NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 310, 36)];
-        NaviWorkspaceSelector *selector = [[NaviWorkspaceSelector alloc] initWithFrame:NSMakeRect(0, 3, 310, 30)];
+        NSView *view = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 168, 36)];
+        NaviWorkspaceSelector *selector = [[NaviWorkspaceSelector alloc] initWithFrame:NSMakeRect(0, 0, 168, 36)];
         selector.segmentCount = 3;
         [selector setLabel:@"SQL" forSegment:0];
         [selector setLabel:@"Shell" forSegment:1];
         [selector setLabel:@"Note" forSegment:2];
-        [selector setWidth:100 forSegment:0];
-        [selector setWidth:100 forSegment:1];
-        [selector setWidth:100 forSegment:2];
-        selector.font = [NSFont boldSystemFontOfSize:15];
+        [selector setWidth:56 forSegment:0];
+        [selector setWidth:56 forSegment:1];
+        [selector setWidth:56 forSegment:2];
+        selector.font = [NSFont systemFontOfSize:14];
         selector.segmentStyle = NSSegmentStyleRounded;
         selector.selectedSegment = 0;
         selector.target = accessory;

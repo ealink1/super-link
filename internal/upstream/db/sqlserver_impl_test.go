@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_sqlserver_driver
+//go:build superlink_full_drivers || superlink_sqlserver_driver
 
 package db
 
@@ -23,7 +23,7 @@ import (
 
 var rawSQLServerTableNameRequiredText = string([]rune{0x8868, 0x540d, 0x4e0d, 0x80fd, 0x4e3a, 0x7a7a})
 
-const sqlServerPrintOnlyDriverName = "gonavi-sqlserver-print-only"
+const sqlServerPrintOnlyDriverName = "superlink-sqlserver-print-only"
 
 var registerSQLServerPrintOnlyDriver sync.Once
 

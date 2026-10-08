@@ -28,7 +28,7 @@ func TestOptionalDriverAgentAttachRequestCarriesSpec(t *testing.T) {
 		Database:   "orders",
 		Alias:      "orders_db",
 		ReadOnly:   true,
-		SecretName: "gonavi_attach_orders_db",
+		SecretName: "superlink_attach_orders_db",
 	}
 	db := &OptionalDriverAgentDB{driverType: "duckdb", client: client}
 	if err := db.AttachExternalDatabase(context.Background(), spec); err != nil {

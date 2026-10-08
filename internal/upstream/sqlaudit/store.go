@@ -438,13 +438,13 @@ func (s *Store) UpdateSettingsWithControl(settings Settings, control Event) erro
 		); err != nil {
 			return fmt.Errorf("update sql audit settings: %w", err)
 		}
-		control.DBType = "gonavi"
+		control.DBType = "superlink"
 		control.SQLText = settingsControlDescriptor(previous, normalized)
 		return appendEventsLocked(conn, controlAuditSettings(normalized), []Event{control})
 	})
 }
 
-// Control descriptors contain only GoNavi-owned structural metadata. Keep
+// Control descriptors contain only SuperLink-owned structural metadata. Keep
 // them visible even when ordinary events use metadata-only capture, otherwise
 // disable/retention/purge boundaries would lose the values needed to explain
 // an audit window.
@@ -525,7 +525,7 @@ func (s *Store) ClearWithControl(beforeTimestamp int64, control Event) (int64, e
 		if err != nil {
 			return err
 		}
-		control.DBType = "gonavi"
+		control.DBType = "superlink"
 		control.RowsAffected = deleted
 		return appendEventsLocked(conn, controlAuditSettings(settings), []Event{control})
 	})

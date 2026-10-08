@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_elasticsearch_driver
+//go:build superlink_full_drivers || superlink_elasticsearch_driver
 
 package db
 

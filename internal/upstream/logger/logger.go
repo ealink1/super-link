@@ -337,7 +337,7 @@ func rotateIfNeeded(path, dir string) {
 	}
 
 	ts := time.Now().Format("20060102-150405")
-	rotated := filepath.Join(dir, fmt.Sprintf("gonavi-%s.log", ts))
+	rotated := filepath.Join(dir, fmt.Sprintf("superlink-%s.log", ts))
 	if err := os.Rename(path, rotated); err != nil {
 		return
 	}
@@ -360,7 +360,7 @@ func cleanupOldLogs(dir string) {
 			continue
 		}
 		name := e.Name()
-		if !strings.HasPrefix(name, "gonavi-") || !strings.HasSuffix(name, ".log") {
+		if !strings.HasPrefix(name, "superlink-") || !strings.HasSuffix(name, ".log") {
 			continue
 		}
 		logs = append(logs, item{name: name, path: filepath.Join(dir, name)})

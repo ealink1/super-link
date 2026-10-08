@@ -1,4 +1,4 @@
-//go:build gonavi_sqlserver_driver
+//go:build superlink_sqlserver_driver
 
 package main
 

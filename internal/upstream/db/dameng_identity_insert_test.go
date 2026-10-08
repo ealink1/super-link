@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_dameng_driver
+//go:build superlink_full_drivers || superlink_dameng_driver
 
 package db
 
@@ -16,7 +16,7 @@ import (
 	"github.com/ealink1/super-link/internal/upstream/connection"
 )
 
-const damengIdentityInsertDriverName = "gonavi_dameng_identity_insert"
+const damengIdentityInsertDriverName = "superlink_dameng_identity_insert"
 
 var (
 	registerDamengIdentityInsertDriverOnce sync.Once

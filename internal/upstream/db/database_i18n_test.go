@@ -341,13 +341,13 @@ func TestFormatCustomDriverOpenErrorUsesCurrentLanguageForUnknownDrivers(t *test
 			name:   "system odbc driver",
 			driver: "InterSystems IRIS ODBC35",
 			base:   errors.New(`sql: unknown driver "InterSystems IRIS ODBC35" (forgotten import?)`),
-			want:   `Failed to open database connection: custom connections do not support entering the system ODBC/JDBC driver name "InterSystems IRIS ODBC35" directly. Enter a Go database/sql driver name already registered by GoNavi. The current build does not register a generic ODBC driver, so connecting to InterSystems IRIS through "InterSystems IRIS ODBC35" is not supported yet: sql: unknown driver "InterSystems IRIS ODBC35" (forgotten import?)`,
+			want:   `Failed to open database connection: custom connections do not support entering the system ODBC/JDBC driver name "InterSystems IRIS ODBC35" directly. Enter a Go database/sql driver name already registered by SuperLink. The current build does not register a generic ODBC driver, so connecting to InterSystems IRIS through "InterSystems IRIS ODBC35" is not supported yet: sql: unknown driver "InterSystems IRIS ODBC35" (forgotten import?)`,
 		},
 		{
 			name:   "unregistered go driver",
 			driver: "not-a-registered-go-driver",
 			base:   errors.New(`sql: unknown driver "not-a-registered-go-driver" (forgotten import?)`),
-			want:   `Failed to open database connection: the custom connection driver "not-a-registered-go-driver" is not registered in GoNavi. Enter a registered Go database/sql driver name instead of a system ODBC/JDBC driver name: sql: unknown driver "not-a-registered-go-driver" (forgotten import?)`,
+			want:   `Failed to open database connection: the custom connection driver "not-a-registered-go-driver" is not registered in SuperLink. Enter a registered Go database/sql driver name instead of a system ODBC/JDBC driver name: sql: unknown driver "not-a-registered-go-driver" (forgotten import?)`,
 		},
 	}
 

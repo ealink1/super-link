@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_duckdb_driver
+//go:build superlink_full_drivers || superlink_duckdb_driver
 
 package db
 
@@ -26,7 +26,7 @@ func TestDuckDBApplyChangesMarksCommitFailureOutcomeUnknown(t *testing.T) {
 	}
 }
 
-const duckdbRecordingDriverName = "gonavi_duckdb_recording"
+const duckdbRecordingDriverName = "superlink_duckdb_recording"
 
 var (
 	registerDuckDBRecordingDriverOnce sync.Once

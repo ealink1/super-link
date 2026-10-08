@@ -42,15 +42,15 @@
       "source": "cmd/optional-driver-agent/main.go",
       "target": "cmd/driver-agent/main.go",
       "source_sha256": "b51eb5f5ffbe14c80d347cd6fe4b139653a8ca9a8a6dcef6a38092bb54f18c6b",
-      "rewritten_sha256": "6ee4bccaf443a8dc5d30f9c0ce4ed21cb81d3548ebb445186a1b0b1ad7283230",
-      "imported_sha256": "a2d859955cefc0e5b8cd914eb39723ecf415753b149487b3e40e8b412cc4f9f5"
+      "rewritten_sha256": "d878a7669b46360fad5face34ba92d812e6c955357e3fb5b57d44de9582d1229",
+      "imported_sha256": "9ffb7c8ee257f067eb85d221415072c2076f5a94e6dc1ab5b391bc30edc601d3"
     },
     {
       "source": "cmd/optional-driver-agent/main_test.go",
       "target": "cmd/driver-agent/main_test.go",
       "source_sha256": "3a0649fa746702eb0b5e03c0faff37c26d7a34ab9790141700677669882f4b00",
-      "rewritten_sha256": "57de4fd52e5ec7a8062bde2d3b19adaa20a51a7d63b7bde71b4257fe9ea32dff",
-      "imported_sha256": "57de4fd52e5ec7a8062bde2d3b19adaa20a51a7d63b7bde71b4257fe9ea32dff"
+      "rewritten_sha256": "f98e93e34168e13edaf7b15e590a0fbf8f9f72fcd976fb1b66f527a1b9b458f9",
+      "imported_sha256": "f98e93e34168e13edaf7b15e590a0fbf8f9f72fcd976fb1b66f527a1b9b458f9"
     },
     {
       "source": "cmd/optional-driver-agent/memory_release.go",
@@ -77,169 +77,169 @@
       "source": "cmd/optional-driver-agent/provider_cache.go",
       "target": "cmd/driver-agent/provider_cache.go",
       "source_sha256": "5d268458ed3978b30ac34c4d374624534df9c4aa69982446c0f22ac02b4f3afc",
-      "rewritten_sha256": "ed39df79e3dae5dc3e31753f0f524cb3061a971882678e474a7ea20e07d92e4a",
-      "imported_sha256": "ed39df79e3dae5dc3e31753f0f524cb3061a971882678e474a7ea20e07d92e4a"
+      "rewritten_sha256": "3ef6ba528ba5d1c0eb047a49fe4db6c792d24f5ad9926c341aa0e6ffbc5786bd",
+      "imported_sha256": "3ef6ba528ba5d1c0eb047a49fe4db6c792d24f5ad9926c341aa0e6ffbc5786bd"
     },
     {
       "source": "cmd/optional-driver-agent/provider_clickhouse.go",
       "target": "cmd/driver-agent/provider_clickhouse.go",
       "source_sha256": "afc72a4eb252fd11db88d9aeaa3eeed45b78170510aa2402aecdc1775ec4a720",
-      "rewritten_sha256": "295ed03dbd5bbb16b562b3493897e6a656637e34ba289c2d5367fe332100a695",
-      "imported_sha256": "295ed03dbd5bbb16b562b3493897e6a656637e34ba289c2d5367fe332100a695"
+      "rewritten_sha256": "5a7af6116a2631c51a776f92199e24304689eb7ab4ce4d07e73c170b7ee6c262",
+      "imported_sha256": "5a7af6116a2631c51a776f92199e24304689eb7ab4ce4d07e73c170b7ee6c262"
     },
     {
       "source": "cmd/optional-driver-agent/provider_dameng.go",
       "target": "cmd/driver-agent/provider_dameng.go",
       "source_sha256": "6c3b5cba1ecbd013acb40bef0059d584a3353204303b852d95d8a0dea7e74617",
-      "rewritten_sha256": "2c8d9899460fa0aa8de9377a22ec4a4cccf1266265eb0bd98feb65a71a1bc066",
-      "imported_sha256": "2c8d9899460fa0aa8de9377a22ec4a4cccf1266265eb0bd98feb65a71a1bc066"
+      "rewritten_sha256": "28173c296ddf75c990483bed065b8a855646b071cb0e34c83005e84476bb6604",
+      "imported_sha256": "28173c296ddf75c990483bed065b8a855646b071cb0e34c83005e84476bb6604"
     },
     {
       "source": "cmd/optional-driver-agent/provider_diros.go",
       "target": "cmd/driver-agent/provider_diros.go",
       "source_sha256": "3f620e94ad251fb8182cf33b5ff6c89b4a6d501d0a6aa105cc20d1391973fdf5",
-      "rewritten_sha256": "375a5f6629347b0f899b8f028a0ffc01ff8e03a8adc5f307c9f5e7d5844ea562",
-      "imported_sha256": "375a5f6629347b0f899b8f028a0ffc01ff8e03a8adc5f307c9f5e7d5844ea562"
+      "rewritten_sha256": "c46d2a3e773d1f3dc5176582d21178fc986109aa14c174fae4a9bd43ea4a22b1",
+      "imported_sha256": "c46d2a3e773d1f3dc5176582d21178fc986109aa14c174fae4a9bd43ea4a22b1"
     },
     {
       "source": "cmd/optional-driver-agent/provider_duckdb.go",
       "target": "cmd/driver-agent/provider_duckdb.go",
       "source_sha256": "37893f169cb7686ff27e80f4152b6f4b680f95ac03411b18a314c749319dc08f",
-      "rewritten_sha256": "7f60e324da4db3c2165ee4e61fb0eb143e0c19569b048be8180fd1629494be57",
-      "imported_sha256": "7f60e324da4db3c2165ee4e61fb0eb143e0c19569b048be8180fd1629494be57"
+      "rewritten_sha256": "f1e0c57c625f4fe7bb3f045a0e866fb913d3b1dbda5a2baabce8ad75535f9d6e",
+      "imported_sha256": "f1e0c57c625f4fe7bb3f045a0e866fb913d3b1dbda5a2baabce8ad75535f9d6e"
     },
     {
       "source": "cmd/optional-driver-agent/provider_elasticsearch.go",
       "target": "cmd/driver-agent/provider_elasticsearch.go",
       "source_sha256": "5cd464845a874c8c22c53b16ac8a5370ebb61c7660fdecd51dfc3c2456a677cb",
-      "rewritten_sha256": "6ff6263889d867cb36ff8f13d7210798891acf04b4ed64acb4da6bdf5c592986",
-      "imported_sha256": "6ff6263889d867cb36ff8f13d7210798891acf04b4ed64acb4da6bdf5c592986"
+      "rewritten_sha256": "1b7491c8e8d38a2d0dfb4d5a86b65d2188b6ee5486566b3beb9741bdd15e52ab",
+      "imported_sha256": "1b7491c8e8d38a2d0dfb4d5a86b65d2188b6ee5486566b3beb9741bdd15e52ab"
     },
     {
       "source": "cmd/optional-driver-agent/provider_gaussdb.go",
       "target": "cmd/driver-agent/provider_gaussdb.go",
       "source_sha256": "ed69604315d8ac55e6602b317aa5a7e8a115b55155b4124f4af2b74a4110c4e9",
-      "rewritten_sha256": "ed7d677da5e31d17a4716cce0843120c5fd1fe55c21f7ff65d07ed5945a4f86d",
-      "imported_sha256": "ed7d677da5e31d17a4716cce0843120c5fd1fe55c21f7ff65d07ed5945a4f86d"
+      "rewritten_sha256": "ad909e6638ef2c1b0e2eb8913a1b009185d8e8f16eca71ea457d08143c0cd92a",
+      "imported_sha256": "ad909e6638ef2c1b0e2eb8913a1b009185d8e8f16eca71ea457d08143c0cd92a"
     },
     {
       "source": "cmd/optional-driver-agent/provider_highgo.go",
       "target": "cmd/driver-agent/provider_highgo.go",
       "source_sha256": "20d4094e3093d976725b4522e1f9d966382071f15e86da9ba8e4173ceac8ef20",
-      "rewritten_sha256": "4c10656a439892142cee8b2885e47d6d7f2af57111227f9cf86a4180024e4ea8",
-      "imported_sha256": "4c10656a439892142cee8b2885e47d6d7f2af57111227f9cf86a4180024e4ea8"
+      "rewritten_sha256": "cc0cac1f94fad801f97b8b32b671ac7e3a0125bb17c2e974490e980d0edb9421",
+      "imported_sha256": "cc0cac1f94fad801f97b8b32b671ac7e3a0125bb17c2e974490e980d0edb9421"
     },
     {
       "source": "cmd/optional-driver-agent/provider_iotdb.go",
       "target": "cmd/driver-agent/provider_iotdb.go",
       "source_sha256": "9b5526cc8c22892e6bfc98387f435306107f349d8186e0f09fa3182d49472797",
-      "rewritten_sha256": "f7179cf17fe4fba881eebea7ef4b4993a99843bae4d198ceb57f73475fa23087",
-      "imported_sha256": "f7179cf17fe4fba881eebea7ef4b4993a99843bae4d198ceb57f73475fa23087"
+      "rewritten_sha256": "4d3ab3cebb299bc887b33b162b2a259910dfb7a8e2bc342b3dfd17143bf00420",
+      "imported_sha256": "4d3ab3cebb299bc887b33b162b2a259910dfb7a8e2bc342b3dfd17143bf00420"
     },
     {
       "source": "cmd/optional-driver-agent/provider_iris.go",
       "target": "cmd/driver-agent/provider_iris.go",
       "source_sha256": "b091faedf3dd5d1a58f2f273dcc67940d8a1699ee34a2708e4dcd8d6df5d7dd5",
-      "rewritten_sha256": "c136ad3eae18d1f36a23aee7e263c6af5c4b3b4848e311324e057773f137732f",
-      "imported_sha256": "c136ad3eae18d1f36a23aee7e263c6af5c4b3b4848e311324e057773f137732f"
+      "rewritten_sha256": "66e4a724c76ef5539c18310b558fed705af46ec028f0998b6e1b1dc7fdd1b265",
+      "imported_sha256": "66e4a724c76ef5539c18310b558fed705af46ec028f0998b6e1b1dc7fdd1b265"
     },
     {
       "source": "cmd/optional-driver-agent/provider_kingbase.go",
       "target": "cmd/driver-agent/provider_kingbase.go",
       "source_sha256": "94d727dc3d878e8887b815f298dcb30a025d31e6c285171216f9baaf1b8eda9e",
-      "rewritten_sha256": "79196070bdcb9a4b3e40630aca906a08b4319776e9622b6f3a0e7597f6512949",
-      "imported_sha256": "79196070bdcb9a4b3e40630aca906a08b4319776e9622b6f3a0e7597f6512949"
+      "rewritten_sha256": "61d903ce7fa2a08141f482d148ddcace553ec63ce7259d167971f6be35baa02d",
+      "imported_sha256": "61d903ce7fa2a08141f482d148ddcace553ec63ce7259d167971f6be35baa02d"
     },
     {
       "source": "cmd/optional-driver-agent/provider_mariadb.go",
       "target": "cmd/driver-agent/provider_mariadb.go",
       "source_sha256": "bdf443578561f282906dfecc3da605ae676b41a89ccd56b0a5122797ba13650a",
-      "rewritten_sha256": "6840528b873a194c342f6c564fdc1bc24e9526fc038793e7d2d030e714a66180",
-      "imported_sha256": "6840528b873a194c342f6c564fdc1bc24e9526fc038793e7d2d030e714a66180"
+      "rewritten_sha256": "4e239a2a721c0e66a01e598a33d5de8bc09616dd2a0939b4c5fbe90762bfe1ca",
+      "imported_sha256": "4e239a2a721c0e66a01e598a33d5de8bc09616dd2a0939b4c5fbe90762bfe1ca"
     },
     {
       "source": "cmd/optional-driver-agent/provider_mongodb.go",
       "target": "cmd/driver-agent/provider_mongodb.go",
       "source_sha256": "4879886b4b3cb8de8d46bcd6f2c3f461ba193ffa853e6211fc5bbc14ab207dec",
-      "rewritten_sha256": "5d64cfcb31b81b0781d9bbec010121a5fb48af5e0bca755b4ac8a94b0bc757e1",
-      "imported_sha256": "5d64cfcb31b81b0781d9bbec010121a5fb48af5e0bca755b4ac8a94b0bc757e1"
+      "rewritten_sha256": "b9696d33722ca49458da0f017e0bc0044b7b94919c1b64651f06b5e01def4424",
+      "imported_sha256": "b9696d33722ca49458da0f017e0bc0044b7b94919c1b64651f06b5e01def4424"
     },
     {
       "source": "cmd/optional-driver-agent/provider_mongodb_v1.go",
       "target": "cmd/driver-agent/provider_mongodb_v1.go",
       "source_sha256": "fa7b35b54fd73cc231499a5555b3b3fb6e9bd9aef810af47c6410f20659c9db9",
-      "rewritten_sha256": "6b652c16184c76d0c753a3abc32a45933271cddeb0dbbb640a7537866b4c16e3",
-      "imported_sha256": "6b652c16184c76d0c753a3abc32a45933271cddeb0dbbb640a7537866b4c16e3"
+      "rewritten_sha256": "8def3a414ae46d7b31d7f22cfec112b24e0fcc7a607e757b081ca2ed60c91ed9",
+      "imported_sha256": "8def3a414ae46d7b31d7f22cfec112b24e0fcc7a607e757b081ca2ed60c91ed9"
     },
     {
       "source": "cmd/optional-driver-agent/provider_mysql.go",
       "target": "cmd/driver-agent/provider_mysql.go",
       "source_sha256": "1f2f9745282865891e41c56decb36d135917e039c9ffe7b3ede85624be54f06c",
-      "rewritten_sha256": "fd6e409cbd433959499228f67709d3bc79bc18db439e0f841febe76bf77e07d5",
-      "imported_sha256": "fd6e409cbd433959499228f67709d3bc79bc18db439e0f841febe76bf77e07d5"
+      "rewritten_sha256": "9b3437c363e70f423f2ec7d68867e3457769242d7f6bb1bfd5a8528ce488fa22",
+      "imported_sha256": "9b3437c363e70f423f2ec7d68867e3457769242d7f6bb1bfd5a8528ce488fa22"
     },
     {
       "source": "cmd/optional-driver-agent/provider_oceanbase.go",
       "target": "cmd/driver-agent/provider_oceanbase.go",
       "source_sha256": "ff2e513d7359a53654d6644fb55310713569f4cb9c20024667905ba869e221f3",
-      "rewritten_sha256": "6ed730cfeb50fa98db23f65946372eb024063616f30e3d51d81da9134284239c",
-      "imported_sha256": "6ed730cfeb50fa98db23f65946372eb024063616f30e3d51d81da9134284239c"
+      "rewritten_sha256": "8de719e7007b752be9f024bf8f36bbac344af0a9edd4051ff975f57abddb14e6",
+      "imported_sha256": "8de719e7007b752be9f024bf8f36bbac344af0a9edd4051ff975f57abddb14e6"
     },
     {
       "source": "cmd/optional-driver-agent/provider_opengauss.go",
       "target": "cmd/driver-agent/provider_opengauss.go",
       "source_sha256": "46916fdba70f6d815ed8130a4fc220a150bb9fd2e7c7fa22d995a7b110be3124",
-      "rewritten_sha256": "bd45223d5278f9a4c8b5fcec17a5cd963be24c4214a022113d7933935fc25ea1",
-      "imported_sha256": "bd45223d5278f9a4c8b5fcec17a5cd963be24c4214a022113d7933935fc25ea1"
+      "rewritten_sha256": "c9a4c238894e69f09c247a68e42582934b98d33753d8411e831498460a5f5e80",
+      "imported_sha256": "c9a4c238894e69f09c247a68e42582934b98d33753d8411e831498460a5f5e80"
     },
     {
       "source": "cmd/optional-driver-agent/provider_sphinx.go",
       "target": "cmd/driver-agent/provider_sphinx.go",
       "source_sha256": "5646d0932e98297c0e5850e14ead3210d80449655020cd418fd65012e291b60e",
-      "rewritten_sha256": "3b877121b5bbc3355cbfbf70fdbcc4a0b7f293ee47f9a11015b49406a205f540",
-      "imported_sha256": "3b877121b5bbc3355cbfbf70fdbcc4a0b7f293ee47f9a11015b49406a205f540"
+      "rewritten_sha256": "2a96c2862ceda7062148a32c50cf6ff571e589d768148c6123d28e99e5c17528",
+      "imported_sha256": "2a96c2862ceda7062148a32c50cf6ff571e589d768148c6123d28e99e5c17528"
     },
     {
       "source": "cmd/optional-driver-agent/provider_sqlite.go",
       "target": "cmd/driver-agent/provider_sqlite.go",
       "source_sha256": "27c71c9c9c78210d718c7b995fee64ff2fead4594e8cf865115125200bc91a06",
-      "rewritten_sha256": "eb14bcc067201c062a640135d0039e57346e6915d359a64b300d099d69917b7d",
-      "imported_sha256": "eb14bcc067201c062a640135d0039e57346e6915d359a64b300d099d69917b7d"
+      "rewritten_sha256": "78936823586b6acb979360eb685cad8f1c3af585fc3cafbdc89884c5ffc8b0e7",
+      "imported_sha256": "78936823586b6acb979360eb685cad8f1c3af585fc3cafbdc89884c5ffc8b0e7"
     },
     {
       "source": "cmd/optional-driver-agent/provider_sqlserver.go",
       "target": "cmd/driver-agent/provider_sqlserver.go",
       "source_sha256": "4127c2e8b4eded7a5afc6c0a65912203c49e7e5bfaa4b2b5186f8f40f26cf4b7",
-      "rewritten_sha256": "c8a7f5425a1415a4b5ad353e53d10c8492abf59973cb398f100b45e774331514",
-      "imported_sha256": "c8a7f5425a1415a4b5ad353e53d10c8492abf59973cb398f100b45e774331514"
+      "rewritten_sha256": "1de62c429286179a2bb1b963f13b71f1c5a3db59c8305893c89d2907fbabd0ec",
+      "imported_sha256": "1de62c429286179a2bb1b963f13b71f1c5a3db59c8305893c89d2907fbabd0ec"
     },
     {
       "source": "cmd/optional-driver-agent/provider_starrocks.go",
       "target": "cmd/driver-agent/provider_starrocks.go",
       "source_sha256": "252e50e660a1271f72f109ccda360f14fa00059c477d60cfc3d79ada7fb28f27",
-      "rewritten_sha256": "c33f99a85d71dfb01814cdc06d4dd7abbe0475b38dff77cfdfca3feb5a487da1",
-      "imported_sha256": "c33f99a85d71dfb01814cdc06d4dd7abbe0475b38dff77cfdfca3feb5a487da1"
+      "rewritten_sha256": "019f5715319be5478464a594c5e08d2dfaa7b7e474728f19f21b38fe9681d191",
+      "imported_sha256": "019f5715319be5478464a594c5e08d2dfaa7b7e474728f19f21b38fe9681d191"
     },
     {
       "source": "cmd/optional-driver-agent/provider_tdengine.go",
       "target": "cmd/driver-agent/provider_tdengine.go",
       "source_sha256": "c282e48c2e77a0f1deb922b402df8413c47d3db33b10bb8ea28eb1898ebbee91",
-      "rewritten_sha256": "5c8b606aa5b072c36c90517440c4bed28f4b2624f20e986c0ffe3d386247ac65",
-      "imported_sha256": "5c8b606aa5b072c36c90517440c4bed28f4b2624f20e986c0ffe3d386247ac65"
+      "rewritten_sha256": "5bf83a972d9e8ce4f59abfdd72226813bc8b22d50e6045f0e598d0d913f75094",
+      "imported_sha256": "5bf83a972d9e8ce4f59abfdd72226813bc8b22d50e6045f0e598d0d913f75094"
     },
     {
       "source": "cmd/optional-driver-agent/provider_trino.go",
       "target": "cmd/driver-agent/provider_trino.go",
       "source_sha256": "2774aee20d822576b4a22cc57b338f27155a2a39e654d96586707b53c01f129b",
-      "rewritten_sha256": "bd7c512fd058e29f83ed80d9abeb31dd4f2e6268b5f060dda58fa662ad304e12",
-      "imported_sha256": "bd7c512fd058e29f83ed80d9abeb31dd4f2e6268b5f060dda58fa662ad304e12"
+      "rewritten_sha256": "23c8d77575a61909eb51bb2c35f562aab6a91483feefce3c417151fd3473887f",
+      "imported_sha256": "23c8d77575a61909eb51bb2c35f562aab6a91483feefce3c417151fd3473887f"
     },
     {
       "source": "cmd/optional-driver-agent/provider_vastbase.go",
       "target": "cmd/driver-agent/provider_vastbase.go",
       "source_sha256": "e22f1adf98403784d5efe1a13ac04595707977aa7a0c21f62ed6da51129a2b7a",
-      "rewritten_sha256": "0fb5e0f23d2035259abbed19371b29cb1b0495db4743ab4826614b56b0da7f12",
-      "imported_sha256": "0fb5e0f23d2035259abbed19371b29cb1b0495db4743ab4826614b56b0da7f12"
+      "rewritten_sha256": "6d71f082f84f981d7a6f380b63963743c630adfce54704e7f7dc38541c0fc05b",
+      "imported_sha256": "6d71f082f84f981d7a6f380b63963743c630adfce54704e7f7dc38541c0fc05b"
     },
     {
       "source": "cmd/optional-driver-agent/query_budget.go",
@@ -358,8 +358,8 @@
       "source": "internal/appdata/root.go",
       "target": "internal/upstream/appdata/root.go",
       "source_sha256": "942e5d6abd997fb381a4ad6a13bd25e37ebba009f7f5f901c6c94efc09d39663",
-      "rewritten_sha256": "ef1f8415e50d33c84ec8142e7143c313244e53c8433e8cf40f7168bee0b73f10",
-      "imported_sha256": "ef1f8415e50d33c84ec8142e7143c313244e53c8433e8cf40f7168bee0b73f10"
+      "rewritten_sha256": "dda69096baf942b916e9a1897ba8b05eb3028eded7d6ab7df7f2ad60db610652",
+      "imported_sha256": "dda69096baf942b916e9a1897ba8b05eb3028eded7d6ab7df7f2ad60db610652"
     },
     {
       "source": "internal/appdata/root_i18n_test.go",
@@ -372,8 +372,8 @@
       "source": "internal/appdata/root_test.go",
       "target": "internal/upstream/appdata/root_test.go",
       "source_sha256": "4c37a0fc9412f231dfe36add9712845b0651564fc7e969c9b38b86268e8bbf8d",
-      "rewritten_sha256": "de4505efea7305a23a080ebd8804ea0f96d206c738b26e6411091c7a9c3a98c6",
-      "imported_sha256": "de4505efea7305a23a080ebd8804ea0f96d206c738b26e6411091c7a9c3a98c6"
+      "rewritten_sha256": "09ee36504cc5cd7f022fa2ba8a2971f02d7c7701f3a7d20770cf6fe9fdc512b7",
+      "imported_sha256": "09ee36504cc5cd7f022fa2ba8a2971f02d7c7701f3a7d20770cf6fe9fdc512b7"
     },
     {
       "source": "internal/connection/connection_sidebar_layout.go",
@@ -428,22 +428,22 @@
       "source": "internal/connection/session.go",
       "target": "internal/upstream/connection/session.go",
       "source_sha256": "4b692c6befb360617384b7b25c82c1ae3138e91e6a175cf8e128e8d1473d041e",
-      "rewritten_sha256": "4b692c6befb360617384b7b25c82c1ae3138e91e6a175cf8e128e8d1473d041e",
-      "imported_sha256": "4b692c6befb360617384b7b25c82c1ae3138e91e6a175cf8e128e8d1473d041e"
+      "rewritten_sha256": "98684606306b1cf7fea6b46f9f4d40c9afa3e6ff576a1337dd4511ecf0866d1d",
+      "imported_sha256": "98684606306b1cf7fea6b46f9f4d40c9afa3e6ff576a1337dd4511ecf0866d1d"
     },
     {
       "source": "internal/connection/types.go",
       "target": "internal/upstream/connection/types.go",
       "source_sha256": "37ac6c3fc60fbb0fbcb502607db7668de4270b47b7440bdfd1358728485d6e39",
-      "rewritten_sha256": "37ac6c3fc60fbb0fbcb502607db7668de4270b47b7440bdfd1358728485d6e39",
-      "imported_sha256": "cfc69a47b4c5ca6176fb242a9084f9fb02bbe13a12c02caa9e99b0671e757a7b"
+      "rewritten_sha256": "3844d88dbf5fd744009cd46aaf35e3d6812cffcb49d6b89feba98648df101f20",
+      "imported_sha256": "3729bcd7ff1b434951a0933584ae817f2b4829e6adbbc376f98736d222bf4345"
     },
     {
       "source": "internal/connection/types_test.go",
       "target": "internal/upstream/connection/types_test.go",
       "source_sha256": "cd5ce8ee0db7ae91efd547df40ad40ef9fb36468c08d06c133becdd348ad0cd9",
-      "rewritten_sha256": "cd5ce8ee0db7ae91efd547df40ad40ef9fb36468c08d06c133becdd348ad0cd9",
-      "imported_sha256": "cd5ce8ee0db7ae91efd547df40ad40ef9fb36468c08d06c133becdd348ad0cd9"
+      "rewritten_sha256": "47f72c0694705bcfddba83c59e05004413501c2050890dc7de6302a1c1e5f7e0",
+      "imported_sha256": "47f72c0694705bcfddba83c59e05004413501c2050890dc7de6302a1c1e5f7e0"
     },
     {
       "source": null,
@@ -530,43 +530,43 @@
       "source": "internal/db/batch_write_interface_gaussdb_test.go",
       "target": "internal/upstream/db/batch_write_interface_gaussdb_test.go",
       "source_sha256": "31124a1da762351efaf18c4a3111b149676dcfe08f2ea390447af700078c28e0",
-      "rewritten_sha256": "31124a1da762351efaf18c4a3111b149676dcfe08f2ea390447af700078c28e0",
-      "imported_sha256": "31124a1da762351efaf18c4a3111b149676dcfe08f2ea390447af700078c28e0"
+      "rewritten_sha256": "b1912566199f952a9abb1f921958d4262fff546cee03aafd2b979945b8b8bda0",
+      "imported_sha256": "b1912566199f952a9abb1f921958d4262fff546cee03aafd2b979945b8b8bda0"
     },
     {
       "source": "internal/db/batch_write_interface_highgo_test.go",
       "target": "internal/upstream/db/batch_write_interface_highgo_test.go",
       "source_sha256": "b75c4fa103682992b2d2c391cf89c5aedfe5fc52a1635da26246de90c33d7c42",
-      "rewritten_sha256": "b75c4fa103682992b2d2c391cf89c5aedfe5fc52a1635da26246de90c33d7c42",
-      "imported_sha256": "b75c4fa103682992b2d2c391cf89c5aedfe5fc52a1635da26246de90c33d7c42"
+      "rewritten_sha256": "d5ce69260d6d6d9275f166fa7722d8acc1a3616c7fcb0b05006ca33b7dd25f52",
+      "imported_sha256": "d5ce69260d6d6d9275f166fa7722d8acc1a3616c7fcb0b05006ca33b7dd25f52"
     },
     {
       "source": "internal/db/batch_write_interface_kingbase_test.go",
       "target": "internal/upstream/db/batch_write_interface_kingbase_test.go",
       "source_sha256": "5d089343a51c5c43a6286697c581e863956f6e19991b7b054858106dcf9ea406",
-      "rewritten_sha256": "5d089343a51c5c43a6286697c581e863956f6e19991b7b054858106dcf9ea406",
-      "imported_sha256": "5d089343a51c5c43a6286697c581e863956f6e19991b7b054858106dcf9ea406"
+      "rewritten_sha256": "4cee51ad4e377727f9f03af16e37f7d32cd6fbcfd840df5a52854a53bc49e878",
+      "imported_sha256": "4cee51ad4e377727f9f03af16e37f7d32cd6fbcfd840df5a52854a53bc49e878"
     },
     {
       "source": "internal/db/batch_write_interface_sqlserver_test.go",
       "target": "internal/upstream/db/batch_write_interface_sqlserver_test.go",
       "source_sha256": "d72eb2ddb8863cdfe510ec832f15af2d7d15b4140197d8167041e5d521b80a98",
-      "rewritten_sha256": "d72eb2ddb8863cdfe510ec832f15af2d7d15b4140197d8167041e5d521b80a98",
-      "imported_sha256": "d72eb2ddb8863cdfe510ec832f15af2d7d15b4140197d8167041e5d521b80a98"
+      "rewritten_sha256": "c23e511a06dcf82a9601362d07fd7cca0c4d1c7c3916a9857983b25af72a6841",
+      "imported_sha256": "c23e511a06dcf82a9601362d07fd7cca0c4d1c7c3916a9857983b25af72a6841"
     },
     {
       "source": "internal/db/batch_write_interface_test.go",
       "target": "internal/upstream/db/batch_write_interface_test.go",
       "source_sha256": "5438d4dde06f0db9e908414de7194930bdf420928ed18e97a3f9ac4604f22cea",
-      "rewritten_sha256": "5438d4dde06f0db9e908414de7194930bdf420928ed18e97a3f9ac4604f22cea",
-      "imported_sha256": "5438d4dde06f0db9e908414de7194930bdf420928ed18e97a3f9ac4604f22cea"
+      "rewritten_sha256": "b7dd2de60328c44cb917b6d7cee245a402b6a6cddb7bcfb5312f3ae26f9e35d2",
+      "imported_sha256": "b7dd2de60328c44cb917b6d7cee245a402b6a6cddb7bcfb5312f3ae26f9e35d2"
     },
     {
       "source": "internal/db/batch_write_interface_vastbase_test.go",
       "target": "internal/upstream/db/batch_write_interface_vastbase_test.go",
       "source_sha256": "9deb3e8017c9689ac6b65cefa20288e43a19bdc9a0056c3cf25a1716a4c815f4",
-      "rewritten_sha256": "9deb3e8017c9689ac6b65cefa20288e43a19bdc9a0056c3cf25a1716a4c815f4",
-      "imported_sha256": "9deb3e8017c9689ac6b65cefa20288e43a19bdc9a0056c3cf25a1716a4c815f4"
+      "rewritten_sha256": "da4b1f31b21609e2f403b62672da23b7d4534df9c1399a461f553b273ae4e42f",
+      "imported_sha256": "da4b1f31b21609e2f403b62672da23b7d4534df9c1399a461f553b273ae4e42f"
     },
     {
       "source": "internal/db/change_preview.go",
@@ -593,8 +593,8 @@
       "source": "internal/db/change_reverse_test.go",
       "target": "internal/upstream/db/change_reverse_test.go",
       "source_sha256": "a6b8ad46f659987fbf15dba6f6ffaf62dbbdb3dcebc2f47fadce1516dd3a0516",
-      "rewritten_sha256": "c7deb12fe057c1ae463b7b619a7459165ac363741523f13ff4ee990b8c42cb7b",
-      "imported_sha256": "c7deb12fe057c1ae463b7b619a7459165ac363741523f13ff4ee990b8c42cb7b"
+      "rewritten_sha256": "2b89035944be15d0e334cc3c9be9fd76a6c6e020de9cc258d951cf53410ab5cd",
+      "imported_sha256": "e9b3fd93c0eed4505c5d0029858d521896ecf239a27a4277fb391a81c4e660e8"
     },
     {
       "source": "internal/db/chroma_impl.go",
@@ -607,43 +607,43 @@
       "source": "internal/db/chroma_impl_test.go",
       "target": "internal/upstream/db/chroma_impl_test.go",
       "source_sha256": "cd942279941fce3229c6d6cbacea5149f04edf93feb3bd60c71008b5be5db5a4",
-      "rewritten_sha256": "4063400e93525155b01c4958f064713c1e0821eaf1037116436a67b28bd745fb",
-      "imported_sha256": "4063400e93525155b01c4958f064713c1e0821eaf1037116436a67b28bd745fb"
+      "rewritten_sha256": "e91d04422f9080da3715d77400d1431f49622ca7e09f0219c604dafe5333a93c",
+      "imported_sha256": "e91d04422f9080da3715d77400d1431f49622ca7e09f0219c604dafe5333a93c"
     },
     {
       "source": "internal/db/clickhouse_applychanges_context_test.go",
       "target": "internal/upstream/db/clickhouse_applychanges_context_test.go",
       "source_sha256": "f5602786e3b49bc08048e807a9fd20fa7a62a5e866f18e14c685099eb6ed20ab",
-      "rewritten_sha256": "0b1d5710cfd14c3a9664f3f80006e407db7466007a433e41efb8bffec62bd133",
-      "imported_sha256": "0b1d5710cfd14c3a9664f3f80006e407db7466007a433e41efb8bffec62bd133"
+      "rewritten_sha256": "47070c98171780df344b8ef7a2661639402d991ea4e2753224d788d5ea05d5dc",
+      "imported_sha256": "47070c98171780df344b8ef7a2661639402d991ea4e2753224d788d5ea05d5dc"
     },
     {
       "source": "internal/db/clickhouse_impl.go",
       "target": "internal/upstream/db/clickhouse_impl.go",
       "source_sha256": "a80e0821a1698c53dfc9aac12d3552abda857033ba2527b4b0f1c14d7955086e",
-      "rewritten_sha256": "0036066e300cadd8bfc104203146fdf336866ccaf58ac9aa618cd6ed563dd82b",
-      "imported_sha256": "0036066e300cadd8bfc104203146fdf336866ccaf58ac9aa618cd6ed563dd82b"
+      "rewritten_sha256": "b03d439223c5fa5456dbc3d34103585fcbf2c9d6b16f12e1cfcd8f9b4fb66a9c",
+      "imported_sha256": "b03d439223c5fa5456dbc3d34103585fcbf2c9d6b16f12e1cfcd8f9b4fb66a9c"
     },
     {
       "source": "internal/db/clickhouse_impl_test.go",
       "target": "internal/upstream/db/clickhouse_impl_test.go",
       "source_sha256": "7729ccd8a54893902354a49309479a5825ae5a7e9ad7d1c0194d2a18a46abf4a",
-      "rewritten_sha256": "89b49c2cd0e566afae57074aa9a4c46e7d1133206919ae999abe3af0211184e1",
-      "imported_sha256": "89b49c2cd0e566afae57074aa9a4c46e7d1133206919ae999abe3af0211184e1"
+      "rewritten_sha256": "78f6840913dd04ad30c3e1e4afa8502ebfa08fa50016811ef97ceb03dd954845",
+      "imported_sha256": "78f6840913dd04ad30c3e1e4afa8502ebfa08fa50016811ef97ceb03dd954845"
     },
     {
       "source": "internal/db/clickhouse_legacy_http.go",
       "target": "internal/upstream/db/clickhouse_legacy_http.go",
       "source_sha256": "143e5041d32ca974cde88133bcde526f116d765837c5a34a54a3ee0e9f1f2246",
-      "rewritten_sha256": "143e5041d32ca974cde88133bcde526f116d765837c5a34a54a3ee0e9f1f2246",
-      "imported_sha256": "143e5041d32ca974cde88133bcde526f116d765837c5a34a54a3ee0e9f1f2246"
+      "rewritten_sha256": "31752dad996596d4f9aacb1a1382e0998606971628d2c82008fd094d468e0862",
+      "imported_sha256": "31752dad996596d4f9aacb1a1382e0998606971628d2c82008fd094d468e0862"
     },
     {
       "source": "internal/db/clickhouse_legacy_http_test.go",
       "target": "internal/upstream/db/clickhouse_legacy_http_test.go",
       "source_sha256": "8c990461b3e4a52f096a0d99825ce1ad310fda4fd5fd2e541d6208bd2d16177a",
-      "rewritten_sha256": "1c9678b506c347958e8f7cd3e2f82c3327ac1d0f0ce72307f94bd80663639aaa",
-      "imported_sha256": "1c9678b506c347958e8f7cd3e2f82c3327ac1d0f0ce72307f94bd80663639aaa"
+      "rewritten_sha256": "d75f33087b464576d1878f2839f7a136ff7f764e258cd3fe908752246ed32396",
+      "imported_sha256": "d75f33087b464576d1878f2839f7a136ff7f764e258cd3fe908752246ed32396"
     },
     {
       "source": "internal/db/composite_key_applychanges_test.go",
@@ -670,15 +670,15 @@
       "source": "internal/db/connection_params_test.go",
       "target": "internal/upstream/db/connection_params_test.go",
       "source_sha256": "09113580324c999449cc21903fc5a79fd600a7a8e12a72567fcbf5626032dd74",
-      "rewritten_sha256": "5a46b09fca603135da8a27e9662e379e59cdcab9173408bfa6da3caffa12100d",
-      "imported_sha256": "5a46b09fca603135da8a27e9662e379e59cdcab9173408bfa6da3caffa12100d"
+      "rewritten_sha256": "8f098d1f674c2c4a41f8a4ab18ae47cd8d6c326faadc9068b5da522a49fbdbf3",
+      "imported_sha256": "8f098d1f674c2c4a41f8a4ab18ae47cd8d6c326faadc9068b5da522a49fbdbf3"
     },
     {
       "source": "internal/db/contract_sqlite_test.go",
       "target": "internal/upstream/db/contract_sqlite_test.go",
       "source_sha256": "35823aa93ebbb3563d6e95d2041caf569238fbec2596c7dd4726bab1c28259a5",
-      "rewritten_sha256": "3c19d1c5815d317092268697a56e82ea2c6a293527536148748519ee8fa5b41b",
-      "imported_sha256": "3c19d1c5815d317092268697a56e82ea2c6a293527536148748519ee8fa5b41b"
+      "rewritten_sha256": "be9eee2d9f9aaeeae92c8442695e74444cf7f8020d2cf12a9d38d9242a5d3c78",
+      "imported_sha256": "be9eee2d9f9aaeeae92c8442695e74444cf7f8020d2cf12a9d38d9242a5d3c78"
     },
     {
       "source": "internal/db/custom_impl.go",
@@ -691,15 +691,15 @@
       "source": "internal/db/custom_impl_test.go",
       "target": "internal/upstream/db/custom_impl_test.go",
       "source_sha256": "22778fcf98b86b4690df5e422dd7bc1cdcc9479b83d21987e120ac1a91fe96e4",
-      "rewritten_sha256": "6242d4b60a9c39c07324fcbf14859e2e677a2380d627edcc716cba2734effeb9",
-      "imported_sha256": "6242d4b60a9c39c07324fcbf14859e2e677a2380d627edcc716cba2734effeb9"
+      "rewritten_sha256": "0ce503f79d89fb09f64127658f7d5341dd10afd23c5679e607b31a1df8c16688",
+      "imported_sha256": "0ce503f79d89fb09f64127658f7d5341dd10afd23c5679e607b31a1df8c16688"
     },
     {
       "source": "internal/db/dameng_columns_runtime_test.go",
       "target": "internal/upstream/db/dameng_columns_runtime_test.go",
       "source_sha256": "dfe5b11e07f34865665bdb77284d0cbec192fad6c983cba864e02f19507484b5",
-      "rewritten_sha256": "dfe5b11e07f34865665bdb77284d0cbec192fad6c983cba864e02f19507484b5",
-      "imported_sha256": "dfe5b11e07f34865665bdb77284d0cbec192fad6c983cba864e02f19507484b5"
+      "rewritten_sha256": "2d1f78b40c278d347c98c80cb32a11bb184de74356f69a2d2f58bb2b8abff901",
+      "imported_sha256": "2d1f78b40c278d347c98c80cb32a11bb184de74356f69a2d2f58bb2b8abff901"
     },
     {
       "source": "internal/db/dameng_columns_test.go",
@@ -712,22 +712,22 @@
       "source": "internal/db/dameng_i18n_test.go",
       "target": "internal/upstream/db/dameng_i18n_test.go",
       "source_sha256": "6ef9ddc02d917005688f02a47a4da11c475a9b063ac39b5be35a7f6099e64630",
-      "rewritten_sha256": "a7c8ca7c726023d6ffc7f9378995d783010777380709eba0f61df606e51fa6a2",
-      "imported_sha256": "22c3ebd1d1f3ba3437f40011200fea45d30219b82f0c61ad89efe30adec9ddcd"
+      "rewritten_sha256": "2fb5f3f0a3e6867e7a57619e81bbd1f26eaf0b42ef576445024a68ba1fa52dbb",
+      "imported_sha256": "c6ad790ac12df8295b065dc53cc221baff68ff3d45b35386dd0afc30198c84ab"
     },
     {
       "source": "internal/db/dameng_identity_insert_test.go",
       "target": "internal/upstream/db/dameng_identity_insert_test.go",
       "source_sha256": "e30c95cbbf2980eefad0816bb09dfb683f34629daef1f0f5b0b73a0162507c77",
-      "rewritten_sha256": "9b2412f8b44e58ee62e175ba48e404d49bccbf0bfff0cafae8efd27da5214d1c",
-      "imported_sha256": "9b2412f8b44e58ee62e175ba48e404d49bccbf0bfff0cafae8efd27da5214d1c"
+      "rewritten_sha256": "f896fe869bba5487925f78dca3a29525a8cfca20fc6dffda4109470462900e02",
+      "imported_sha256": "f896fe869bba5487925f78dca3a29525a8cfca20fc6dffda4109470462900e02"
     },
     {
       "source": "internal/db/dameng_impl.go",
       "target": "internal/upstream/db/dameng_impl.go",
       "source_sha256": "e7aba4d1ec50bdaa7ba000a7032ee601f99f38bfd2936561f882cd9d3af22a62",
-      "rewritten_sha256": "18437babfb387bd45c77020ca117cfd002cf6c88ea3404d54662c3202d9ad3ce",
-      "imported_sha256": "18437babfb387bd45c77020ca117cfd002cf6c88ea3404d54662c3202d9ad3ce"
+      "rewritten_sha256": "98c2e848923ff43a43875600bdffe2507395f0f8b2fce8d1f15e662e013e64c5",
+      "imported_sha256": "98c2e848923ff43a43875600bdffe2507395f0f8b2fce8d1f15e662e013e64c5"
     },
     {
       "source": "internal/db/dameng_metadata.go",
@@ -740,8 +740,8 @@
       "source": "internal/db/dameng_metadata_entry_test.go",
       "target": "internal/upstream/db/dameng_metadata_entry_test.go",
       "source_sha256": "0614b42562e117311ee3cbec6e164162c87d881f69814e0443313faca8795ed3",
-      "rewritten_sha256": "0614b42562e117311ee3cbec6e164162c87d881f69814e0443313faca8795ed3",
-      "imported_sha256": "0614b42562e117311ee3cbec6e164162c87d881f69814e0443313faca8795ed3"
+      "rewritten_sha256": "e4faaa997a1f52cf64169f7f9e599000b8fc61db001c1ed802d789d427dac5f2",
+      "imported_sha256": "e4faaa997a1f52cf64169f7f9e599000b8fc61db001c1ed802d789d427dac5f2"
     },
     {
       "source": "internal/db/dameng_metadata_test.go",
@@ -754,8 +754,8 @@
       "source": "internal/db/dameng_transaction_test.go",
       "target": "internal/upstream/db/dameng_transaction_test.go",
       "source_sha256": "9ae4b13da2cb01b2b2b093e5cd4586906a7e6e561ccfc30c53e7f76b36b740ff",
-      "rewritten_sha256": "3d864def21f623e2eeb9bd5099a36e3c21fc95dcf73edc26c553e4ebfc6ab31c",
-      "imported_sha256": "3d864def21f623e2eeb9bd5099a36e3c21fc95dcf73edc26c553e4ebfc6ab31c"
+      "rewritten_sha256": "54d2fb6673e05557d771ddd54cb90f97bcb168f88b28e252cf297e12b0f757db",
+      "imported_sha256": "54d2fb6673e05557d771ddd54cb90f97bcb168f88b28e252cf297e12b0f757db"
     },
     {
       "source": "internal/db/data_source_capability.go",
@@ -796,8 +796,8 @@
       "source": "internal/db/database_i18n_test.go",
       "target": "internal/upstream/db/database_i18n_test.go",
       "source_sha256": "18994f4c41722f63a121d2a2b1eae05733de6e60a8e9708937b0c30436928326",
-      "rewritten_sha256": "1aa503e055630bf99b37918d62c12960a8b99c01bf8b3896db17171c3fafc91d",
-      "imported_sha256": "01816be7deb2dd7da1dd4f150d5b4797dfcaa11e3b668458cdc701ae53a7aec5"
+      "rewritten_sha256": "9b900aa4583978ed35fee045d4d7e5fc96a825f0b395277eb0efe3321b9b9844",
+      "imported_sha256": "45c20f10370dee8b6491da9a1a708f14a8a340c1cc6894bde187f24830fb9dfd"
     },
     {
       "source": "internal/db/database_message_factories.go",
@@ -810,15 +810,15 @@
       "source": "internal/db/database_optional_factories_full.go",
       "target": "internal/upstream/db/database_optional_factories_full.go",
       "source_sha256": "6e4c02676d01932581ae8eb33459a9fad2113a68c0efc8c7a17a1c2b88aa256a",
-      "rewritten_sha256": "6e4c02676d01932581ae8eb33459a9fad2113a68c0efc8c7a17a1c2b88aa256a",
-      "imported_sha256": "6e4c02676d01932581ae8eb33459a9fad2113a68c0efc8c7a17a1c2b88aa256a"
+      "rewritten_sha256": "c4bd866562411e2df1371171e0cc6e2f319fef406cb38ac4eaa5a69efe4df603",
+      "imported_sha256": "c4bd866562411e2df1371171e0cc6e2f319fef406cb38ac4eaa5a69efe4df603"
     },
     {
       "source": "internal/db/database_optional_factories_lite.go",
       "target": "internal/upstream/db/database_optional_factories_lite.go",
       "source_sha256": "c72a9be11d10c6768344a3f6ded9bafae9ba6c9ec231095e4feece25ed1cda95",
-      "rewritten_sha256": "c72a9be11d10c6768344a3f6ded9bafae9ba6c9ec231095e4feece25ed1cda95",
-      "imported_sha256": "c72a9be11d10c6768344a3f6ded9bafae9ba6c9ec231095e4feece25ed1cda95"
+      "rewritten_sha256": "6c825ff949e02d63e5f5659e59d0de56cdc25d638614cc23e92e1dd963f0bf75",
+      "imported_sha256": "6c825ff949e02d63e5f5659e59d0de56cdc25d638614cc23e92e1dd963f0bf75"
     },
     {
       "source": "internal/db/database_session_test.go",
@@ -838,15 +838,15 @@
       "source": "internal/db/diros_impl.go",
       "target": "internal/upstream/db/diros_impl.go",
       "source_sha256": "37d8a125ec192d8da2a14b2d54c57fb56a76bcab631385a99ddbf55613e93a50",
-      "rewritten_sha256": "652ce099280441bb52371e4f9c2dde0a9b8777125de9cb1c07c8ac30ac91ae16",
-      "imported_sha256": "652ce099280441bb52371e4f9c2dde0a9b8777125de9cb1c07c8ac30ac91ae16"
+      "rewritten_sha256": "f80ea9c9f09f9fd818135356588e6f43cd3d8652d030b5d1b2fdc20d966e7829",
+      "imported_sha256": "f80ea9c9f09f9fd818135356588e6f43cd3d8652d030b5d1b2fdc20d966e7829"
     },
     {
       "source": "internal/db/diros_ssh_hostkey_test.go",
       "target": "internal/upstream/db/diros_ssh_hostkey_test.go",
       "source_sha256": "7376c8b45ad24ed23f7db613833aa3483e4de498895891ae3ce245415279067f",
-      "rewritten_sha256": "9c883d32f7084143e34f5701b6d388115188e108b38ee5d2525be9ea0c0ecbb3",
-      "imported_sha256": "9c883d32f7084143e34f5701b6d388115188e108b38ee5d2525be9ea0c0ecbb3"
+      "rewritten_sha256": "3fba5e60024d9790a724bd3857313795c8bef50de6aa4903d510bc64f9831234",
+      "imported_sha256": "3fba5e60024d9790a724bd3857313795c8bef50de6aa4903d510bc64f9831234"
     },
     {
       "source": "internal/db/driver_agent_binary_check.go",
@@ -894,8 +894,8 @@
       "source": "internal/db/driver_support.go",
       "target": "internal/upstream/db/driver_support.go",
       "source_sha256": "6c6aeb89523d60359e6bbe24c12197bbf40559f8d574eaae62b811130bb9b60e",
-      "rewritten_sha256": "0de4f58ae4c380cc59a8c7d28cc58f27231f5ccb190266514ee3ed21043274dd",
-      "imported_sha256": "ab28c3c8c84855beda8fcd0f59147e2f321379e06dd3738f1fc5c7c23caeca4a"
+      "rewritten_sha256": "60e63b56b3bb21bd60b218e42ca80bcb2ec5d31fe91459252f9f0f6f67347a2c",
+      "imported_sha256": "1cee54eac64afc745a5341a686d3cbe4a8089cac69e8b10ca7037d04e6af6920"
     },
     {
       "source": "internal/db/driver_support_test.go",
@@ -908,8 +908,8 @@
       "source": "internal/db/dsn_test.go",
       "target": "internal/upstream/db/dsn_test.go",
       "source_sha256": "5c7c50158fc8325c6f85a0cc860a63f17614cc03e153b004da8baa913fc0a165",
-      "rewritten_sha256": "4f1ba748f47a94bbba15dc038482b5a2dc3cc69ba8a81d7b57a5382e74dc9d72",
-      "imported_sha256": "fdb0bb630e8e29e11a1fe71aaf4c723c32a800e968e3d9c70fa6cd0db8788499"
+      "rewritten_sha256": "1cee2cdb55a662722bdb53b718b5fd7b614738e7c98bbbdd5fd80d37a8f9f01f",
+      "imported_sha256": "c15f6b1fd0e8f9c4e9ff56317cafc3298ced3de826c701a6322ba8f06648a896"
     },
     {
       "source": null,
@@ -917,21 +917,21 @@
       "source_sha256": null,
       "adaptation": "authored addition",
       "rewritten_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "imported_sha256": "370dde6609f0e181794206677d69fbb492110d1566ff00efab9de30c40c67c91"
+      "imported_sha256": "171fc4d629ab51563b9bce1ef44b5079d545d6c0c1d773b3f45141617db27f0b"
     },
     {
       "source": "internal/db/duckdb_applychanges_test.go",
       "target": "internal/upstream/db/duckdb_applychanges_test.go",
       "source_sha256": "982bbd6f0ae7989283d7dde3b5318716a935cea6916c686f8703fc7337ad38bd",
-      "rewritten_sha256": "9e9da4ecbcb80c71cbf8850f5bc22d4563ee79c7718380a77c618faafa4c6055",
-      "imported_sha256": "9e9da4ecbcb80c71cbf8850f5bc22d4563ee79c7718380a77c618faafa4c6055"
+      "rewritten_sha256": "e4700b70d8cc9b2e954ebedc243429ccb9298a95428c1862facb3cbe1fe4cb39",
+      "imported_sha256": "e4700b70d8cc9b2e954ebedc243429ccb9298a95428c1862facb3cbe1fe4cb39"
     },
     {
       "source": "internal/db/duckdb_attach.go",
       "target": "internal/upstream/db/duckdb_attach.go",
       "source_sha256": "1e77dc09910535833384f7e978fe417462eecd80c20ed9e845107cdec3246336",
-      "rewritten_sha256": "1e77dc09910535833384f7e978fe417462eecd80c20ed9e845107cdec3246336",
-      "imported_sha256": "1e77dc09910535833384f7e978fe417462eecd80c20ed9e845107cdec3246336"
+      "rewritten_sha256": "2d0a974d5b8c4c13e58bb060372e66079e99e061ace6bce8c40ed8bc0af127e5",
+      "imported_sha256": "2d0a974d5b8c4c13e58bb060372e66079e99e061ace6bce8c40ed8bc0af127e5"
     },
     {
       "source": "internal/db/duckdb_attach_builder.go",
@@ -951,43 +951,43 @@
       "source": "internal/db/duckdb_attach_test.go",
       "target": "internal/upstream/db/duckdb_attach_test.go",
       "source_sha256": "8c7c279e54ed1581e8fa61aa856aae8b885558e83002fb63b73b9548c83ac33b",
-      "rewritten_sha256": "8c7c279e54ed1581e8fa61aa856aae8b885558e83002fb63b73b9548c83ac33b",
-      "imported_sha256": "8c7c279e54ed1581e8fa61aa856aae8b885558e83002fb63b73b9548c83ac33b"
+      "rewritten_sha256": "4416447b27fdf6938c7327e9f72dda529d766b7ce0f086ba33c3c24c53e1b98d",
+      "imported_sha256": "4416447b27fdf6938c7327e9f72dda529d766b7ce0f086ba33c3c24c53e1b98d"
     },
     {
       "source": "internal/db/duckdb_driver_import.go",
       "target": "internal/upstream/db/duckdb_driver_import.go",
       "source_sha256": "f647a29d2503db7128d7950b5b3b1d1e5098a1cbcfa6170e1ff6a7f8e520c1c0",
-      "rewritten_sha256": "f647a29d2503db7128d7950b5b3b1d1e5098a1cbcfa6170e1ff6a7f8e520c1c0",
-      "imported_sha256": "f647a29d2503db7128d7950b5b3b1d1e5098a1cbcfa6170e1ff6a7f8e520c1c0"
+      "rewritten_sha256": "232f68936466cb81e5c14323262718993f4d5df6e308d280e1898b99223c637b",
+      "imported_sha256": "232f68936466cb81e5c14323262718993f4d5df6e308d280e1898b99223c637b"
     },
     {
       "source": "internal/db/duckdb_getdatabases_test.go",
       "target": "internal/upstream/db/duckdb_getdatabases_test.go",
       "source_sha256": "2daea160f42a86048224f2dfd0d333fbf7918fd01bfd14c56abb8d839a3a268a",
-      "rewritten_sha256": "2daea160f42a86048224f2dfd0d333fbf7918fd01bfd14c56abb8d839a3a268a",
-      "imported_sha256": "2daea160f42a86048224f2dfd0d333fbf7918fd01bfd14c56abb8d839a3a268a"
+      "rewritten_sha256": "7019e750a8ceca189014bfcd1a67e7621e52a70a99bc6634f91611b583332080",
+      "imported_sha256": "7019e750a8ceca189014bfcd1a67e7621e52a70a99bc6634f91611b583332080"
     },
     {
       "source": "internal/db/duckdb_i18n_test.go",
       "target": "internal/upstream/db/duckdb_i18n_test.go",
       "source_sha256": "5a79f860c1cc05e603da6bc9d7dd09ecd615db83ee50866140df8f72ee8b018e",
-      "rewritten_sha256": "24fc03e6895b3643bdb331aaff97f48aa690dfd733f24a54111ee153f9488f8b",
-      "imported_sha256": "dcb5c7748dd484efd0ffbdc1e1a844776f255cfb912ebeff77ca0cdbd14f97c4"
+      "rewritten_sha256": "fe570db8ef6ed887e0649644cd8558cae39d257db901803dc675ae1d0f14a0fe",
+      "imported_sha256": "176ddd6bc48305300667ba6907753756830532899170bbfa9a9b083ded12c148"
     },
     {
       "source": "internal/db/duckdb_impl.go",
       "target": "internal/upstream/db/duckdb_impl.go",
       "source_sha256": "a092f7c1353ec45c307e6a236143bee6f1f8ef06c731394a007d63467aa93d3c",
-      "rewritten_sha256": "64a1670380cf7e20c3abb0756b1fe96b19a33ba4b138ece0c1382efe259aa5bb",
-      "imported_sha256": "64a1670380cf7e20c3abb0756b1fe96b19a33ba4b138ece0c1382efe259aa5bb"
+      "rewritten_sha256": "62af25782075b9960f17acfdc8934ae5a351bb3f5a769050ab5ffacb269de577",
+      "imported_sha256": "62af25782075b9960f17acfdc8934ae5a351bb3f5a769050ab5ffacb269de577"
     },
     {
       "source": "internal/db/duckdb_impl_dsn_test.go",
       "target": "internal/upstream/db/duckdb_impl_dsn_test.go",
       "source_sha256": "a8fe6a0cfc73d070ab57650c773c7de15621646b4ba6d028e9d4d93bcd0c2bcd",
-      "rewritten_sha256": "d9fd3ce3cc4f6a95d71ca9b0a479b1bf05b13cffb57e503b8f24f001e5430f53",
-      "imported_sha256": "d9fd3ce3cc4f6a95d71ca9b0a479b1bf05b13cffb57e503b8f24f001e5430f53"
+      "rewritten_sha256": "4635740422f28a104dea3e9443797d6b7dc4e54883a822eda5a497f2e00f9891",
+      "imported_sha256": "4635740422f28a104dea3e9443797d6b7dc4e54883a822eda5a497f2e00f9891"
     },
     {
       "source": "internal/db/duckdb_metadata.go",
@@ -1000,8 +1000,8 @@
       "source": "internal/db/duckdb_metadata_integration_test.go",
       "target": "internal/upstream/db/duckdb_metadata_integration_test.go",
       "source_sha256": "72d73b6927d4c3667601302e547423800b734203ee62fe6e8e8223f8b01903d1",
-      "rewritten_sha256": "bccd5107bc902c7d86b4d251a13900e3e00660768a92821f0e59f23487e24915",
-      "imported_sha256": "bccd5107bc902c7d86b4d251a13900e3e00660768a92821f0e59f23487e24915"
+      "rewritten_sha256": "f934f7aec0f5e6839563d2c7a7a60a8fe008fe4e63955fc673505cdbf3ef7ec5",
+      "imported_sha256": "f934f7aec0f5e6839563d2c7a7a60a8fe008fe4e63955fc673505cdbf3ef7ec5"
     },
     {
       "source": "internal/db/duckdb_metadata_test.go",
@@ -1014,148 +1014,148 @@
       "source": "internal/db/duckdb_platform_supported.go",
       "target": "internal/upstream/db/duckdb_platform_supported.go",
       "source_sha256": "3b320963a4c60911b8761d56f3d9537dace677d7e17a658658de3dbbc265021a",
-      "rewritten_sha256": "3b320963a4c60911b8761d56f3d9537dace677d7e17a658658de3dbbc265021a",
-      "imported_sha256": "3b320963a4c60911b8761d56f3d9537dace677d7e17a658658de3dbbc265021a"
+      "rewritten_sha256": "b8c7c7bcaf05e9df73fbc1eb3d493ff97f907a8d429f4550fdb21f1163e14040",
+      "imported_sha256": "b8c7c7bcaf05e9df73fbc1eb3d493ff97f907a8d429f4550fdb21f1163e14040"
     },
     {
       "source": "internal/db/duckdb_platform_unsupported.go",
       "target": "internal/upstream/db/duckdb_platform_unsupported.go",
       "source_sha256": "b4c118dfe29484bfa67ee9cfcdf3931db667c95d895fb079fc8be9f47bb47374",
-      "rewritten_sha256": "b4c118dfe29484bfa67ee9cfcdf3931db667c95d895fb079fc8be9f47bb47374",
-      "imported_sha256": "b4c118dfe29484bfa67ee9cfcdf3931db667c95d895fb079fc8be9f47bb47374"
+      "rewritten_sha256": "0ae370b48277e7c1670f0c522dce4098b836b22bbddfec4838bd2c76662aab09",
+      "imported_sha256": "0ae370b48277e7c1670f0c522dce4098b836b22bbddfec4838bd2c76662aab09"
     },
     {
       "source": "internal/db/duckdb_pool_integration_test.go",
       "target": "internal/upstream/db/duckdb_pool_integration_test.go",
       "source_sha256": "190a5966001ba8ebd277213b46cf8bdd928eb8ff0ab61bcbcf9e88ce963d9a89",
-      "rewritten_sha256": "eec6934d0912cc3c8b7ebdcac60d3bd1761a388a00ccfb2c7311b72640ae9856",
-      "imported_sha256": "eec6934d0912cc3c8b7ebdcac60d3bd1761a388a00ccfb2c7311b72640ae9856"
+      "rewritten_sha256": "bc9c68ba8fe2eef0412a46978184a94f08f0a6696bbc258b516700d4daa79b88",
+      "imported_sha256": "bc9c68ba8fe2eef0412a46978184a94f08f0a6696bbc258b516700d4daa79b88"
     },
     {
       "source": "internal/db/elasticsearch_apply_context_test.go",
       "target": "internal/upstream/db/elasticsearch_apply_context_test.go",
       "source_sha256": "dbb0db8d7983589690647f8d5ebfff6fcb98ef00701bf24cdb96b9d6f4a9d7ff",
-      "rewritten_sha256": "a6feec5d5d399bc8401aff566cf7925e1530c1e86ea5ee8c8ad895faffe2a322",
-      "imported_sha256": "a6feec5d5d399bc8401aff566cf7925e1530c1e86ea5ee8c8ad895faffe2a322"
+      "rewritten_sha256": "d7c5bebd6ab53db72e5cc1a279c8a4f6ef293ac50092b1230b68f5b5017602d8",
+      "imported_sha256": "d7c5bebd6ab53db72e5cc1a279c8a4f6ef293ac50092b1230b68f5b5017602d8"
     },
     {
       "source": "internal/db/elasticsearch_bulk_response_test.go",
       "target": "internal/upstream/db/elasticsearch_bulk_response_test.go",
       "source_sha256": "ce234d8a8bac0b936b52df0424188bf4740bfb76394814c8a3ea4ea6b6538e55",
-      "rewritten_sha256": "83b7d2878f55994ec41bd5015a5fa3347fb24c6c102ea0682a936b47789192c0",
-      "imported_sha256": "83b7d2878f55994ec41bd5015a5fa3347fb24c6c102ea0682a936b47789192c0"
+      "rewritten_sha256": "645778ab6e75facd5cb9c71f3a52302c23d7fa60e343311f81b286503187fe9c",
+      "imported_sha256": "645778ab6e75facd5cb9c71f3a52302c23d7fa60e343311f81b286503187fe9c"
     },
     {
       "source": "internal/db/elasticsearch_console_test.go",
       "target": "internal/upstream/db/elasticsearch_console_test.go",
       "source_sha256": "52047541733f94151a4b33923f9b96af7671f5d55dc50a09cbe026fba0975477",
-      "rewritten_sha256": "f061f368282275ae4e0dd1dbcf2636c8505767686871819b21f8199850c9d2e3",
-      "imported_sha256": "f061f368282275ae4e0dd1dbcf2636c8505767686871819b21f8199850c9d2e3"
+      "rewritten_sha256": "52c2c58ed424483b54c967c83fd9a83aa0a13af85b4285642ca95e69be56a2b8",
+      "imported_sha256": "52c2c58ed424483b54c967c83fd9a83aa0a13af85b4285642ca95e69be56a2b8"
     },
     {
       "source": "internal/db/elasticsearch_helpers.go",
       "target": "internal/upstream/db/elasticsearch_helpers.go",
       "source_sha256": "13b60d34baca00ae497695b17c1d112ac3edd4e2e68634812b4c75f58ed3f67e",
-      "rewritten_sha256": "bb67b3a19c127c4918faef3f42620c3c76d9d74c012721890cd640ecd463129b",
-      "imported_sha256": "bb67b3a19c127c4918faef3f42620c3c76d9d74c012721890cd640ecd463129b"
+      "rewritten_sha256": "6025a25f055605ef369a9c73d40269dc8c7aeadd450592ceba0536c92f7f8a42",
+      "imported_sha256": "6025a25f055605ef369a9c73d40269dc8c7aeadd450592ceba0536c92f7f8a42"
     },
     {
       "source": "internal/db/elasticsearch_i18n_test.go",
       "target": "internal/upstream/db/elasticsearch_i18n_test.go",
       "source_sha256": "7b1ea171a3fca7eaed3680769a1f73f99a865a61f28c486ff41c3478589c6ca1",
-      "rewritten_sha256": "dfbb1976d8d272d29359d5301a550d17b0ac69dbe7753f4050e35828074916b0",
-      "imported_sha256": "02d852a14a35ed56ebd771b6fc9abfd716f8b99f518c6e5c4f002f33dbfc7d36"
+      "rewritten_sha256": "28b6bcf99767dd6710f7a506c5b07a18f38709ebdf7dcf40c0675ce6b810877c",
+      "imported_sha256": "ee550d4521d41884789c7639312fc8c147eed19f1c03fb3cd4513501da146143"
     },
     {
       "source": "internal/db/elasticsearch_impl.go",
       "target": "internal/upstream/db/elasticsearch_impl.go",
       "source_sha256": "fa36d7f042e6df841577ace2ed7aca66fd6d2083e33a03a9af38a2af4edfc803",
-      "rewritten_sha256": "93d4898a55ad1b7d63410211b8877e9b9c96c5497bc91830a833a07d94d53176",
-      "imported_sha256": "93d4898a55ad1b7d63410211b8877e9b9c96c5497bc91830a833a07d94d53176"
+      "rewritten_sha256": "a5b97b38ecbc243e3c62cb463fc33a908c9071403c77860948f3df4ec527a0b6",
+      "imported_sha256": "a5b97b38ecbc243e3c62cb463fc33a908c9071403c77860948f3df4ec527a0b6"
     },
     {
       "source": "internal/db/elasticsearch_impl_test.go",
       "target": "internal/upstream/db/elasticsearch_impl_test.go",
       "source_sha256": "3fbb68367d4903e8c33e49f8cac77c96ea49f08e4ccde57b4d8b31a0ff39b5e0",
-      "rewritten_sha256": "5dd45c1ff6c1b81a9573a3e4f2f66209165292b09b2f406fa4d0e1c8140c3696",
-      "imported_sha256": "5dd45c1ff6c1b81a9573a3e4f2f66209165292b09b2f406fa4d0e1c8140c3696"
+      "rewritten_sha256": "89b1c0911953d339fb930652d5e07853ff6c091505121576b38bc3ade4d43295",
+      "imported_sha256": "89b1c0911953d339fb930652d5e07853ff6c091505121576b38bc3ade4d43295"
     },
     {
       "source": "internal/db/elasticsearch_response_limit_test.go",
       "target": "internal/upstream/db/elasticsearch_response_limit_test.go",
       "source_sha256": "8a8f377429abbbc33852c13d175afd2ebc9b06be6b55aeff09b46939261a437e",
-      "rewritten_sha256": "d8b374535cf54744e0b30f4585c23d370538b09094b6bc6e6ca9d8836952ec96",
-      "imported_sha256": "d8b374535cf54744e0b30f4585c23d370538b09094b6bc6e6ca9d8836952ec96"
+      "rewritten_sha256": "56a39da5eeae9aee76d7a603b1e35bac1e83487a31390fc82cacbceda39a192b",
+      "imported_sha256": "56a39da5eeae9aee76d7a603b1e35bac1e83487a31390fc82cacbceda39a192b"
     },
     {
       "source": "internal/db/gaussdb_impl.go",
       "target": "internal/upstream/db/gaussdb_impl.go",
       "source_sha256": "e84468afc775a4cd27b4c45496afa7a6a3707f9f7441beb078be1c11b3c195d4",
-      "rewritten_sha256": "6ec1c37a54fbb7c26dc63eda2f2c2c0f518f2d2b5ec60d987ad83a43185ee535",
-      "imported_sha256": "6ec1c37a54fbb7c26dc63eda2f2c2c0f518f2d2b5ec60d987ad83a43185ee535"
+      "rewritten_sha256": "a7f2ced084ae398ad21f6562287cd3492dfd27ef7eb9083c55dbab030be2b656",
+      "imported_sha256": "a7f2ced084ae398ad21f6562287cd3492dfd27ef7eb9083c55dbab030be2b656"
     },
     {
       "source": "internal/db/gaussdb_notice_test.go",
       "target": "internal/upstream/db/gaussdb_notice_test.go",
       "source_sha256": "72e9fc8065f5d5244cd90cdb51af12ce402abd104e5ad2a2fca6e4f34eb357d5",
-      "rewritten_sha256": "72e9fc8065f5d5244cd90cdb51af12ce402abd104e5ad2a2fca6e4f34eb357d5",
-      "imported_sha256": "72e9fc8065f5d5244cd90cdb51af12ce402abd104e5ad2a2fca6e4f34eb357d5"
+      "rewritten_sha256": "6f6eff0890a5d94bc65628e63c33bcc54d11c877cf72032aeb1ff48be3011361",
+      "imported_sha256": "6f6eff0890a5d94bc65628e63c33bcc54d11c877cf72032aeb1ff48be3011361"
     },
     {
       "source": "internal/db/gaussdb_search_path_test.go",
       "target": "internal/upstream/db/gaussdb_search_path_test.go",
       "source_sha256": "e82d3fbc29c85724d24d9225145cdc283ba2fb36f0b8e86a2db7df8d0e2261e6",
-      "rewritten_sha256": "0994369bdb8c68bf694e1f66b6ef36d88d5beb486c04a336db9f69a0a2b0f1fa",
-      "imported_sha256": "0994369bdb8c68bf694e1f66b6ef36d88d5beb486c04a336db9f69a0a2b0f1fa"
+      "rewritten_sha256": "cb921595731c5a2f74f8fdd1d43217cbbb20671637513f5304ab0a6f97bba16f",
+      "imported_sha256": "cb921595731c5a2f74f8fdd1d43217cbbb20671637513f5304ab0a6f97bba16f"
     },
     {
       "source": "internal/db/highgo_i18n_test.go",
       "target": "internal/upstream/db/highgo_i18n_test.go",
       "source_sha256": "f8cdaed2ce777811cefc043d80a09994f73198d2be06ed419f8fc9229ffce46a",
-      "rewritten_sha256": "39f6a98ff74e70336fa4c66cb87fd0a4669ff476278eaa927b35ee040300073e",
-      "imported_sha256": "a14ac3b809e73838bb8973502613737cdfe85b7e3cf4e6f4ee293c6fb134b577"
+      "rewritten_sha256": "bc17658b1b2403dd67797a9f2937cade2b2013aa8378cc25f40bc75cf0b901fb",
+      "imported_sha256": "56fd6d5d44339b90e0fcf74bdc0ef4fdf9c64d0d45aff5057423e27c247f4269"
     },
     {
       "source": "internal/db/highgo_impl.go",
       "target": "internal/upstream/db/highgo_impl.go",
       "source_sha256": "76ac9679800a4c5adb3516837b8c3c9cba5de4f38470316f4dc788278af9e36d",
-      "rewritten_sha256": "1763803b2d8c09b666cfdb83f0045418cdd30128121b13ab5a813913795f40d2",
-      "imported_sha256": "1763803b2d8c09b666cfdb83f0045418cdd30128121b13ab5a813913795f40d2"
+      "rewritten_sha256": "36a5484aed245ac056265e718b09ad7e225d5d85b466321be31800e3bbc192b7",
+      "imported_sha256": "36a5484aed245ac056265e718b09ad7e225d5d85b466321be31800e3bbc192b7"
     },
     {
       "source": "internal/db/iotdb_impl.go",
       "target": "internal/upstream/db/iotdb_impl.go",
       "source_sha256": "d63d3fffae4ae0f92e6957385da3bfab18c4554a53b367d466e266e23f2abda8",
-      "rewritten_sha256": "0051e2c9fd8506f07282f239f286e06bd13b5622a875de6f28d4acb306569cb1",
-      "imported_sha256": "0051e2c9fd8506f07282f239f286e06bd13b5622a875de6f28d4acb306569cb1"
+      "rewritten_sha256": "e69c1b940eca8b6225c48253e78f64e31f9615cc7b6551aecad95d8c60dc13da",
+      "imported_sha256": "e69c1b940eca8b6225c48253e78f64e31f9615cc7b6551aecad95d8c60dc13da"
     },
     {
       "source": "internal/db/iotdb_impl_test.go",
       "target": "internal/upstream/db/iotdb_impl_test.go",
       "source_sha256": "281c54da9044e75fd769e04e69ddc92d5b96de4d724733a58a27948398811ba4",
-      "rewritten_sha256": "f59f37b1bf4fb6611f5351232a7dc249e7c69bff1626d3c045061ea6cfcc294b",
-      "imported_sha256": "f59f37b1bf4fb6611f5351232a7dc249e7c69bff1626d3c045061ea6cfcc294b"
+      "rewritten_sha256": "383c4a654b9709cd145a47838aa37970a3432e218dcf183ab1ef5d20cd394617",
+      "imported_sha256": "383c4a654b9709cd145a47838aa37970a3432e218dcf183ab1ef5d20cd394617"
     },
     {
       "source": "internal/db/iris_i18n_test.go",
       "target": "internal/upstream/db/iris_i18n_test.go",
       "source_sha256": "ec4c30e04e14adb719d21a44f82e9999b2b3da8c230e728070a0e7dac08c56b0",
-      "rewritten_sha256": "b94a97f9ceac16380bbea1ea6d2430f3a80a4b1586cd2716d71adf22b570a248",
-      "imported_sha256": "9aa2e47f85db88b00140973c051207f87605ab3a788c54f4851eb6ca5f05c65c"
+      "rewritten_sha256": "06b665e77795d7ddd89046c63ae8415934457b6c102b73f37f8f6189cb7eaf12",
+      "imported_sha256": "52b30674357202bbc4663d455ad32ebe10a1ab57ef9e50c65402c1a9a115c8f9"
     },
     {
       "source": "internal/db/iris_impl.go",
       "target": "internal/upstream/db/iris_impl.go",
       "source_sha256": "c77c71e212c361c35fc63c1f396ba33a0864ff9b31d7a10dff76431142f98e4b",
-      "rewritten_sha256": "07e755a99ac08e61e24238aeb3d4215c715b3454b3fea201e4a54eca8a3219e4",
-      "imported_sha256": "07e755a99ac08e61e24238aeb3d4215c715b3454b3fea201e4a54eca8a3219e4"
+      "rewritten_sha256": "b4c4d227908474e36c94eaaffe64d76b62425ada2cd93277ea450a813ef1e618",
+      "imported_sha256": "b4c4d227908474e36c94eaaffe64d76b62425ada2cd93277ea450a813ef1e618"
     },
     {
       "source": "internal/db/iris_impl_test.go",
       "target": "internal/upstream/db/iris_impl_test.go",
       "source_sha256": "7d216460db0c65e2c134706dfcc1d76f1f73a0c6db89655495925490b1234660",
-      "rewritten_sha256": "683f53d1376cad877d5ad2a3f73b0d00f22fdc7d8984cefca02ca6a212fad0db",
-      "imported_sha256": "683f53d1376cad877d5ad2a3f73b0d00f22fdc7d8984cefca02ca6a212fad0db"
+      "rewritten_sha256": "44412eff940a00821310d3d2634dd770fd47f7915ea2734eb5aaf70a73664728",
+      "imported_sha256": "44412eff940a00821310d3d2634dd770fd47f7915ea2734eb5aaf70a73664728"
     },
     {
       "source": "internal/db/json_decode.go",
@@ -1182,29 +1182,29 @@
       "source": "internal/db/kafka_impl.go",
       "target": "internal/upstream/db/kafka_impl.go",
       "source_sha256": "d7ca0184b2362ed8f3c5a6cf95d15f5e570fe902de042ed65a2107a6ae39929a",
-      "rewritten_sha256": "97f22474e6ddf8a19bcc034b43f5b57eeb1efd782ee0dab4ac4773a84c3a00fc",
-      "imported_sha256": "97f22474e6ddf8a19bcc034b43f5b57eeb1efd782ee0dab4ac4773a84c3a00fc"
+      "rewritten_sha256": "fb2c3463df4465a24473cce27ce9fe08284bb05e12d3ec6438ead108dce3a807",
+      "imported_sha256": "fb2c3463df4465a24473cce27ce9fe08284bb05e12d3ec6438ead108dce3a807"
     },
     {
       "source": "internal/db/kafka_impl_test.go",
       "target": "internal/upstream/db/kafka_impl_test.go",
       "source_sha256": "ecf5d9fc675f369df8dc6cf09a5d3e49280c5b56cb5d1a3e44e400cfe38fc90f",
-      "rewritten_sha256": "9e0932eda247424c3601bb67f470ef2420f774628ada0bba48ad489dd09b27d4",
-      "imported_sha256": "9e0932eda247424c3601bb67f470ef2420f774628ada0bba48ad489dd09b27d4"
+      "rewritten_sha256": "c04bf295dcf781926f5fb300f0b54da7a8d692e331bf4a79ff8f7e38015496fc",
+      "imported_sha256": "c04bf295dcf781926f5fb300f0b54da7a8d692e331bf4a79ff8f7e38015496fc"
     },
     {
       "source": "internal/db/kingbase_connect_test.go",
       "target": "internal/upstream/db/kingbase_connect_test.go",
       "source_sha256": "f6138ac6a8193e5918d1ee28cf2955299afd6b6246613528c98ef85d390ba248",
-      "rewritten_sha256": "f7b91613285a2b089a6601b4a2720d0cb277b8245caff633d7ec8b5c78447a40",
-      "imported_sha256": "f7b91613285a2b089a6601b4a2720d0cb277b8245caff633d7ec8b5c78447a40"
+      "rewritten_sha256": "b16560ee5ce38f7d92ea89de488d150e8b787e783983536bc53518d42adfe03d",
+      "imported_sha256": "b16560ee5ce38f7d92ea89de488d150e8b787e783983536bc53518d42adfe03d"
     },
     {
       "source": "internal/db/kingbase_i18n_test.go",
       "target": "internal/upstream/db/kingbase_i18n_test.go",
       "source_sha256": "113de641766e85602a05856f9e83ff82414ffdf9930aaf684dae20c83894fc3f",
-      "rewritten_sha256": "3ada09d66d60c1c69ce8179f74793d562f9bdd936755475712871c834995534d",
-      "imported_sha256": "35c589abdfce6d9f9a2e25d9877d78ff68544ada691fa085a2d853f31a6d1807"
+      "rewritten_sha256": "68246d2e6264e2219a5ea7355719a1c06af9e9bf57e38d577c0c9e68421e63b8",
+      "imported_sha256": "b4089433abec2e24c98236ba8013f11b8c5219ae334b84e759d65d065d88094b"
     },
     {
       "source": "internal/db/kingbase_identifier_utils.go",
@@ -1224,57 +1224,57 @@
       "source": "internal/db/kingbase_impl.go",
       "target": "internal/upstream/db/kingbase_impl.go",
       "source_sha256": "763cca0b03788d3850dd040852c8a0591328a725bf9302faabaf825a2ba0da5f",
-      "rewritten_sha256": "bf8ee189fa819a888d19cd91debc4a7c4d69213909186e7adf8fe20827749a78",
-      "imported_sha256": "bf8ee189fa819a888d19cd91debc4a7c4d69213909186e7adf8fe20827749a78"
+      "rewritten_sha256": "2895dd32dc46fbb97bef5d30b93184507fdf645c31038554c086d8d5409abd91",
+      "imported_sha256": "2895dd32dc46fbb97bef5d30b93184507fdf645c31038554c086d8d5409abd91"
     },
     {
       "source": "internal/db/kingbase_impl_test.go",
       "target": "internal/upstream/db/kingbase_impl_test.go",
       "source_sha256": "725ca3ee802a4417a86b12e3a2b2587de013ec5111be43118e8c16eb78f548b2",
-      "rewritten_sha256": "725ca3ee802a4417a86b12e3a2b2587de013ec5111be43118e8c16eb78f548b2",
-      "imported_sha256": "725ca3ee802a4417a86b12e3a2b2587de013ec5111be43118e8c16eb78f548b2"
+      "rewritten_sha256": "4c59bc076edddf8270204ea733184c38b0c65aebdfc145428ab7e5c1fde0dc80",
+      "imported_sha256": "4c59bc076edddf8270204ea733184c38b0c65aebdfc145428ab7e5c1fde0dc80"
     },
     {
       "source": "internal/db/kingbase_search_path_test.go",
       "target": "internal/upstream/db/kingbase_search_path_test.go",
       "source_sha256": "2e4ccd87a9c64c61586d1d9d6805ee719ed2fb715f4ab3161cb0c0559815d9b7",
-      "rewritten_sha256": "ec77c8444daa4e41bb6a459ed7a4b6840e485aec4ab2bffa2c7c8605a1100f3d",
-      "imported_sha256": "ec77c8444daa4e41bb6a459ed7a4b6840e485aec4ab2bffa2c7c8605a1100f3d"
+      "rewritten_sha256": "69d859c60cd9a667cf215e0f824a2a65a4132d805d2fda2b1422d4516cfcc57e",
+      "imported_sha256": "69d859c60cd9a667cf215e0f824a2a65a4132d805d2fda2b1422d4516cfcc57e"
     },
     {
       "source": "internal/db/mariadb_batch_capability_test.go",
       "target": "internal/upstream/db/mariadb_batch_capability_test.go",
       "source_sha256": "3d45cd54105682a81758165ade776e5d588fb323dc31d6909396fa5945bf0962",
-      "rewritten_sha256": "3d45cd54105682a81758165ade776e5d588fb323dc31d6909396fa5945bf0962",
-      "imported_sha256": "3d45cd54105682a81758165ade776e5d588fb323dc31d6909396fa5945bf0962"
+      "rewritten_sha256": "9d24a8f5692da0f4cc27e635fb2e0b80f938c76b6ea4185167a82ca656eccc28",
+      "imported_sha256": "9d24a8f5692da0f4cc27e635fb2e0b80f938c76b6ea4185167a82ca656eccc28"
     },
     {
       "source": "internal/db/mariadb_i18n_test.go",
       "target": "internal/upstream/db/mariadb_i18n_test.go",
       "source_sha256": "e0fa7651acd486faa2ecf585a1bc16d303949ab737243b3388ff9380a60812d6",
-      "rewritten_sha256": "aab7dae34bee3a69132bb2c10fb99e01bd13ebd3eee8aa89e812d2f0d26d7097",
-      "imported_sha256": "aa18ef85867a16fc222c40eebdc8128314bd9c5d4f2c63b70c18c6009bbd2153"
+      "rewritten_sha256": "635988f17d2f97bda2c85a7c6f84f7fae5627a92bf4aebb0440f6848ab7d36e9",
+      "imported_sha256": "07709dc6a2fc65949ecbab49c9f40a98f2e7b0bbd8b5e0c186ebf1fe11035ddc"
     },
     {
       "source": "internal/db/mariadb_impl.go",
       "target": "internal/upstream/db/mariadb_impl.go",
       "source_sha256": "a4cf12782fc86c16ef16401cb27a4633dc0365f8bb4bff4af6e9468e5b105b9e",
-      "rewritten_sha256": "1e9b54c85ee4b7ad964ae1218875d840101252061f01743903d22a6513bb689f",
-      "imported_sha256": "1e9b54c85ee4b7ad964ae1218875d840101252061f01743903d22a6513bb689f"
+      "rewritten_sha256": "577c5e044817c2590d9635aab41f2d32e14910cab9b95b204c934e7c42dd7969",
+      "imported_sha256": "577c5e044817c2590d9635aab41f2d32e14910cab9b95b204c934e7c42dd7969"
     },
     {
       "source": "internal/db/mariadb_metadata_quoting_test.go",
       "target": "internal/upstream/db/mariadb_metadata_quoting_test.go",
       "source_sha256": "606b6415891f82e218e6a9101d7d1955308325b3d751c6297794cf5f5b7e8db4",
-      "rewritten_sha256": "606b6415891f82e218e6a9101d7d1955308325b3d751c6297794cf5f5b7e8db4",
-      "imported_sha256": "606b6415891f82e218e6a9101d7d1955308325b3d751c6297794cf5f5b7e8db4"
+      "rewritten_sha256": "2aa826a5ad6092bd7a98a296d24c7bb5a38ff1d5ffd763912c08a59e4ca9ba71",
+      "imported_sha256": "2aa826a5ad6092bd7a98a296d24c7bb5a38ff1d5ffd763912c08a59e4ca9ba71"
     },
     {
       "source": "internal/db/mariadb_write_outcome_test.go",
       "target": "internal/upstream/db/mariadb_write_outcome_test.go",
       "source_sha256": "a5e426a5a2d1a4f1049280edce09d8532ca12a8b479a6975e7cfe5691c3e2c3a",
-      "rewritten_sha256": "7fb3ead7093dc626e1842939c016197153be8e9c016541b26587d2036a83cf9c",
-      "imported_sha256": "7fb3ead7093dc626e1842939c016197153be8e9c016541b26587d2036a83cf9c"
+      "rewritten_sha256": "83718c77ac1954e2a27336776772bbd9a6a09d4d8eb826c4fe005da6349a3c52",
+      "imported_sha256": "83718c77ac1954e2a27336776772bbd9a6a09d4d8eb826c4fe005da6349a3c52"
     },
     {
       "source": "internal/db/memory_limit_autoscale.go",
@@ -1294,8 +1294,8 @@
       "source": "internal/db/metadata_context_test.go",
       "target": "internal/upstream/db/metadata_context_test.go",
       "source_sha256": "24ac3685290b85b36d2d84b1ee205c80f71f7e610aabd568a6e81958f69ba982",
-      "rewritten_sha256": "24ac3685290b85b36d2d84b1ee205c80f71f7e610aabd568a6e81958f69ba982",
-      "imported_sha256": "24ac3685290b85b36d2d84b1ee205c80f71f7e610aabd568a6e81958f69ba982"
+      "rewritten_sha256": "b392c3fdda41d3dfe185145df91b45d7cb789037969c5c7cfffb4eb9225b6db3",
+      "imported_sha256": "b392c3fdda41d3dfe185145df91b45d7cb789037969c5c7cfffb4eb9225b6db3"
     },
     {
       "source": "internal/db/metadata_partial.go",
@@ -1308,8 +1308,8 @@
       "source": "internal/db/metadata_partial_test.go",
       "target": "internal/upstream/db/metadata_partial_test.go",
       "source_sha256": "fe00dd6e9de0671cd00f1f1b1448733086c73c1adfb8c6cb97c446723802fb6e",
-      "rewritten_sha256": "fe00dd6e9de0671cd00f1f1b1448733086c73c1adfb8c6cb97c446723802fb6e",
-      "imported_sha256": "fe00dd6e9de0671cd00f1f1b1448733086c73c1adfb8c6cb97c446723802fb6e"
+      "rewritten_sha256": "ea486f7fc7ffe2d52befbcf59257b470ac7c89272044b55b522ecfdb5de24e95",
+      "imported_sha256": "ea486f7fc7ffe2d52befbcf59257b470ac7c89272044b55b522ecfdb5de24e95"
     },
     {
       "source": "internal/db/metadata_value.go",
@@ -1322,71 +1322,71 @@
       "source": "internal/db/milvus_impl.go",
       "target": "internal/upstream/db/milvus_impl.go",
       "source_sha256": "13f6269a88d8a69313bc6124c87a8f272279e4fb2f2650cfda026280943ac81a",
-      "rewritten_sha256": "12dde4c7fccc387dcc2fa2bd0708cb963ab6eeb7c75eb1492ffb2202dde1a2cd",
-      "imported_sha256": "12dde4c7fccc387dcc2fa2bd0708cb963ab6eeb7c75eb1492ffb2202dde1a2cd"
+      "rewritten_sha256": "af80c637949bdfdb1a35ecaa51c7fd659b82e39ee5cfcf181cbd81ac9d801803",
+      "imported_sha256": "af80c637949bdfdb1a35ecaa51c7fd659b82e39ee5cfcf181cbd81ac9d801803"
     },
     {
       "source": "internal/db/milvus_impl_test.go",
       "target": "internal/upstream/db/milvus_impl_test.go",
       "source_sha256": "cd0ff6c2d8e4a290136e67be7372c428f0dabe5026fa85307379a886608dd366",
-      "rewritten_sha256": "e8b0054542038af337a1cb92970dba169fea776e4751b70704a5a5334de3d81b",
-      "imported_sha256": "e8b0054542038af337a1cb92970dba169fea776e4751b70704a5a5334de3d81b"
+      "rewritten_sha256": "b15e793433afb9e2a9aaef4eb1af385a871b9fb2c965bd564a9227023f9770ae",
+      "imported_sha256": "b15e793433afb9e2a9aaef4eb1af385a871b9fb2c965bd564a9227023f9770ae"
     },
     {
       "source": "internal/db/mongodb_applychanges_test.go",
       "target": "internal/upstream/db/mongodb_applychanges_test.go",
       "source_sha256": "bf500c3d18b650a60cc1c3bbc47e6f4c3298ada7fd67f379359ccd707c47ad7b",
-      "rewritten_sha256": "adb93dfe101a85887fe3c922065019044bb193139ee37e4eb3aa64f63e7ee318",
-      "imported_sha256": "adb93dfe101a85887fe3c922065019044bb193139ee37e4eb3aa64f63e7ee318"
+      "rewritten_sha256": "6661af8eff4a473b2a594a097d0a4212a45a4065375818742fefd98efc4dcf6b",
+      "imported_sha256": "6661af8eff4a473b2a594a097d0a4212a45a4065375818742fefd98efc4dcf6b"
     },
     {
       "source": "internal/db/mongodb_applychanges_v1_test.go",
       "target": "internal/upstream/db/mongodb_applychanges_v1_test.go",
       "source_sha256": "44c7bf7f6b95a93d022a4e6277a1ed9e6754a043e968cc4d4035c955f7bd3e6f",
-      "rewritten_sha256": "702d3992afcfe4e462104281689bc19d08625a8548e383af8bbe785dac9f575d",
-      "imported_sha256": "702d3992afcfe4e462104281689bc19d08625a8548e383af8bbe785dac9f575d"
+      "rewritten_sha256": "a1315a0dd6438d0f0205e7634f59ab863e94e1d2cb21ca88e8c80124677c12d2",
+      "imported_sha256": "a1315a0dd6438d0f0205e7634f59ab863e94e1d2cb21ca88e8c80124677c12d2"
     },
     {
       "source": "internal/db/mongodb_cursor_decode_test.go",
       "target": "internal/upstream/db/mongodb_cursor_decode_test.go",
       "source_sha256": "dabf62a7e7f27d13f3ee309ebd9d3c5afc6c8651681742f0763825feac2d69a0",
-      "rewritten_sha256": "dabf62a7e7f27d13f3ee309ebd9d3c5afc6c8651681742f0763825feac2d69a0",
-      "imported_sha256": "dabf62a7e7f27d13f3ee309ebd9d3c5afc6c8651681742f0763825feac2d69a0"
+      "rewritten_sha256": "7a71b7136752c70ee574dec81620edf492f4d267ca05bfbd6bd67a4ea92cdd6d",
+      "imported_sha256": "7a71b7136752c70ee574dec81620edf492f4d267ca05bfbd6bd67a4ea92cdd6d"
     },
     {
       "source": "internal/db/mongodb_cursor_decode_v1_test.go",
       "target": "internal/upstream/db/mongodb_cursor_decode_v1_test.go",
       "source_sha256": "135a5cb6a2aa32d44d389faad277524648bf386723771e69503f1b67b1329a95",
-      "rewritten_sha256": "861dca74b69105c1ae47c69e58fd2f125b9503cc66e785e0e43ebc0a48770061",
-      "imported_sha256": "861dca74b69105c1ae47c69e58fd2f125b9503cc66e785e0e43ebc0a48770061"
+      "rewritten_sha256": "90d7e8afc1392712e69f3bbb41a58b0d3217a3265481139216d74f46b7ed3da2",
+      "imported_sha256": "90d7e8afc1392712e69f3bbb41a58b0d3217a3265481139216d74f46b7ed3da2"
     },
     {
       "source": "internal/db/mongodb_impl.go",
       "target": "internal/upstream/db/mongodb_impl.go",
       "source_sha256": "9352ad8f42459e22a00f6b0a53d1f748a320920df29ea5c77bac955139d4d1e6",
-      "rewritten_sha256": "6577a30be09dc13f1a9dde5556931081117b97e4cad2910048d5de1f14e12f18",
-      "imported_sha256": "825b0d24ca21e83f6bdfb6a3f33c01803a0edecfbf01e264e32d41564bc0bd32"
+      "rewritten_sha256": "2321ba112fd59d0afd186988424805c2660afd9e9949e7843471a9a48a1992ee",
+      "imported_sha256": "004bd2f0e78bc4aeec75df885d6dc2909ecff1879f77f4904c3d591ee106295f"
     },
     {
       "source": "internal/db/mongodb_impl_uri_test.go",
       "target": "internal/upstream/db/mongodb_impl_uri_test.go",
       "source_sha256": "d7f984e133458e3b91d58a76556515c36b821fda3488b4fc24eebd0055cd5ae0",
-      "rewritten_sha256": "fe1b639a43965ecb7b54514c9169af913bdd08780a9092555ed469875f6109a8",
-      "imported_sha256": "fe1b639a43965ecb7b54514c9169af913bdd08780a9092555ed469875f6109a8"
+      "rewritten_sha256": "08537915bc86c2a3e699bdcecea2523847aed40a33eb498a3bc72574b9b29362",
+      "imported_sha256": "08537915bc86c2a3e699bdcecea2523847aed40a33eb498a3bc72574b9b29362"
     },
     {
       "source": "internal/db/mongodb_impl_v1.go",
       "target": "internal/upstream/db/mongodb_impl_v1.go",
       "source_sha256": "f1afc9b9590405ac1cd47042ffe09aa3963724db0c08a7fc197d47ac5a0afcd2",
-      "rewritten_sha256": "cb8fa3fb9daa564bca2d08e599bf110aa3448fb42af33c22ada6ef0499a8ac52",
-      "imported_sha256": "cb8fa3fb9daa564bca2d08e599bf110aa3448fb42af33c22ada6ef0499a8ac52"
+      "rewritten_sha256": "e88e488e7ec2c7bf1d1266b8045826400b9e154bf56086224bb18073d8b24a1a",
+      "imported_sha256": "e88e488e7ec2c7bf1d1266b8045826400b9e154bf56086224bb18073d8b24a1a"
     },
     {
       "source": "internal/db/mongodb_impl_v1_uri_test.go",
       "target": "internal/upstream/db/mongodb_impl_v1_uri_test.go",
       "source_sha256": "39f89a8094c9d53a45ba883f7a5fc38fdf33af8172e58cd5f33088523cedbf6e",
-      "rewritten_sha256": "baef8bbb15a532d82899624d729aa51e489761cd402887bfd28120f6267862fb",
-      "imported_sha256": "baef8bbb15a532d82899624d729aa51e489761cd402887bfd28120f6267862fb"
+      "rewritten_sha256": "c1db1f60b2a94f5a32295e2b84b0e4087797ba28f72d60e35c8a9e9f52b80a2d",
+      "imported_sha256": "c1db1f60b2a94f5a32295e2b84b0e4087797ba28f72d60e35c8a9e9f52b80a2d"
     },
     {
       "source": "internal/db/mqtt_close_race_test.go",
@@ -1406,8 +1406,8 @@
       "source": "internal/db/mqtt_impl.go",
       "target": "internal/upstream/db/mqtt_impl.go",
       "source_sha256": "4c3c31b12097682c79b6ee5412d103cd602473e39dc1e0fd1fb45762068f6cdd",
-      "rewritten_sha256": "98f932037f0f22054085f8abe2a3a9f84738c11b20b7a2f910ae352bd915a7f9",
-      "imported_sha256": "98f932037f0f22054085f8abe2a3a9f84738c11b20b7a2f910ae352bd915a7f9"
+      "rewritten_sha256": "626b726eaa793efa24f84ee5f0ec1791b0028ed6838fb61fb024969e7b6cb049",
+      "imported_sha256": "626b726eaa793efa24f84ee5f0ec1791b0028ed6838fb61fb024969e7b6cb049"
     },
     {
       "source": "internal/db/mqtt_impl_test.go",
@@ -1420,8 +1420,8 @@
       "source": "internal/db/mqtt_live_subscription_test.go",
       "target": "internal/upstream/db/mqtt_live_subscription_test.go",
       "source_sha256": "68dac9debc01d1304017b0ad202878f1924c842941369d49a2915e41b56e78a1",
-      "rewritten_sha256": "4e56ecd8e36a1a5dee2d9597ace0a5ab068b9e525d7f1ec3135e28e3384bf295",
-      "imported_sha256": "4e56ecd8e36a1a5dee2d9597ace0a5ab068b9e525d7f1ec3135e28e3384bf295"
+      "rewritten_sha256": "9048413b48daede77fabbe66d7bfa900b4f7c6679007045a9d173386acd04dc8",
+      "imported_sha256": "9048413b48daede77fabbe66d7bfa900b4f7c6679007045a9d173386acd04dc8"
     },
     {
       "source": "internal/db/mqtt_proxy_websocket_test.go",
@@ -1448,8 +1448,8 @@
       "source": "internal/db/mysql_agent_impl_test.go",
       "target": "internal/upstream/db/mysql_agent_impl_test.go",
       "source_sha256": "677f55d60a0e95c47845723158b070618b49f3ac5ab8fad1643fe2934a9477bf",
-      "rewritten_sha256": "107cfc4f29ccc886ae4f4b861a68992ff64f2f4b86a50a810f37302ebb189138",
-      "imported_sha256": "107cfc4f29ccc886ae4f4b861a68992ff64f2f4b86a50a810f37302ebb189138"
+      "rewritten_sha256": "9c11906a78d0aa9a1199b42399dfceaa8dbba74a7516c8345f5819749ed924f8",
+      "imported_sha256": "9c11906a78d0aa9a1199b42399dfceaa8dbba74a7516c8345f5819749ed924f8"
     },
     {
       "source": "internal/db/mysql_agent_path.go",
@@ -1462,8 +1462,8 @@
       "source": "internal/db/mysql_connection_params_test.go",
       "target": "internal/upstream/db/mysql_connection_params_test.go",
       "source_sha256": "b06f03bbf46aff8360350f5cd1110bc50d7e17747f48fc794431fe4d58afdabc",
-      "rewritten_sha256": "fc2b42abbbc65b783ba09c49a25ac7a7a3b1aa0ada809a787dec7fa1e7eada9c",
-      "imported_sha256": "fc2b42abbbc65b783ba09c49a25ac7a7a3b1aa0ada809a787dec7fa1e7eada9c"
+      "rewritten_sha256": "a97dd9ae4af0ee5270c6198cc360d8b3c94d5eb8ab86751ad3a00d010c843ead",
+      "imported_sha256": "a97dd9ae4af0ee5270c6198cc360d8b3c94d5eb8ab86751ad3a00d010c843ead"
     },
     {
       "source": "internal/db/mysql_i18n_test.go",
@@ -1483,8 +1483,8 @@
       "source": "internal/db/mysql_metadata_test.go",
       "target": "internal/upstream/db/mysql_metadata_test.go",
       "source_sha256": "0364aa429a87a1558d376c552a8ccb56234b3e0de6902b437c9c04d4835fef21",
-      "rewritten_sha256": "0364aa429a87a1558d376c552a8ccb56234b3e0de6902b437c9c04d4835fef21",
-      "imported_sha256": "0364aa429a87a1558d376c552a8ccb56234b3e0de6902b437c9c04d4835fef21"
+      "rewritten_sha256": "c7b0b6c28055645a149d2577a2a794405108621473ce5c562512889123840c9c",
+      "imported_sha256": "c7b0b6c28055645a149d2577a2a794405108621473ce5c562512889123840c9c"
     },
     {
       "source": "internal/db/mysql_ssh_test.go",
@@ -1519,8 +1519,8 @@
       "source": "internal/db/navicat_mysql_tunnel_test.go",
       "target": "internal/upstream/db/navicat_mysql_tunnel_test.go",
       "source_sha256": "55a34444ee9a10e23103918eda94be70fcdb084833d9a3249d30c5cf846e32dc",
-      "rewritten_sha256": "13d316c76f60bc909bc46dedb1eafad8b2233a4511e83b6edca8df15fce97ea3",
-      "imported_sha256": "13d316c76f60bc909bc46dedb1eafad8b2233a4511e83b6edca8df15fce97ea3"
+      "rewritten_sha256": "07dece2098956e47215b9a8225a22e5a4eb2ec3eba4ac113b8f9420062dc0560",
+      "imported_sha256": "07dece2098956e47215b9a8225a22e5a4eb2ec3eba4ac113b8f9420062dc0560"
     },
     {
       "source": "internal/db/notice_query.go",
@@ -1533,15 +1533,15 @@
       "source": "internal/db/oceanbase_impl.go",
       "target": "internal/upstream/db/oceanbase_impl.go",
       "source_sha256": "fc8b7ff81a240d247f9e3c15407e5e8f89280d1d0fefebd2f676bdc0346ad165",
-      "rewritten_sha256": "3a27903c87b1f283bcf8663f305d9d00461bf2ef35e6ecd0f794442e857f5dec",
-      "imported_sha256": "3a27903c87b1f283bcf8663f305d9d00461bf2ef35e6ecd0f794442e857f5dec"
+      "rewritten_sha256": "52c42a85be6f877b8755b69fc7720aa41f5c7a6cf73989467acf8ba5db3d9843",
+      "imported_sha256": "52c42a85be6f877b8755b69fc7720aa41f5c7a6cf73989467acf8ba5db3d9843"
     },
     {
       "source": "internal/db/oceanbase_impl_test.go",
       "target": "internal/upstream/db/oceanbase_impl_test.go",
       "source_sha256": "ee463415a4674bbd0291633a518137ed308fb5c418e09925e6099927e47541a3",
-      "rewritten_sha256": "2147a79d202de0a80ea52501fb2a6396889868a4b9cc64638b3d70542971620f",
-      "imported_sha256": "1a0cf267b9adacfad40e49d41dc3d41b4778391eef30814905f77b05b3e1bb4f"
+      "rewritten_sha256": "0b6d73fd4156b0f78153e20b1c2e5f703f029fb2ea0beff5f48124bb3fb4e6f3",
+      "imported_sha256": "8a96650c3c80152562bb15c668accd98d876e4c9b2d7d8f1bd28f82669dea7b2"
     },
     {
       "source": "internal/db/oceanbase_oracle_live_test.go",
@@ -1554,15 +1554,15 @@
       "source": "internal/db/opengauss_impl.go",
       "target": "internal/upstream/db/opengauss_impl.go",
       "source_sha256": "53c3b99b12613757370befbc75aa7e14b0a13be25ee6508d9334533cc18eb286",
-      "rewritten_sha256": "03c8eb3dee3be21d935533effa095a4ff7f2c9e389ec4539f23200905bea3f1e",
-      "imported_sha256": "03c8eb3dee3be21d935533effa095a4ff7f2c9e389ec4539f23200905bea3f1e"
+      "rewritten_sha256": "94715141c40a862f4ebb5e99bd0c7274c88ee4ed2a09fc6c9324c9010d015e1b",
+      "imported_sha256": "94715141c40a862f4ebb5e99bd0c7274c88ee4ed2a09fc6c9324c9010d015e1b"
     },
     {
       "source": "internal/db/optional_driver_agent_attach_test.go",
       "target": "internal/upstream/db/optional_driver_agent_attach_test.go",
       "source_sha256": "45baab1aa919c2196f20c60eb00b55356d736f9086265a196bc2ed75d9b6ea65",
-      "rewritten_sha256": "45baab1aa919c2196f20c60eb00b55356d736f9086265a196bc2ed75d9b6ea65",
-      "imported_sha256": "45baab1aa919c2196f20c60eb00b55356d736f9086265a196bc2ed75d9b6ea65"
+      "rewritten_sha256": "47128bd36f696e396b03ac6bbe38cbd6777cdbafcdce84c66834527f020af599",
+      "imported_sha256": "47128bd36f696e396b03ac6bbe38cbd6777cdbafcdce84c66834527f020af599"
     },
     {
       "source": "internal/db/optional_driver_agent_cancel.go",
@@ -1589,8 +1589,8 @@
       "source": "internal/db/optional_driver_agent_impl_test.go",
       "target": "internal/upstream/db/optional_driver_agent_impl_test.go",
       "source_sha256": "513e215aaca8571b7b721b4d94c6b46f04614c659e944620326659cd1f50deaf",
-      "rewritten_sha256": "4a0acbb9fad76e633eb633ba255207855e4caa24a0944f032ba78824d52062c0",
-      "imported_sha256": "4a0acbb9fad76e633eb633ba255207855e4caa24a0944f032ba78824d52062c0"
+      "rewritten_sha256": "106658eee821d041c30257cdd1a68c2081feb9d2bb885af2b3598e3d742353c5",
+      "imported_sha256": "106658eee821d041c30257cdd1a68c2081feb9d2bb885af2b3598e3d742353c5"
     },
     {
       "source": "internal/db/optional_driver_agent_ipc.go",
@@ -1603,8 +1603,8 @@
       "source": "internal/db/optional_driver_agent_ipc_test.go",
       "target": "internal/upstream/db/optional_driver_agent_ipc_test.go",
       "source_sha256": "6bf5a42e781c6aba4c11ff07d406219fd215872058a5b5dbecbfc6e9099632ba",
-      "rewritten_sha256": "896fc6704b1d4e9554755aeaf0130c5bb7617e0563e01329edece9059e7caead",
-      "imported_sha256": "896fc6704b1d4e9554755aeaf0130c5bb7617e0563e01329edece9059e7caead"
+      "rewritten_sha256": "bfe81341defc22ffc06077f967bb72f6f8de8a6ba6efedee6c7cd288b3383cd6",
+      "imported_sha256": "bfe81341defc22ffc06077f967bb72f6f8de8a6ba6efedee6c7cd288b3383cd6"
     },
     {
       "source": "internal/db/optional_driver_agent_kingbase.go",
@@ -1666,22 +1666,22 @@
       "source": "internal/db/optional_driver_build_full.go",
       "target": "internal/upstream/db/optional_driver_build_full.go",
       "source_sha256": "69c78cb1a8af1013bdbd31f8b697f484304f1ae9668541a977f5df72e77a6e81",
-      "rewritten_sha256": "69c78cb1a8af1013bdbd31f8b697f484304f1ae9668541a977f5df72e77a6e81",
-      "imported_sha256": "f568b96ed51c9ccbe465ad026aadae54f7bd391bbf74d7e442153817c735abf7"
+      "rewritten_sha256": "5c5bbe29ec8ae91b42a9c0ac4eaec67b5066becba483223c4fb22acc9fc652ca",
+      "imported_sha256": "ef3f81af892f3ac27359bc7cb7d683a7ee9a8811707773a484b5aa956935e9d7"
     },
     {
       "source": "internal/db/optional_driver_build_lite.go",
       "target": "internal/upstream/db/optional_driver_build_lite.go",
       "source_sha256": "9728b4d2a8bd44ec73d05adb7ac4d9f1c3166f618fb7bed24760583d360c54d1",
-      "rewritten_sha256": "9728b4d2a8bd44ec73d05adb7ac4d9f1c3166f618fb7bed24760583d360c54d1",
-      "imported_sha256": "9728b4d2a8bd44ec73d05adb7ac4d9f1c3166f618fb7bed24760583d360c54d1"
+      "rewritten_sha256": "ea98303e50d874342bd0eb47f4addf3381f77d9cf7117feae9d87090edff1e24",
+      "imported_sha256": "ea98303e50d874342bd0eb47f4addf3381f77d9cf7117feae9d87090edff1e24"
     },
     {
       "source": "internal/db/oracle_applychanges_test.go",
       "target": "internal/upstream/db/oracle_applychanges_test.go",
       "source_sha256": "2f5d406bb7d8bf909385d990d322b01163393f402d97b0f26819ec4769d0b3c3",
-      "rewritten_sha256": "df9b53f6ed871a8fa7957378062ad21a12ada4d7285ee80b5e6dcd7ada12b38d",
-      "imported_sha256": "df9b53f6ed871a8fa7957378062ad21a12ada4d7285ee80b5e6dcd7ada12b38d"
+      "rewritten_sha256": "dc93567df119ef4eb23eb1de96c2da78fbe8e7e05c6dc602fd3b2a7e0d545c8c",
+      "imported_sha256": "dc93567df119ef4eb23eb1de96c2da78fbe8e7e05c6dc602fd3b2a7e0d545c8c"
     },
     {
       "source": "internal/db/oracle_columns_batch.go",
@@ -1813,8 +1813,8 @@
       "source": "internal/db/postgres_connect_test.go",
       "target": "internal/upstream/db/postgres_connect_test.go",
       "source_sha256": "eb774eec6812c8b1a81c6a5623bd4f52325b2da60ef626b011ee511d92c86e73",
-      "rewritten_sha256": "c72d67dab3363f91bf137c3e2e11fc189860204adb7cce04ba4ad409b50c2d76",
-      "imported_sha256": "c72d67dab3363f91bf137c3e2e11fc189860204adb7cce04ba4ad409b50c2d76"
+      "rewritten_sha256": "dd4039c26ccb5949ad7a6044c8e986712ace3134131f1d5892f7b207df6a1864",
+      "imported_sha256": "dd4039c26ccb5949ad7a6044c8e986712ace3134131f1d5892f7b207df6a1864"
     },
     {
       "source": "internal/db/postgres_i18n_test.go",
@@ -1841,15 +1841,15 @@
       "source": "internal/db/pulsar_impl.go",
       "target": "internal/upstream/db/pulsar_impl.go",
       "source_sha256": "e1225b00c98ad95881a7649e497dcd6f4b610e3ba72bade65651c24159a45fcd",
-      "rewritten_sha256": "546a5828bcd98d1b3921d20008dcea1fc29bf37f716bf132f9428a710c437816",
-      "imported_sha256": "546a5828bcd98d1b3921d20008dcea1fc29bf37f716bf132f9428a710c437816"
+      "rewritten_sha256": "f1e9890bf44473b25e830dfced39dbdd46e9d66c423476a2975c228431fe3493",
+      "imported_sha256": "f1e9890bf44473b25e830dfced39dbdd46e9d66c423476a2975c228431fe3493"
     },
     {
       "source": "internal/db/pulsar_impl_test.go",
       "target": "internal/upstream/db/pulsar_impl_test.go",
       "source_sha256": "cd93ce35ada33a5a0da01ae4e153410e1b0e7b18cab70e509f1350246d48b374",
-      "rewritten_sha256": "9e16062fd22282eb1d8961bfb9ef8f95f915b44651ac2c3b6ba250ae5a37e365",
-      "imported_sha256": "9e16062fd22282eb1d8961bfb9ef8f95f915b44651ac2c3b6ba250ae5a37e365"
+      "rewritten_sha256": "5191fe7579a1eb98895d3905a3b043e6bbebfec707ed231cd2667956be526203",
+      "imported_sha256": "5191fe7579a1eb98895d3905a3b043e6bbebfec707ed231cd2667956be526203"
     },
     {
       "source": "internal/db/qdrant_impl.go",
@@ -1862,8 +1862,8 @@
       "source": "internal/db/qdrant_impl_test.go",
       "target": "internal/upstream/db/qdrant_impl_test.go",
       "source_sha256": "a2ceb6852ea56934bad13656cf7d963a87ee3426fdcd7b6853d4e386349f63d3",
-      "rewritten_sha256": "2da38cc07de93860d57a7f58698a73469d8ab65f7e610116d6efe40edd448fb2",
-      "imported_sha256": "2da38cc07de93860d57a7f58698a73469d8ab65f7e610116d6efe40edd448fb2"
+      "rewritten_sha256": "0cb664cc13bda6d593956732a8d9d64795f11a27747977a903ed082e9bd71a86",
+      "imported_sha256": "0cb664cc13bda6d593956732a8d9d64795f11a27747977a903ed082e9bd71a86"
     },
     {
       "source": "internal/db/query_args.go",
@@ -1883,99 +1883,99 @@
       "source": "internal/db/query_args_impl_clickhouse.go",
       "target": "internal/upstream/db/query_args_impl_clickhouse.go",
       "source_sha256": "c91e1f92867c099eda2f29f2c8e375c61d1d4cd3be926a8e8520ddafdee945f3",
-      "rewritten_sha256": "c91e1f92867c099eda2f29f2c8e375c61d1d4cd3be926a8e8520ddafdee945f3",
-      "imported_sha256": "c91e1f92867c099eda2f29f2c8e375c61d1d4cd3be926a8e8520ddafdee945f3"
+      "rewritten_sha256": "e721bd0067687ef9c9c1b9610b799dc2ba3eacb879e684169dc940f4975f2086",
+      "imported_sha256": "e721bd0067687ef9c9c1b9610b799dc2ba3eacb879e684169dc940f4975f2086"
     },
     {
       "source": "internal/db/query_args_impl_dameng.go",
       "target": "internal/upstream/db/query_args_impl_dameng.go",
       "source_sha256": "12e8a161f507c12da73755de0d5f55a3643a8ab78badf1f786786f65d2671d4b",
-      "rewritten_sha256": "12e8a161f507c12da73755de0d5f55a3643a8ab78badf1f786786f65d2671d4b",
-      "imported_sha256": "12e8a161f507c12da73755de0d5f55a3643a8ab78badf1f786786f65d2671d4b"
+      "rewritten_sha256": "9bf649bb840d63d61db61c9b047b55db214d7a3a1ff5cd19dbe1af00d03b9dc2",
+      "imported_sha256": "9bf649bb840d63d61db61c9b047b55db214d7a3a1ff5cd19dbe1af00d03b9dc2"
     },
     {
       "source": "internal/db/query_args_impl_duckdb.go",
       "target": "internal/upstream/db/query_args_impl_duckdb.go",
       "source_sha256": "d8729aba8b3a6f056de67b8aee46851b8b048b860561cc9e319f189dd53e5367",
-      "rewritten_sha256": "d8729aba8b3a6f056de67b8aee46851b8b048b860561cc9e319f189dd53e5367",
-      "imported_sha256": "d8729aba8b3a6f056de67b8aee46851b8b048b860561cc9e319f189dd53e5367"
+      "rewritten_sha256": "cd17e2c4083176ac553a7da2830f961bb8f2e6299ec6c4128f4638e5ce76b571",
+      "imported_sha256": "cd17e2c4083176ac553a7da2830f961bb8f2e6299ec6c4128f4638e5ce76b571"
     },
     {
       "source": "internal/db/query_args_impl_highgo.go",
       "target": "internal/upstream/db/query_args_impl_highgo.go",
       "source_sha256": "841304c8128321c9c18fada514b19743f0bd1c0c243a2ecf90ba2bbb4c7b29f6",
-      "rewritten_sha256": "841304c8128321c9c18fada514b19743f0bd1c0c243a2ecf90ba2bbb4c7b29f6",
-      "imported_sha256": "841304c8128321c9c18fada514b19743f0bd1c0c243a2ecf90ba2bbb4c7b29f6"
+      "rewritten_sha256": "a919de424f0819a28ba19b70bcb7ae5fb97398d69e98a55f021a3b95a838293f",
+      "imported_sha256": "a919de424f0819a28ba19b70bcb7ae5fb97398d69e98a55f021a3b95a838293f"
     },
     {
       "source": "internal/db/query_args_impl_iris.go",
       "target": "internal/upstream/db/query_args_impl_iris.go",
       "source_sha256": "93d55a2207fa5f0efbef9486545eb3d1a2d94cb8a525307fb305bd92456e1580",
-      "rewritten_sha256": "93d55a2207fa5f0efbef9486545eb3d1a2d94cb8a525307fb305bd92456e1580",
-      "imported_sha256": "93d55a2207fa5f0efbef9486545eb3d1a2d94cb8a525307fb305bd92456e1580"
+      "rewritten_sha256": "78818afa3bdf8869217d6e4902d67cf1bde8d5f8737c05b15f14a5af4047a690",
+      "imported_sha256": "78818afa3bdf8869217d6e4902d67cf1bde8d5f8737c05b15f14a5af4047a690"
     },
     {
       "source": "internal/db/query_args_impl_kingbase.go",
       "target": "internal/upstream/db/query_args_impl_kingbase.go",
       "source_sha256": "9185c618f96e9654d87b4fc6e16dba2b44472511cec9b7209063c42a4194511e",
-      "rewritten_sha256": "9185c618f96e9654d87b4fc6e16dba2b44472511cec9b7209063c42a4194511e",
-      "imported_sha256": "9185c618f96e9654d87b4fc6e16dba2b44472511cec9b7209063c42a4194511e"
+      "rewritten_sha256": "e8037521e84c032af8f0d7889827446f0636510e9b56597c95ad288b109f7798",
+      "imported_sha256": "e8037521e84c032af8f0d7889827446f0636510e9b56597c95ad288b109f7798"
     },
     {
       "source": "internal/db/query_args_impl_mariadb.go",
       "target": "internal/upstream/db/query_args_impl_mariadb.go",
       "source_sha256": "ab1c84dfa986d151f9c5e7d3b186bd0ec6fe57d255b2a57564ec23991f064cd7",
-      "rewritten_sha256": "ab1c84dfa986d151f9c5e7d3b186bd0ec6fe57d255b2a57564ec23991f064cd7",
-      "imported_sha256": "ab1c84dfa986d151f9c5e7d3b186bd0ec6fe57d255b2a57564ec23991f064cd7"
+      "rewritten_sha256": "fe72ed2ba05f89b76944c684954926f836bfe1b32cb28511dedbf9e7281c3178",
+      "imported_sha256": "fe72ed2ba05f89b76944c684954926f836bfe1b32cb28511dedbf9e7281c3178"
     },
     {
       "source": "internal/db/query_args_impl_oceanbase.go",
       "target": "internal/upstream/db/query_args_impl_oceanbase.go",
       "source_sha256": "28430ede54098b24ef3cd943220ed8d85d741d94e30023f76e64e08fb2d40614",
-      "rewritten_sha256": "28430ede54098b24ef3cd943220ed8d85d741d94e30023f76e64e08fb2d40614",
-      "imported_sha256": "28430ede54098b24ef3cd943220ed8d85d741d94e30023f76e64e08fb2d40614"
+      "rewritten_sha256": "22e5b5471cd758c16dfd773022ae5dcb43a20ef5e219ff3035ecf5c6983306a4",
+      "imported_sha256": "22e5b5471cd758c16dfd773022ae5dcb43a20ef5e219ff3035ecf5c6983306a4"
     },
     {
       "source": "internal/db/query_args_impl_sqlite.go",
       "target": "internal/upstream/db/query_args_impl_sqlite.go",
       "source_sha256": "6fca15116d2a5d3e93b80ab5dbb2f4df1ef09de10f7e35882bd4ccc8018bd8fd",
-      "rewritten_sha256": "6fca15116d2a5d3e93b80ab5dbb2f4df1ef09de10f7e35882bd4ccc8018bd8fd",
-      "imported_sha256": "6fca15116d2a5d3e93b80ab5dbb2f4df1ef09de10f7e35882bd4ccc8018bd8fd"
+      "rewritten_sha256": "84698ad9f36b2ccca1ce148996968e223def61d3565342f3423cdb6a53867137",
+      "imported_sha256": "84698ad9f36b2ccca1ce148996968e223def61d3565342f3423cdb6a53867137"
     },
     {
       "source": "internal/db/query_args_impl_sqlserver.go",
       "target": "internal/upstream/db/query_args_impl_sqlserver.go",
       "source_sha256": "4bd9e6b1f09e7be414241538f49a9c3818bb429e93dd25478248608b6f79ff4f",
-      "rewritten_sha256": "4bd9e6b1f09e7be414241538f49a9c3818bb429e93dd25478248608b6f79ff4f",
-      "imported_sha256": "4bd9e6b1f09e7be414241538f49a9c3818bb429e93dd25478248608b6f79ff4f"
+      "rewritten_sha256": "c6c9887df3d27fbe0dadfece1cd934ac108259d670b9ae5b78363ddf0bc0d84e",
+      "imported_sha256": "c6c9887df3d27fbe0dadfece1cd934ac108259d670b9ae5b78363ddf0bc0d84e"
     },
     {
       "source": "internal/db/query_args_impl_tdengine.go",
       "target": "internal/upstream/db/query_args_impl_tdengine.go",
       "source_sha256": "626b4b9ece240c9f1beb5a2437081eb92e7bb74beaae9f7b33304a0b39fd64e2",
-      "rewritten_sha256": "626b4b9ece240c9f1beb5a2437081eb92e7bb74beaae9f7b33304a0b39fd64e2",
-      "imported_sha256": "626b4b9ece240c9f1beb5a2437081eb92e7bb74beaae9f7b33304a0b39fd64e2"
+      "rewritten_sha256": "62cca3c0be4dcc98645df808920b34beaaa38e07ef0f18dd871ec8333687c09e",
+      "imported_sha256": "62cca3c0be4dcc98645df808920b34beaaa38e07ef0f18dd871ec8333687c09e"
     },
     {
       "source": "internal/db/query_args_impl_trino.go",
       "target": "internal/upstream/db/query_args_impl_trino.go",
       "source_sha256": "d51bea1c286ad6c4e8d76e4acf5ba0561ed845282b79052e152e62612105226c",
-      "rewritten_sha256": "d51bea1c286ad6c4e8d76e4acf5ba0561ed845282b79052e152e62612105226c",
-      "imported_sha256": "d51bea1c286ad6c4e8d76e4acf5ba0561ed845282b79052e152e62612105226c"
+      "rewritten_sha256": "bd926b0a61c8831b200f29523e70d2ab1698b70509e1a2f99b751407910aa4c3",
+      "imported_sha256": "bd926b0a61c8831b200f29523e70d2ab1698b70509e1a2f99b751407910aa4c3"
     },
     {
       "source": "internal/db/query_args_impl_vastbase.go",
       "target": "internal/upstream/db/query_args_impl_vastbase.go",
       "source_sha256": "35dcbf700bb8b1ba82fd2035bfa1c2de4749e2c2e2898b8fb7ec9b42380704bf",
-      "rewritten_sha256": "35dcbf700bb8b1ba82fd2035bfa1c2de4749e2c2e2898b8fb7ec9b42380704bf",
-      "imported_sha256": "35dcbf700bb8b1ba82fd2035bfa1c2de4749e2c2e2898b8fb7ec9b42380704bf"
+      "rewritten_sha256": "31b191d4e0ec9df255ff3856471be0350eb1bbf3bbe457ededf3a4f220ae87f2",
+      "imported_sha256": "31b191d4e0ec9df255ff3856471be0350eb1bbf3bbe457ededf3a4f220ae87f2"
     },
     {
       "source": "internal/db/query_args_sqlite_test.go",
       "target": "internal/upstream/db/query_args_sqlite_test.go",
       "source_sha256": "ce04adaf8561b609706ac8faef56a25cefb57ad0c0eadc25bd26a60706480634",
-      "rewritten_sha256": "bd542fe35d1cb4767b4c9bf6f7e2f3f875a014d8cc02fead52d84574715d7222",
-      "imported_sha256": "bd542fe35d1cb4767b4c9bf6f7e2f3f875a014d8cc02fead52d84574715d7222"
+      "rewritten_sha256": "779fc5c7c22fbf5a26cca64aa64adbf5fe7c90131426f9612ec26a742cc63804",
+      "imported_sha256": "779fc5c7c22fbf5a26cca64aa64adbf5fe7c90131426f9612ec26a742cc63804"
     },
     {
       "source": "internal/db/query_value.go",
@@ -2044,8 +2044,8 @@
       "source": "internal/db/rocketmq_impl.go",
       "target": "internal/upstream/db/rocketmq_impl.go",
       "source_sha256": "d72558e2852a583e479c9d1fb3da116574b5a782d698ce4bf3fa8552797e9160",
-      "rewritten_sha256": "9fe3c3813c517f2feb4f2c73967dbf9be8e6cbd520c6620ffbf2439d14284dc4",
-      "imported_sha256": "9fe3c3813c517f2feb4f2c73967dbf9be8e6cbd520c6620ffbf2439d14284dc4"
+      "rewritten_sha256": "c44df9eec9a0813506f6d0f7e56eaff3487db104015eefe3c5c274e6a27910c8",
+      "imported_sha256": "c44df9eec9a0813506f6d0f7e56eaff3487db104015eefe3c5c274e6a27910c8"
     },
     {
       "source": "internal/db/rocketmq_impl_test.go",
@@ -2107,8 +2107,8 @@
       "source": "internal/db/scan_rows_test.go",
       "target": "internal/upstream/db/scan_rows_test.go",
       "source_sha256": "def17aa777b8d1bb591f200dc63c53477708f5943f4c18e3ddb51d69673c99c7",
-      "rewritten_sha256": "def17aa777b8d1bb591f200dc63c53477708f5943f4c18e3ddb51d69673c99c7",
-      "imported_sha256": "def17aa777b8d1bb591f200dc63c53477708f5943f4c18e3ddb51d69673c99c7"
+      "rewritten_sha256": "eda439a2de280ec6b2b1c21a5648b837af4fa1d5a9169e7393b96bd04887de86",
+      "imported_sha256": "eda439a2de280ec6b2b1c21a5648b837af4fa1d5a9169e7393b96bd04887de86"
     },
     {
       "source": "internal/db/search_path_pool_test.go",
@@ -2142,15 +2142,15 @@
       "source": "internal/db/session_actions.go",
       "target": "internal/upstream/db/session_actions.go",
       "source_sha256": "8d421fb1be683a2f2e321e2b451b1838cb7a93b7cad023d8a957d159e731ccd0",
-      "rewritten_sha256": "9b888e76a497757d015b097b9eaa56d3d14616500b824c61c935bbf12e9687d4",
-      "imported_sha256": "9b888e76a497757d015b097b9eaa56d3d14616500b824c61c935bbf12e9687d4"
+      "rewritten_sha256": "4ed5ed21f04401204ae015b0666c36361794a71ccfc22018186e5b4d4c4d0a1b",
+      "imported_sha256": "4ed5ed21f04401204ae015b0666c36361794a71ccfc22018186e5b4d4c4d0a1b"
     },
     {
       "source": "internal/db/session_actions_test.go",
       "target": "internal/upstream/db/session_actions_test.go",
       "source_sha256": "24288686e1589d8b5004387eab0c82404c8b0885925fae598a79190e29a6cdb3",
-      "rewritten_sha256": "00541ff56e3636c9a065f2b9f68fb9cccac24b3a8a1123b2fb7191b919bdf500",
-      "imported_sha256": "00541ff56e3636c9a065f2b9f68fb9cccac24b3a8a1123b2fb7191b919bdf500"
+      "rewritten_sha256": "6f28e3a0f0f95fd615acd47d490003d1ae5f202a9df1f809ccd6d9eed27d4af8",
+      "imported_sha256": "6f28e3a0f0f95fd615acd47d490003d1ae5f202a9df1f809ccd6d9eed27d4af8"
     },
     {
       "source": "internal/db/session_rows.go",
@@ -2198,8 +2198,8 @@
       "source": "internal/db/sphinx_impl.go",
       "target": "internal/upstream/db/sphinx_impl.go",
       "source_sha256": "a2fa73585a4a5307848be36704affd9b965aa796a6efe8a8137f2bb15b6b2ee1",
-      "rewritten_sha256": "aca5c0f218f409c5b9cccdf19ce1a9ae0cbfe5eab9e0994f8f71940f6bc267dd",
-      "imported_sha256": "aca5c0f218f409c5b9cccdf19ce1a9ae0cbfe5eab9e0994f8f71940f6bc267dd"
+      "rewritten_sha256": "8b7ed596dc03d3eaad1b590a2bbda3f95cd29e69ab732a69a7407cb92317ad07",
+      "imported_sha256": "8b7ed596dc03d3eaad1b590a2bbda3f95cd29e69ab732a69a7407cb92317ad07"
     },
     {
       "source": "internal/db/sql_pool.go",
@@ -2212,57 +2212,57 @@
       "source": "internal/db/sql_pool_test.go",
       "target": "internal/upstream/db/sql_pool_test.go",
       "source_sha256": "e4be3dc024c49218eed4543e0504e6b5d0300d6d6680448f151953713257f03d",
-      "rewritten_sha256": "e4be3dc024c49218eed4543e0504e6b5d0300d6d6680448f151953713257f03d",
-      "imported_sha256": "e4be3dc024c49218eed4543e0504e6b5d0300d6d6680448f151953713257f03d"
+      "rewritten_sha256": "7b53a5e12d10cd517d79fc75ec24de3f0ac63367230f4d41a8afaaf77f282ad4",
+      "imported_sha256": "7b53a5e12d10cd517d79fc75ec24de3f0ac63367230f4d41a8afaaf77f282ad4"
     },
     {
       "source": "internal/db/sqlite_autoincrement_test.go",
       "target": "internal/upstream/db/sqlite_autoincrement_test.go",
       "source_sha256": "6eccbc5e54a58a5b16d817741847dac5f0406b7ba2b0f4e9a1fc6a378d568984",
-      "rewritten_sha256": "cfcbb5c96aa46114b36d625e4e26ea11c75edb00a5dd1c9e78fc2d625a785109",
-      "imported_sha256": "cfcbb5c96aa46114b36d625e4e26ea11c75edb00a5dd1c9e78fc2d625a785109"
+      "rewritten_sha256": "ab02d8d35adc2803686e1567b0abd438bac4ae7d6d9e5e0bf372420701aa240b",
+      "imported_sha256": "ab02d8d35adc2803686e1567b0abd438bac4ae7d6d9e5e0bf372420701aa240b"
     },
     {
       "source": "internal/db/sqlite_columns_test.go",
       "target": "internal/upstream/db/sqlite_columns_test.go",
       "source_sha256": "eecc071244e93225b70e78baf4ebfab865ed3d0d370e76f1dde6080fb33396dd",
-      "rewritten_sha256": "b919223d36bca24e89891de99629684a6a5b833de14f8fdaa047ba8b259ec298",
-      "imported_sha256": "b919223d36bca24e89891de99629684a6a5b833de14f8fdaa047ba8b259ec298"
+      "rewritten_sha256": "520f16a3c6b1258a1260528a92538040339556e9614c889899419d75a0bf6487",
+      "imported_sha256": "520f16a3c6b1258a1260528a92538040339556e9614c889899419d75a0bf6487"
     },
     {
       "source": "internal/db/sqlite_ddl_strip.go",
       "target": "internal/upstream/db/sqlite_ddl_strip.go",
       "source_sha256": "cf3983947946fc418c01df177aa82decd1858a0eb079f8c2c8e241e3518bb761",
-      "rewritten_sha256": "cf3983947946fc418c01df177aa82decd1858a0eb079f8c2c8e241e3518bb761",
-      "imported_sha256": "cf3983947946fc418c01df177aa82decd1858a0eb079f8c2c8e241e3518bb761"
+      "rewritten_sha256": "f57fb650e82c335a8fb42b317b668719d36370328fd2c4e8a4f0981a0b5df1d6",
+      "imported_sha256": "f57fb650e82c335a8fb42b317b668719d36370328fd2c4e8a4f0981a0b5df1d6"
     },
     {
       "source": "internal/db/sqlite_i18n_test.go",
       "target": "internal/upstream/db/sqlite_i18n_test.go",
       "source_sha256": "0297a86f91e607ffd27a9c0f21d469bbda4b5a53b2bc2d3f4f1232fc4a359a85",
-      "rewritten_sha256": "9307a27dd694112743109c18150aef430b25921817baf885bedc33bf7c45bfb9",
-      "imported_sha256": "b43eed95c105ce8f8ae9cfa2791a9271d825ba779e4dc55dbcef01d0630fc73d"
+      "rewritten_sha256": "e67601d2e647bb61485e2924e1f5778e7168685693e03f88436a5bf6ca972154",
+      "imported_sha256": "5cd97a1aa363f8634486638617fe0cec3bd18aff497d7f496221ed41c4b3402b"
     },
     {
       "source": "internal/db/sqlite_impl.go",
       "target": "internal/upstream/db/sqlite_impl.go",
       "source_sha256": "78d366ddd665489b79ed898e346bccfabbf23dc340b9be44a9ecb332aa425c0e",
-      "rewritten_sha256": "e7ad792c8e029f30768c2ab036e13811fff9ebf63cb40544d808fae4001d58b4",
-      "imported_sha256": "e7ad792c8e029f30768c2ab036e13811fff9ebf63cb40544d808fae4001d58b4"
+      "rewritten_sha256": "731a3fdce7b78bf5069531f026e72ca4b090a618b9ee20428571c982f25f3eae",
+      "imported_sha256": "731a3fdce7b78bf5069531f026e72ca4b090a618b9ee20428571c982f25f3eae"
     },
     {
       "source": "internal/db/sqlite_impl_test.go",
       "target": "internal/upstream/db/sqlite_impl_test.go",
       "source_sha256": "0cd1f8a202d27c797569c8ae7d1449daa44e76f632ce4eb9a19fe0e76b89fb3e",
-      "rewritten_sha256": "33e7014faa7e059e9341b32ea5d8a53592cdc5ffe9c18136cbe9a5294f37c122",
-      "imported_sha256": "33e7014faa7e059e9341b32ea5d8a53592cdc5ffe9c18136cbe9a5294f37c122"
+      "rewritten_sha256": "d1f35c850a736df29f1fbd27fd89624c40ce731426b454dfe336cfa536247135",
+      "imported_sha256": "d1f35c850a736df29f1fbd27fd89624c40ce731426b454dfe336cfa536247135"
     },
     {
       "source": "internal/db/sqlserver_catalog.go",
       "target": "internal/upstream/db/sqlserver_catalog.go",
       "source_sha256": "a9dcf704b4a44cf2b2b6f947a97d05379c95604a81a957e2c634edea10ac3200",
-      "rewritten_sha256": "a9dcf704b4a44cf2b2b6f947a97d05379c95604a81a957e2c634edea10ac3200",
-      "imported_sha256": "a9dcf704b4a44cf2b2b6f947a97d05379c95604a81a957e2c634edea10ac3200"
+      "rewritten_sha256": "5bc4a71614df25ba49c4aa779df05ffd2576b1fd6c41198fa8a42b8b32e9d558",
+      "imported_sha256": "5bc4a71614df25ba49c4aa779df05ffd2576b1fd6c41198fa8a42b8b32e9d558"
     },
     {
       "source": "internal/db/sqlserver_catalog_test.go",
@@ -2275,29 +2275,29 @@
       "source": "internal/db/sqlserver_dsn.go",
       "target": "internal/upstream/db/sqlserver_dsn.go",
       "source_sha256": "59745b369749115fb1b84d47668ad9ba49c2b26fe37cc9bcfcbf79ac282ac328",
-      "rewritten_sha256": "06b819974150b2e1a26993613525552aa223d81b6e4516bd27858b99a228d089",
-      "imported_sha256": "06b819974150b2e1a26993613525552aa223d81b6e4516bd27858b99a228d089"
+      "rewritten_sha256": "66cd3c50302fe510a4f350474be6f58960434c31a0ce11962af7d3ac69c0c5b5",
+      "imported_sha256": "66cd3c50302fe510a4f350474be6f58960434c31a0ce11962af7d3ac69c0c5b5"
     },
     {
       "source": "internal/db/sqlserver_impl.go",
       "target": "internal/upstream/db/sqlserver_impl.go",
       "source_sha256": "711d4691d2ea3b75628068dfd63149064458154d8465b316c08cb268475f6adf",
-      "rewritten_sha256": "b20ddec21fcc968c8daba6645f1f8e86f42576ebad6e90e3c49ad07b124412a8",
-      "imported_sha256": "b20ddec21fcc968c8daba6645f1f8e86f42576ebad6e90e3c49ad07b124412a8"
+      "rewritten_sha256": "c6d217cc17e02874b2948633d2fe87366a665bb4ff38c412863894c5d79d42b0",
+      "imported_sha256": "c6d217cc17e02874b2948633d2fe87366a665bb4ff38c412863894c5d79d42b0"
     },
     {
       "source": "internal/db/sqlserver_impl_test.go",
       "target": "internal/upstream/db/sqlserver_impl_test.go",
       "source_sha256": "76abe1033eda167eaf9236c4874ac4d263679a1b2d1b0e76e42991162dd150f3",
-      "rewritten_sha256": "5f5e8d79b5e4a9e7cf8ffa06f86414f98a6a99d61e763e626a89c00172738631",
-      "imported_sha256": "5f5e8d79b5e4a9e7cf8ffa06f86414f98a6a99d61e763e626a89c00172738631"
+      "rewritten_sha256": "b346db7a04a4376c2cc21d1e4b426bd1f465709285c602763100dce9be004c1e",
+      "imported_sha256": "b346db7a04a4376c2cc21d1e4b426bd1f465709285c602763100dce9be004c1e"
     },
     {
       "source": "internal/db/sqlserver_ssh_tls_identity_test.go",
       "target": "internal/upstream/db/sqlserver_ssh_tls_identity_test.go",
       "source_sha256": "9f4805a32ceb9defda781cb8daedf111d249e0034cfb007589758b2fe9fed3c0",
-      "rewritten_sha256": "023b3b00b07188dedda40b508a872917eed5b9d3fa0f6a7c9837ab5dd3d8b96d",
-      "imported_sha256": "023b3b00b07188dedda40b508a872917eed5b9d3fa0f6a7c9837ab5dd3d8b96d"
+      "rewritten_sha256": "66d1cf640e84b703e9425c02fb2361d071ba07be2a86f1549e24b348312279b5",
+      "imported_sha256": "66d1cf640e84b703e9425c02fb2361d071ba07be2a86f1549e24b348312279b5"
     },
     {
       "source": "internal/db/ssh_forwarder_diagnostics.go",
@@ -2317,8 +2317,8 @@
       "source": "internal/db/ssl_mode.go",
       "target": "internal/upstream/db/ssl_mode.go",
       "source_sha256": "cc9e347f25a0593897d9f36103f7461a8643ca19acfd629b963bef88f1d7a8a0",
-      "rewritten_sha256": "d49cca211efbe446e3a58f0dfad14d4145ce43f0afa2806d061ae5b9e865a6d5",
-      "imported_sha256": "d49cca211efbe446e3a58f0dfad14d4145ce43f0afa2806d061ae5b9e865a6d5"
+      "rewritten_sha256": "9130b7f0ded0f5102a421be7e73c5200af91ece8c14271882bd0656aa8852f34",
+      "imported_sha256": "9130b7f0ded0f5102a421be7e73c5200af91ece8c14271882bd0656aa8852f34"
     },
     {
       "source": "internal/db/ssl_mode_sqlserver_test.go",
@@ -2331,64 +2331,64 @@
       "source": "internal/db/starrocks_impl.go",
       "target": "internal/upstream/db/starrocks_impl.go",
       "source_sha256": "dd608d320274b753bc9eaf0250babb220a5413f0d4e4b2f7bf666d4b861a9793",
-      "rewritten_sha256": "a0e6c7b8311ccacca5c3190c8456c171271f4c6974222e5453992febfe2e69a9",
-      "imported_sha256": "a0e6c7b8311ccacca5c3190c8456c171271f4c6974222e5453992febfe2e69a9"
+      "rewritten_sha256": "278a1a5dd22784fb5b2be8de1d3496f5d193c8e9408c1c17eb0b32ed4715b867",
+      "imported_sha256": "278a1a5dd22784fb5b2be8de1d3496f5d193c8e9408c1c17eb0b32ed4715b867"
     },
     {
       "source": "internal/db/starrocks_metadata_test.go",
       "target": "internal/upstream/db/starrocks_metadata_test.go",
       "source_sha256": "3c08bd273580b10b72bd0ca834821888751f5e0fd88aadfc7bb4ae9a1cd95aaa",
-      "rewritten_sha256": "3c08bd273580b10b72bd0ca834821888751f5e0fd88aadfc7bb4ae9a1cd95aaa",
-      "imported_sha256": "3c08bd273580b10b72bd0ca834821888751f5e0fd88aadfc7bb4ae9a1cd95aaa"
+      "rewritten_sha256": "3c56ed9b8f26aaaa16b882307911285e864fe237cb8e124c29e8e1bb71acbdeb",
+      "imported_sha256": "3c56ed9b8f26aaaa16b882307911285e864fe237cb8e124c29e8e1bb71acbdeb"
     },
     {
       "source": "internal/db/starrocks_ssh_hostkey_test.go",
       "target": "internal/upstream/db/starrocks_ssh_hostkey_test.go",
       "source_sha256": "370f3d25dcfb7ae5de5dd274a0534dd89fbe7f1d81bd36e5d5a5651123e46a08",
-      "rewritten_sha256": "c1e2505d2c888c8780e22bb8be7ed5c1dd4e3ff1f311505a503de99353d41689",
-      "imported_sha256": "c1e2505d2c888c8780e22bb8be7ed5c1dd4e3ff1f311505a503de99353d41689"
+      "rewritten_sha256": "a9c2eb9446d8b99495a8502f5e0a2c6b8d53a0a4225785b8a53b5bdad6a811ce",
+      "imported_sha256": "a9c2eb9446d8b99495a8502f5e0a2c6b8d53a0a4225785b8a53b5bdad6a811ce"
     },
     {
       "source": "internal/db/tdengine_apply_context_test.go",
       "target": "internal/upstream/db/tdengine_apply_context_test.go",
       "source_sha256": "18e9bb20d61bbf52975660f0b9b04d252addbd0a462cd3304345ca1f73d1fd9f",
-      "rewritten_sha256": "be272df279bf6b4af98f1565fd9b59f59f2d8a6fb280729c38f700adbec2450d",
-      "imported_sha256": "be272df279bf6b4af98f1565fd9b59f59f2d8a6fb280729c38f700adbec2450d"
+      "rewritten_sha256": "43af022f6a7473235866d5539e3674af2b56143a263354ecb67384795c16fe15",
+      "imported_sha256": "43af022f6a7473235866d5539e3674af2b56143a263354ecb67384795c16fe15"
     },
     {
       "source": "internal/db/tdengine_applychanges_test.go",
       "target": "internal/upstream/db/tdengine_applychanges_test.go",
       "source_sha256": "a4ae9b3c6f288ec23182e97719193fdf694899a119a675942f1d17eb5b6700f7",
-      "rewritten_sha256": "e56f821d440df46b3b772352a8f358d1ef46c5cc787c1f2b167eb924f83651fa",
-      "imported_sha256": "e56f821d440df46b3b772352a8f358d1ef46c5cc787c1f2b167eb924f83651fa"
+      "rewritten_sha256": "3cee156d620f34c636703ad22c83a960529c7088a41809d0f20630b4bcd27b1d",
+      "imported_sha256": "3cee156d620f34c636703ad22c83a960529c7088a41809d0f20630b4bcd27b1d"
     },
     {
       "source": "internal/db/tdengine_connect_compat_test.go",
       "target": "internal/upstream/db/tdengine_connect_compat_test.go",
       "source_sha256": "3f3bbf569878a06b321c1349a4ce4a44cd8bb0b4f9449b09ceaf163f7fd1257f",
-      "rewritten_sha256": "1c8f7c6c3859a0367c661c8cdd1d8ef270679cd944789e70ec17a42e5998f241",
-      "imported_sha256": "1c8f7c6c3859a0367c661c8cdd1d8ef270679cd944789e70ec17a42e5998f241"
+      "rewritten_sha256": "274f91a1d37c0d6fc5aab722d886f4ca8e6c4d1f51b383ae5d18772e863d6f68",
+      "imported_sha256": "274f91a1d37c0d6fc5aab722d886f4ca8e6c4d1f51b383ae5d18772e863d6f68"
     },
     {
       "source": "internal/db/tdengine_dsn_test.go",
       "target": "internal/upstream/db/tdengine_dsn_test.go",
       "source_sha256": "3836d56b30a05ded83be443b8fa4caa52b2703d45f5ec3f5af9f28068e6f7207",
-      "rewritten_sha256": "d68b00161147ebc45224facbabcadc3a0c16f27e8577d73b84ca6365cecff0e4",
-      "imported_sha256": "d68b00161147ebc45224facbabcadc3a0c16f27e8577d73b84ca6365cecff0e4"
+      "rewritten_sha256": "6588d287c831d0b641331c487d93316c6002048c64a9a868e0f52899b893b17b",
+      "imported_sha256": "6588d287c831d0b641331c487d93316c6002048c64a9a868e0f52899b893b17b"
     },
     {
       "source": "internal/db/tdengine_i18n_test.go",
       "target": "internal/upstream/db/tdengine_i18n_test.go",
       "source_sha256": "6208d0226e38ced2f9c7ab3126ee994986ff26bf547672a7729c5709012f377a",
-      "rewritten_sha256": "0f65d47f8f4da168755868abc01b5929529651eecb0f0c03b0b64ce52e419287",
-      "imported_sha256": "f2599b6d095d74aed56a13cf13911d8e2e5c11a3c5a8c6f9420a4a775414a145"
+      "rewritten_sha256": "8a335197373fc62076aebc90efa4538fdc4cc92a6410f15655a96d82b07a15d4",
+      "imported_sha256": "1c2bbbcac9e1352d23ec62af25aa4bff07e134ce0d3016ba9557013c494f880a"
     },
     {
       "source": "internal/db/tdengine_impl.go",
       "target": "internal/upstream/db/tdengine_impl.go",
       "source_sha256": "9c05c8ecec3a732ee1d8019b42be56053eb3281276513e222010046528c9cef4",
-      "rewritten_sha256": "ca5840f31195224debdf2143e9e8af772817c36f5120635a202c14d49be04d8c",
-      "imported_sha256": "ca5840f31195224debdf2143e9e8af772817c36f5120635a202c14d49be04d8c"
+      "rewritten_sha256": "4c8fc483ee600b5da49e203e0081b48ed967b597421639562bca1a3a205c5fb0",
+      "imported_sha256": "4c8fc483ee600b5da49e203e0081b48ed967b597421639562bca1a3a205c5fb0"
     },
     {
       "source": "internal/db/timeout.go",
@@ -2415,57 +2415,57 @@
       "source": "internal/db/transaction_execer_test.go",
       "target": "internal/upstream/db/transaction_execer_test.go",
       "source_sha256": "daaac48ff5d6a0aa0e553b0c3a6865450bd9624999dca7078ba90a26cef33868",
-      "rewritten_sha256": "daaac48ff5d6a0aa0e553b0c3a6865450bd9624999dca7078ba90a26cef33868",
-      "imported_sha256": "daaac48ff5d6a0aa0e553b0c3a6865450bd9624999dca7078ba90a26cef33868"
+      "rewritten_sha256": "fcfb5d42bd295ebe1aedcf444b1d87a0c3babc5d1d2efa93d14234b411e6dfee",
+      "imported_sha256": "fcfb5d42bd295ebe1aedcf444b1d87a0c3babc5d1d2efa93d14234b411e6dfee"
     },
     {
       "source": "internal/db/trino_impl.go",
       "target": "internal/upstream/db/trino_impl.go",
       "source_sha256": "02ed7c2f8858523911793dbbeee74304657c9a3c97c48dc3ca7c65988219aed1",
-      "rewritten_sha256": "6a6ba661509a0291d10b8fef54dc223cb263973eb2a86c3b2aea472bc95db51f",
-      "imported_sha256": "6a6ba661509a0291d10b8fef54dc223cb263973eb2a86c3b2aea472bc95db51f"
+      "rewritten_sha256": "2618c8942af41569b3da60fa7a299b7a6538fc251a08b8a09ab9d1157731cb5b",
+      "imported_sha256": "2618c8942af41569b3da60fa7a299b7a6538fc251a08b8a09ab9d1157731cb5b"
     },
     {
       "source": "internal/db/trino_impl_test.go",
       "target": "internal/upstream/db/trino_impl_test.go",
       "source_sha256": "be4559ffef29be39186725575e45a7395e3953ac2d6dcf3d906cf4011f32a9bb",
-      "rewritten_sha256": "926a7873a65324135cd74498b1668374f004d7d2727e2b61fe5e9b71ca0e0c27",
-      "imported_sha256": "926a7873a65324135cd74498b1668374f004d7d2727e2b61fe5e9b71ca0e0c27"
+      "rewritten_sha256": "40484d2bb2ef42dc3872640fa659ee932c38d333deba6285e16f967a58b4d8ab",
+      "imported_sha256": "40484d2bb2ef42dc3872640fa659ee932c38d333deba6285e16f967a58b4d8ab"
     },
     {
       "source": "internal/db/trino_partial_metadata_test.go",
       "target": "internal/upstream/db/trino_partial_metadata_test.go",
       "source_sha256": "56e2d3b39bd169d2c79730b5ffcf5b73fd04b28d9a59e2929467828380d8dc76",
-      "rewritten_sha256": "56e2d3b39bd169d2c79730b5ffcf5b73fd04b28d9a59e2929467828380d8dc76",
-      "imported_sha256": "56e2d3b39bd169d2c79730b5ffcf5b73fd04b28d9a59e2929467828380d8dc76"
+      "rewritten_sha256": "81378489947f4d31f28a1b3d2151742cafab24906ccbd8e3c48183dca1f286fc",
+      "imported_sha256": "81378489947f4d31f28a1b3d2151742cafab24906ccbd8e3c48183dca1f286fc"
     },
     {
       "source": "internal/db/user_schema_query_kingbase_test.go",
       "target": "internal/upstream/db/user_schema_query_kingbase_test.go",
       "source_sha256": "2075ba5cebd14a8d52e6c38db201c2e0e2ff02015456e3db1f22d326e0883bf8",
-      "rewritten_sha256": "2075ba5cebd14a8d52e6c38db201c2e0e2ff02015456e3db1f22d326e0883bf8",
-      "imported_sha256": "2075ba5cebd14a8d52e6c38db201c2e0e2ff02015456e3db1f22d326e0883bf8"
+      "rewritten_sha256": "5047aace8a843f9fc5f353cdc72e04e1540641cf912b9efa33cdab5f96b4d451",
+      "imported_sha256": "5047aace8a843f9fc5f353cdc72e04e1540641cf912b9efa33cdab5f96b4d451"
     },
     {
       "source": "internal/db/user_schema_query_test.go",
       "target": "internal/upstream/db/user_schema_query_test.go",
       "source_sha256": "59d9f23b2cde67ba2235bb50fad783e342174f701564437f052867bbedd5ed43",
-      "rewritten_sha256": "59d9f23b2cde67ba2235bb50fad783e342174f701564437f052867bbedd5ed43",
-      "imported_sha256": "59d9f23b2cde67ba2235bb50fad783e342174f701564437f052867bbedd5ed43"
+      "rewritten_sha256": "5fb596c720703860ccd6e54fca3e484659772421e3ef174fde311a100df3da77",
+      "imported_sha256": "5fb596c720703860ccd6e54fca3e484659772421e3ef174fde311a100df3da77"
     },
     {
       "source": "internal/db/vastbase_i18n_test.go",
       "target": "internal/upstream/db/vastbase_i18n_test.go",
       "source_sha256": "42f714c0544815e942a24918b062e2fe4f8e31c4a50e791cb2a7ef1d2280819d",
-      "rewritten_sha256": "d2126326c39dd255957c1dca214328b571d45ecd2507a34eefcdb3cf625f5506",
-      "imported_sha256": "1f732cbe378b4a3a692c70c88daa62eb8dfe3d7f71c441e0d7f09303bdd2d4d6"
+      "rewritten_sha256": "f56b9c880772604f6bd3d85f9b17f375ef400f406ca5005ef8137f82a6f0a73a",
+      "imported_sha256": "53fcc2c8ba7f7cfd11135a6f5217f9595e3cae3e875a4e3971a12c828081af92"
     },
     {
       "source": "internal/db/vastbase_impl.go",
       "target": "internal/upstream/db/vastbase_impl.go",
       "source_sha256": "fa1412d38e3e799a933d16b2e391ebb38b283bed97bfb1db1829429fff28cfd5",
-      "rewritten_sha256": "6af5714f0ea2ec6eeb3eae88bc6824a6db1b96abf36edd330595823cf067ece9",
-      "imported_sha256": "6af5714f0ea2ec6eeb3eae88bc6824a6db1b96abf36edd330595823cf067ece9"
+      "rewritten_sha256": "07265b8ff6d682359cc96ac5a53a390944eef7b860b8ae5e22b6380a81ad2124",
+      "imported_sha256": "07265b8ff6d682359cc96ac5a53a390944eef7b860b8ae5e22b6380a81ad2124"
     },
     {
       "source": "internal/db/vector_apply_context_test.go",
@@ -2506,8 +2506,8 @@
       "source": "internal/db/write_outcome_transaction_test.go",
       "target": "internal/upstream/db/write_outcome_transaction_test.go",
       "source_sha256": "a3bfc07f2fa33c8eb5bc6d8db203fada3dfaa4b84eb480fbe1f9d55071de6abc",
-      "rewritten_sha256": "0b3ff80509899c33d0d5e0eeb2adf85829d32bdd68121788ccae9acea0888660",
-      "imported_sha256": "0b3ff80509899c33d0d5e0eeb2adf85829d32bdd68121788ccae9acea0888660"
+      "rewritten_sha256": "f37d42df76f0b60c8d035c867fc7b37cd7623dd13981d363691b87d3dfeba1bb",
+      "imported_sha256": "f37d42df76f0b60c8d035c867fc7b37cd7623dd13981d363691b87d3dfeba1bb"
     },
     {
       "source": "internal/esconsole/esconsole.go",
@@ -2534,8 +2534,8 @@
       "source": "internal/esconsole/sql_compat.go",
       "target": "internal/upstream/esconsole/sql_compat.go",
       "source_sha256": "8843b3b40d4d0aab7f5c281f572b57cf70f4613531af880bac51c4899eb42487",
-      "rewritten_sha256": "8843b3b40d4d0aab7f5c281f572b57cf70f4613531af880bac51c4899eb42487",
-      "imported_sha256": "8843b3b40d4d0aab7f5c281f572b57cf70f4613531af880bac51c4899eb42487"
+      "rewritten_sha256": "d4fa62bd92dbe45124346136eea8c16c258ab5b102b0e9b232b544f2d9b3062e",
+      "imported_sha256": "d4fa62bd92dbe45124346136eea8c16c258ab5b102b0e9b232b544f2d9b3062e"
     },
     {
       "source": "shared/i18n/catalog.go",
@@ -2549,7 +2549,7 @@
       "target": "internal/upstream/i18n/catalog.zip",
       "source_sha256": "70e23e24a92eb8e5c41a50164633f61045675cf7f1788ab7b2abf8b2208a4b27",
       "rewritten_sha256": "70e23e24a92eb8e5c41a50164633f61045675cf7f1788ab7b2abf8b2208a4b27",
-      "imported_sha256": "f69807deeb6d822f2facffadedec452941b765dfcfddb573f23f4d3e8254f500"
+      "imported_sha256": "d7676297dc0a44617e40d64ac4721de649cf1d35f540cfba1ebf42694663f832"
     },
     {
       "source": "shared/i18n/catalog_test.go",
@@ -2562,22 +2562,22 @@
       "source": "shared/i18n/de-DE.json",
       "target": "internal/upstream/i18n/de-DE.json",
       "source_sha256": "adf8189a42b9685b1af575b3c78f54cc1f9384feb66b603d7efa200b644eb61e",
-      "rewritten_sha256": "7cafca2e3dfaa5a0e1169d1d6a9b994796d9d0b8bdbca9cf0fe6060a66350ccc",
-      "imported_sha256": "7cafca2e3dfaa5a0e1169d1d6a9b994796d9d0b8bdbca9cf0fe6060a66350ccc"
+      "rewritten_sha256": "93ac392f011fb993c561639ecde7d6abfc4c708c277d43d95d44c4f3a268d548",
+      "imported_sha256": "93ac392f011fb993c561639ecde7d6abfc4c708c277d43d95d44c4f3a268d548"
     },
     {
       "source": "shared/i18n/en-US.json",
       "target": "internal/upstream/i18n/en-US.json",
       "source_sha256": "6b573217c69678cb23e531ad05ce79f1ec189dadcc7edfe5cca0bef16b9b596d",
-      "rewritten_sha256": "2fd7cd9589af53f33b071233f696ee57f2d0d2f9d77ff7045f56ce366b5df7e1",
-      "imported_sha256": "2fd7cd9589af53f33b071233f696ee57f2d0d2f9d77ff7045f56ce366b5df7e1"
+      "rewritten_sha256": "3bac2b8dce89f7e0b718c6769f67fac7f1aae2907907c3e5ef4f5be19bdc7692",
+      "imported_sha256": "3bac2b8dce89f7e0b718c6769f67fac7f1aae2907907c3e5ef4f5be19bdc7692"
     },
     {
       "source": "shared/i18n/ja-JP.json",
       "target": "internal/upstream/i18n/ja-JP.json",
       "source_sha256": "b8645ad3da9d7ad4515bd974ed04c066456ef7bcbcc435a9fef73272503a55a7",
-      "rewritten_sha256": "ddab7346dc9969d8ced015ad26ed5d9bc9c9053ccd3eaf20c56cb4a0f5996d03",
-      "imported_sha256": "ddab7346dc9969d8ced015ad26ed5d9bc9c9053ccd3eaf20c56cb4a0f5996d03"
+      "rewritten_sha256": "09e687f615e7646587e3a5a84cc5357b64ae833d8dea43253b84129422adc9e5",
+      "imported_sha256": "09e687f615e7646587e3a5a84cc5357b64ae833d8dea43253b84129422adc9e5"
     },
     {
       "source": "shared/i18n/locales.ts",
@@ -2591,14 +2591,14 @@
       "target": "internal/upstream/i18n/messages.ts",
       "source_sha256": "0e7cf22be2ab77046bf39a61b4f2cc05a4ea6669ea3008d3381eddf183502499",
       "rewritten_sha256": "0e7cf22be2ab77046bf39a61b4f2cc05a4ea6669ea3008d3381eddf183502499",
-      "imported_sha256": "0e7cf22be2ab77046bf39a61b4f2cc05a4ea6669ea3008d3381eddf183502499"
+      "imported_sha256": "89cd69ef075e4e0b5242f47db212a1d951abdc7d01edd49a022c503b01d60d66"
     },
     {
       "source": "shared/i18n/ru-RU.json",
       "target": "internal/upstream/i18n/ru-RU.json",
       "source_sha256": "fbfa276fc127c1727bbce90ea8884e7e675105dcfda5fa540cb928a6289b9b83",
-      "rewritten_sha256": "09857e4845abff25f11bf8448770f33c7a7d0b0e18d8aede29cbb27d3d8f07fa",
-      "imported_sha256": "09857e4845abff25f11bf8448770f33c7a7d0b0e18d8aede29cbb27d3d8f07fa"
+      "rewritten_sha256": "1587a8300e21aa28b18939c1a42e1fd71085b8e7a4bc4eb4d9e33c9cce46143a",
+      "imported_sha256": "1587a8300e21aa28b18939c1a42e1fd71085b8e7a4bc4eb4d9e33c9cce46143a"
     },
     {
       "source": "shared/i18n/translate.ts",
@@ -2611,29 +2611,29 @@
       "source": "shared/i18n/zh-CN.json",
       "target": "internal/upstream/i18n/zh-CN.json",
       "source_sha256": "75f8fa312e868e32b6c409c3d6a21b8660fec28ce1cbfcc77187da0e189db04d",
-      "rewritten_sha256": "b46b1539c7c3100e2e91b8c0ec726153621a20fdb6ca4738401105e5286c86cd",
-      "imported_sha256": "b46b1539c7c3100e2e91b8c0ec726153621a20fdb6ca4738401105e5286c86cd"
+      "rewritten_sha256": "7cd1900a3b6792c6424f14299e0e52e52d70a38505465bf8e512a2d5bc9f30f0",
+      "imported_sha256": "7cd1900a3b6792c6424f14299e0e52e52d70a38505465bf8e512a2d5bc9f30f0"
     },
     {
       "source": "shared/i18n/zh-TW.json",
       "target": "internal/upstream/i18n/zh-TW.json",
       "source_sha256": "9217268afcba5c5222a634502c2dbbd99e98ef0159d18182169d9c6bf2b8a385",
-      "rewritten_sha256": "376426b8c56e35f46194e84024c402f86e2f96fa41f3ccc63fd0bc2be6d5d956",
-      "imported_sha256": "376426b8c56e35f46194e84024c402f86e2f96fa41f3ccc63fd0bc2be6d5d956"
+      "rewritten_sha256": "157679b0467e919a5f1c267d79cba528caf0c6d2b4bfef0c0ee4670a7fd89af8",
+      "imported_sha256": "157679b0467e919a5f1c267d79cba528caf0c6d2b4bfef0c0ee4670a7fd89af8"
     },
     {
       "source": "internal/logger/logger.go",
       "target": "internal/upstream/logger/logger.go",
       "source_sha256": "890557a5c95507f6e8ba442035c3dfbb6ae520dfb75e87cc620eddb9ce2c0d4a",
-      "rewritten_sha256": "a88228a1db990fec0b1d9b5aa25ee58d263ee46230ca2c2413c12f81a94abc30",
-      "imported_sha256": "a88228a1db990fec0b1d9b5aa25ee58d263ee46230ca2c2413c12f81a94abc30"
+      "rewritten_sha256": "0adaa66b6ecbb7fe90c49650fd23736d97d7815eee2942f29222ad892b325f37",
+      "imported_sha256": "0adaa66b6ecbb7fe90c49650fd23736d97d7815eee2942f29222ad892b325f37"
     },
     {
       "source": "internal/logger/logger_test.go",
       "target": "internal/upstream/logger/logger_test.go",
       "source_sha256": "688d3308ae57b60b10aa8d9e91570144579c2a73dfcff1404759ec0889c750f9",
-      "rewritten_sha256": "6e7f6e15b352cc5f876a0f801f1f6f4156566acdc4ea788e422dbe8c6b9adef3",
-      "imported_sha256": "6e7f6e15b352cc5f876a0f801f1f6f4156566acdc4ea788e422dbe8c6b9adef3"
+      "rewritten_sha256": "79b763802d9d474d252a6695ba1ffd80031c8bd563bc9bddd9777e3ce205b5dd",
+      "imported_sha256": "79b763802d9d474d252a6695ba1ffd80031c8bd563bc9bddd9777e3ce205b5dd"
     },
     {
       "source": "internal/nacos/api_version.go",
@@ -2744,15 +2744,15 @@
       "source": "internal/nacos/transfer.go",
       "target": "internal/upstream/nacos/transfer.go",
       "source_sha256": "447abdb2674ed33be24b57ed2fcce5230a7748736952aff885b0e0a4647152f7",
-      "rewritten_sha256": "447abdb2674ed33be24b57ed2fcce5230a7748736952aff885b0e0a4647152f7",
-      "imported_sha256": "447abdb2674ed33be24b57ed2fcce5230a7748736952aff885b0e0a4647152f7"
+      "rewritten_sha256": "fd51473576b940453d52730debab8d7da6c5ff555cb6225da471fb4de9db9565",
+      "imported_sha256": "fd51473576b940453d52730debab8d7da6c5ff555cb6225da471fb4de9db9565"
     },
     {
       "source": "internal/nacos/types.go",
       "target": "internal/upstream/nacos/types.go",
       "source_sha256": "e6422c1d8489e36d4a651f74745d06ffd9897532791dc044ffebb8d4b5ec25fb",
-      "rewritten_sha256": "2502fb110f7258f8f0b3af41936aadfdfdc9e07bcfe030bbb352be2e9128b079",
-      "imported_sha256": "2502fb110f7258f8f0b3af41936aadfdfdc9e07bcfe030bbb352be2e9128b079"
+      "rewritten_sha256": "8589342bcae68585990e21e5692ac8e6e47f2fbad7d971b5cd4ef9905d5d517d",
+      "imported_sha256": "8589342bcae68585990e21e5692ac8e6e47f2fbad7d971b5cd4ef9905d5d517d"
     },
     {
       "source": "internal/proxy/backend_i18n.go",
@@ -2807,8 +2807,8 @@
       "source": "internal/sqlaudit/redact.go",
       "target": "internal/upstream/sqlaudit/redact.go",
       "source_sha256": "94f5430c27aa9298bb3df776321710a50c8ae920bf3d9a90839b6f7003d47e1a",
-      "rewritten_sha256": "94f5430c27aa9298bb3df776321710a50c8ae920bf3d9a90839b6f7003d47e1a",
-      "imported_sha256": "94f5430c27aa9298bb3df776321710a50c8ae920bf3d9a90839b6f7003d47e1a"
+      "rewritten_sha256": "6447d9c4c5f62f1e3587de38f8d5b342d468925d6e38a2547327b5ab415ac100",
+      "imported_sha256": "6447d9c4c5f62f1e3587de38f8d5b342d468925d6e38a2547327b5ab415ac100"
     },
     {
       "source": "internal/sqlaudit/redact_test.go",
@@ -2821,8 +2821,8 @@
       "source": "internal/sqlaudit/store.go",
       "target": "internal/upstream/sqlaudit/store.go",
       "source_sha256": "72b6595c51bbb822318da1d6add449d16f057bfcabcf7a9e76031e16edf3bd09",
-      "rewritten_sha256": "72b6595c51bbb822318da1d6add449d16f057bfcabcf7a9e76031e16edf3bd09",
-      "imported_sha256": "72b6595c51bbb822318da1d6add449d16f057bfcabcf7a9e76031e16edf3bd09"
+      "rewritten_sha256": "2bdf700270e01e966d6c93a0bfca4697a847ded3be209e9ea9f6a84f7ba6c14e",
+      "imported_sha256": "2bdf700270e01e966d6c93a0bfca4697a847ded3be209e9ea9f6a84f7ba6c14e"
     },
     {
       "source": "internal/sqlaudit/store_test.go",
@@ -2906,22 +2906,22 @@
       "source": "internal/ssh/host_key_trust.go",
       "target": "internal/upstream/ssh/host_key_trust.go",
       "source_sha256": "a09018bf0fddcc22065a1eb7553f61817855edf5d7650cd7cdaa4c35dbe69530",
-      "rewritten_sha256": "ada4aaf614fd372f80cf436ea5020a84f8d8f50f1cc6cb924dcb37c72099f031",
-      "imported_sha256": "ada4aaf614fd372f80cf436ea5020a84f8d8f50f1cc6cb924dcb37c72099f031"
+      "rewritten_sha256": "8a17263a281d1c1b857e147969a1b540249cea5259d718e2df3c89cab7cfafcf",
+      "imported_sha256": "8a17263a281d1c1b857e147969a1b540249cea5259d718e2df3c89cab7cfafcf"
     },
     {
       "source": "internal/ssh/host_key_trust_test.go",
       "target": "internal/upstream/ssh/host_key_trust_test.go",
       "source_sha256": "ac346372ea298296303aa1f682b03247000ddb035c23fd6a5077b607560ba364",
-      "rewritten_sha256": "09c951658fe394edc9f79fad70645b9cce8d688945122bba405aa3b7d5131494",
-      "imported_sha256": "09c951658fe394edc9f79fad70645b9cce8d688945122bba405aa3b7d5131494"
+      "rewritten_sha256": "500f47ac4db5bae7085b7ed02da2916eeb87e28f69cc9563d6ec9a40e287d2e1",
+      "imported_sha256": "500f47ac4db5bae7085b7ed02da2916eeb87e28f69cc9563d6ec9a40e287d2e1"
     },
     {
       "source": "internal/ssh/ssh.go",
       "target": "internal/upstream/ssh/ssh.go",
       "source_sha256": "25d9fd1cf619f2c42f3744c0286178762df67d41e2b047592740aba702e3a424",
-      "rewritten_sha256": "330f23be91cf796de421fd241389ef2b113ef04039c1903b5dc840076a3b92db",
-      "imported_sha256": "330f23be91cf796de421fd241389ef2b113ef04039c1903b5dc840076a3b92db"
+      "rewritten_sha256": "100377d906e46940a6d14e3244c43aa724000205ae9e48f6721265eea6a6e2ab",
+      "imported_sha256": "100377d906e46940a6d14e3244c43aa724000205ae9e48f6721265eea6a6e2ab"
     },
     {
       "source": "internal/ssh/ssh_cache_key_test.go",
@@ -2955,8 +2955,8 @@
       "source": "internal/ssh/ssh_hostkey_test.go",
       "target": "internal/upstream/ssh/ssh_hostkey_test.go",
       "source_sha256": "bb2d03b730e3e3b2e247ccbad1c5d56a7e5c7276a5d25f9b078a39648edf9d7b",
-      "rewritten_sha256": "10b269de5a7f5773b8dbecc874403401b74208ad9fac898c2ca2fe700959a4f5",
-      "imported_sha256": "10b269de5a7f5773b8dbecc874403401b74208ad9fac898c2ca2fe700959a4f5"
+      "rewritten_sha256": "ddf87468eda852227c74f1f56d75212bd0c5896ebf6f858d575fa3a3a669509a",
+      "imported_sha256": "ddf87468eda852227c74f1f56d75212bd0c5896ebf6f858d575fa3a3a669509a"
     },
     {
       "source": "internal/ssh/ssh_i18n_test.go",
@@ -3018,8 +3018,8 @@
       "source": "internal/tlsconfig/tlsconfig_test.go",
       "target": "internal/upstream/tlsconfig/tlsconfig_test.go",
       "source_sha256": "f47e991b820ec0b0236c7f7362c2cc228553ae26b6778af93e579a62c62c4ad8",
-      "rewritten_sha256": "f47e991b820ec0b0236c7f7362c2cc228553ae26b6778af93e579a62c62c4ad8",
-      "imported_sha256": "f47e991b820ec0b0236c7f7362c2cc228553ae26b6778af93e579a62c62c4ad8"
+      "rewritten_sha256": "72dbeb1354ae53a3b1b83e0cac0f130551ca5123ffc963b91fcd9d39e507b5a3",
+      "imported_sha256": "72dbeb1354ae53a3b1b83e0cac0f130551ca5123ffc963b91fcd9d39e507b5a3"
     },
     {
       "source": "internal/utils/utils.go",

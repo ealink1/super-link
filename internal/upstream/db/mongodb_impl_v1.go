@@ -1,4 +1,4 @@
-//go:build gonavi_mongodb_driver_v1
+//go:build superlink_mongodb_driver_v1
 
 package db
 
@@ -97,7 +97,7 @@ func mongoConnectionDialer(config connection.ConnectionConfig) options.ContextDi
 var mongoGetOrCreateSSHClient = ssh.GetOrCreateSSHClient
 
 const defaultMongoPort = 27017
-const mongoObjectIDLocatorColumn = "__gonavi_mongodb_id_locator__"
+const mongoObjectIDLocatorColumn = "__superlink_mongodb_id_locator__"
 
 func normalizeMongoAddress(host string, port int) string {
 	h := strings.TrimSpace(host)
@@ -983,7 +983,7 @@ func (m *MongoDBV1) execFind(ctx context.Context, cmd bson.D) ([]map[string]inte
 			sortDoc = elem.Value
 		case "projection":
 			projection = elem.Value
-		case "__gonaviIncludeObjectIDLocator":
+		case "__superlinkIncludeObjectIDLocator":
 			if enabled, ok := elem.Value.(bool); ok {
 				includeObjectIDLocator = enabled
 			}

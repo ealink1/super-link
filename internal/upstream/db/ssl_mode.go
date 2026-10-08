@@ -78,7 +78,7 @@ func mysqlTLSConfigName(config connection.ConnectionConfig) string {
 		strings.TrimSpace(config.SSLCertPath),
 		strings.TrimSpace(config.SSLKeyPath),
 	}, "\x00")))
-	return "gonavi-" + hex.EncodeToString(sum[:8])
+	return "superlink-" + hex.EncodeToString(sum[:8])
 }
 
 func resolvePostgresSSLMode(config connection.ConnectionConfig) string {

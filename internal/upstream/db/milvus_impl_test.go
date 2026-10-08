@@ -547,7 +547,7 @@ func TestMilvusLiveSmoke(t *testing.T) {
 	}
 
 	db := newTestMilvusDB(t, serverURL)
-	collection := "gonavi_smoke_live"
+	collection := "superlink_smoke_live"
 	_, _ = db.Exec(fmt.Sprintf(`{"drop_collection":%q}`, collection))
 	if _, err := db.Exec(fmt.Sprintf(`{"create_collection":%q,"dimension":3,"metric_type":"COSINE"}`, collection)); err != nil {
 		t.Fatalf("create live collection: %v", err)

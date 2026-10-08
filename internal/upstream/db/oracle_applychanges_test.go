@@ -16,7 +16,7 @@ import (
 	"github.com/ealink1/super-link/internal/upstream/connection"
 )
 
-const oracleRecordingDriverName = "gonavi_oracle_recording"
+const oracleRecordingDriverName = "superlink_oracle_recording"
 
 var (
 	registerOracleRecordingDriverOnce sync.Once

@@ -71,13 +71,15 @@ func (n *noteWorkspace) buildEditor() {
 	n.title.SetPlaceHolder("无标题笔记")
 	n.title.TextStyle.Bold = true
 	n.editor = newNoteEntry(true)
-	n.editor.SetPlaceHolder("开始记录… 支持 Markdown 格式")
-	n.editor.Wrapping = fyne.TextWrapWord
-	n.editor.TextStyle.Monospace = true
+	n.editor.rich = true
+	n.editor.SetPlaceHolder("开始记录…")
+	n.editor.Wrapping = fyne.TextWrapOff
+	n.editor.Scroll = container.ScrollNone
 	n.tags = widget.NewEntry()
 	n.tags.SetPlaceHolder("标签，逗号分隔")
 	n.title.OnChanged = func(string) { n.changed(); n.list.Refresh() }
-	n.editor.OnChanged = func(string) { n.changed() }
+	n.editor.OnChanged = func(string) { n.editor.recordEdit(); n.changed(); n.refreshFormatState() }
+	n.editor.OnCursorChanged = n.refreshFormatState
 	n.tags.OnChanged = func(string) { n.changed() }
 	n.groupPicker = widget.NewSelect([]string{"默认分组"}, func(name string) {
 		if n.binding {
@@ -100,7 +102,7 @@ func (n *noteWorkspace) buildEditor() {
 	})
 	n.preview = widget.NewRichText()
 	n.preview.Wrapping = fyne.TextWrapWord
-	n.viewPicker = widget.NewSelect([]string{"编辑", "预览", "分屏"}, func(value string) { n.view = value; n.updateEditorView() })
+	n.viewPicker = widget.NewSelect([]string{"编辑", "源码", "预览", "分屏"}, func(value string) { n.view = value; n.updateEditorView() })
 	n.viewPicker.SetSelected("编辑")
 	header := shellFixed(shellInset(shellBorder(nil, nil, nil, shellHBox(shellFixed(n.groupPicker, 130, 28), shellButtonView(shellButton("更多", "ellipsis", false, n.showMore))), shellLabel(n.status, 11)), 8), 0, 48)
 	title := shellFixed(noteTitleInset(container.NewThemeOverride(n.title, noteEntryTheme{shellTheme: newShellTheme(), size: 26})), 0, 72)
@@ -111,12 +113,15 @@ func (n *noteWorkspace) buildEditor() {
 	n.editorHost = shellBorder(shellVBox(header, shellLine(), title, shellLine(), toolbar, shellLine()), bottom, nil, nil, n.editorArea())
 }
 func (n *noteWorkspace) editorArea() fyne.CanvasObject {
-	return shellInset(container.NewThemeOverride(n.editor, noteEntryTheme{shellTheme: newShellTheme(), size: 14}), 28)
+	return container.NewVScroll(shellInset(container.NewThemeOverride(n.editor, noteEntryTheme{shellTheme: newShellTheme(), size: 16}), 36))
 }
 func (n *noteWorkspace) updateEditorView() {
 	if n.editorHost == nil {
 		return
 	}
+	n.editor.rich = n.view != "源码" && n.view != "分屏"
+	n.editor.TextStyle.Monospace = !n.editor.rich
+	n.editor.Refresh()
 	n.renderPreview()
 	var body fyne.CanvasObject = n.editorArea()
 	if n.view == "预览" {

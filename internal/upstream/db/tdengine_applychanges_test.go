@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_tdengine_driver
+//go:build superlink_full_drivers || superlink_tdengine_driver
 
 package db
 
@@ -17,7 +17,7 @@ import (
 	"github.com/ealink1/super-link/internal/upstream/i18n"
 )
 
-const tdengineRecordingDriverName = "gonavi_tdengine_recording"
+const tdengineRecordingDriverName = "superlink_tdengine_recording"
 
 var (
 	registerTDengineRecordingDriverOnce sync.Once

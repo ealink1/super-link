@@ -3,7 +3,7 @@
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
 日期：2026-10-02。环境：macOS arm64、Go 1.26.3、Fyne 2.8.1。
-目标目录：`.`。GoNavi 源码目录保持未改动。
+目标目录：`.`。SuperLink 源码目录保持未改动。
 **本报告记录已实施和已验证部分；不代表完整的一比一复刻完成。**
 旧版 Alpha 的真实服务和原生更新测试保留在[2026-10-01 报告](selfcheck-2026-10-01.md)，
 未将这些历史结果重新写成本轮最新 UI 的验收。
@@ -49,7 +49,7 @@ go run ./tools/check-go-size
 python3 tools/verify-upstream.py
 python3 tools/verify-ui-assets.py
 go test ./...
-go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent
+go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
 go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
 go vet ./...
 SUPERLINK_TEST_DRIVERS="$PWD/bin/drivers" go test -tags integration -count=1 ./internal/infra/runtime -run 'TestLocalFileAgents|TestLocalAgentsBoundValuesAndOptimisticChanges|TestSQLiteAgentSessionMetadataDoesNotWaitForItsOwnPool'
@@ -111,7 +111,7 @@ SHA256、修订及协议，ZIP CRC / 路径检查通过。包内主程序和 Hel
 
 初次原生复查遇到 Mac 锁定；之后在内存修复中已完成真实 QA 重启、中文界面显示、
 常量 SELECT 点击执行和结果显示复查。未丢弃连接 / 查询草稿，未操作用户业务库写入。
-随后再次打开 GoNavi 和实际 QA，统一为 2940 × 1724 物理像素窗口，获取并检查
+随后再次打开 SuperLink 和实际 QA，统一为 2940 × 1724 物理像素窗口，获取并检查
 17 张新的原生截图，完成欢迎、数据源、MySQL 基本 / 网络页、新建查询和设置页的
 采样对照；结果未达到一比一。另实际展开本地 SQLite 并打开 `products` 数据、
 字段和 DDL，仅证明这些页面能打开，未做两端同表对照。
@@ -122,7 +122,7 @@ SHA256、修订及协议，ZIP CRC / 路径检查通过。包内主程序和 Hel
 
 ## 仍未完成
 
-完整对照见[功能矩阵](gonavi-ui-observation-2026-10-01.md#5-与当前-superlink-的逐项差距2026-10-02-更新)。
+完整对照见[功能矩阵](superlink-ui-observation-2026-10-01.md#5-与当前-superlink-的逐项差距2026-10-02-更新)。
 尤其包括格式化 / 补全 / 执行计划、完整对象类别与右键动作、列管理 / ER、
 外键 / 触发器编辑、事务工作台、数据库编辑快照 / 诊断、完整文件向导和任务历史、
 比较 / 同步 / 调度 / 持续同步、AI / MCP / Skills、云备份与完整设置中心。

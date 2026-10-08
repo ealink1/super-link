@@ -1,21 +1,21 @@
 # SuperLink 整体设计与实施计划
 
 > 状态：已获批准；v0.1.0 原生 Alpha 已实现并完成本次自检。日期：2026-10-01。
-> **范围已更新**：用户随后要求完整功能和界面一比一复刻，以[完整对齐设计](2026-10-01-gonavi-parity-design.md)为当前验收范围；本文件中的首版边界保留作历史设计，不作为缩减交付范围的依据。
+> **范围已更新**：用户随后要求完整功能和界面一比一复刻，以[完整对齐设计](2026-10-01-superlink-parity-design.md)为当前验收范围；本文件中的首版边界保留作历史设计，不作为缩减交付范围的依据。
 > 实际功能、验证范围和未完成项以 [README](../../README.md) 与 [自检报告](../selfcheck-2026-10-01.md) 为准。下文保留完整实施目标，不将计划中的全部功能标记为已交付。
-> 已补充[本机 GoNavi 页面与操作对照](../gonavi-ui-observation-2026-10-01.md)，日常库表工作流的后续补齐按该文档逐项验收；入口数量不作为功能对齐的判据。
+> 已补充[本机 SuperLink 页面与操作对照](../superlink-ui-observation-2026-10-01.md)，日常库表工作流的后续补齐按该文档逐项验收；入口数量不作为功能对齐的判据。
 >
 > 目标仓库：[ealink1/super-link](https://github.com/ealink1/super-link)，Git 地址：`git@github.com:ealink1/super-link.git`。
 >
-> 用户已确定：首版尽量覆盖 GoNavi 全部数据库类型，再逐步补高级功能；不包含 JVM 管理连接器。
+> 用户已确定：首版尽量覆盖 SuperLink 全部数据库类型，再逐步补高级功能；不包含 JVM 管理连接器。
 >
 > 实施目录：`.`。独立 Go 模块、Fyne 界面和基础工作台已建立；实际完成情况以 README 和自检报告为准。暂未提交或推送。
 >
-> GoNavi 参考基线：`6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871`。后续若更换基线，先重新核对驱动和协议差异。
+> SuperLink 参考基线：`6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871`。后续若更换基线，先重新核对驱动和协议差异。
 
 ## 1. 建议采用的总体路线
 
-新建独立 Go + Fyne 桌面工程，逐项迁入 GoNavi 的驱动、连接、协议处理和业务规则；桌面界面、应用服务、事件机制、配置命名空间和发布流程按 Fyne 重建。
+新建独立 Go + Fyne 桌面工程，逐项迁入 SuperLink 的驱动、连接、协议处理和业务规则；桌面界面、应用服务、事件机制、配置命名空间和发布流程按 Fyne 重建。
 
 首版以“数据源覆盖完整、基础操作可靠”为目标。先打通各类数据源的基础工作台，再完善高级编辑、结构设计、同步、AI 与运维能力。范围覆盖不是把所有入口都做成 SQL 编辑器：Redis、消息队列、向量服务、Nacos 需要自己的操作界面。
 
@@ -41,7 +41,7 @@
 
 ### 2.2 逐类型基础能力
 
-下表是首版目标，不是现有 SuperLink 已实现的功能。类型键来自 [GoNavi 能力契约][g-capability]；`custom` 来自 [数据库工厂][g-factory]。
+下表是首版目标，不是现有 SuperLink 已实现的功能。类型键来自 [SuperLink 能力契约][g-capability]；`custom` 来自 [数据库工厂][g-factory]。
 
 | 序号 | 数据源 / 类型键 | 首版基础工作台与验收重点 |
 | --- | --- | --- |
@@ -98,17 +98,17 @@
 | 方案 | 做法 | 优点 | 代价 / 风险 | 结论 |
 | --- | --- | --- | --- | --- |
 | A. 新 Fyne 工程 + 选择性迁入 Go 后端 | 新模块和应用服务，复用驱动 / 协议 / 规则，重建 UI | 适合独立仓库；保留全类型基础；逐步清除 Wails 耦合 | 需要梳理依赖、迁移配置和补齐 Fyne 组件 | **推荐** |
-| B. 完整复制 GoNavi 后逐步替换桌面壳 | 搬入所有代码，先保留原 `App` 对象 | 前期可快速调用已有业务入口 | Wails、React、巨型绑定层及多宿主状态仍然存在；后期清理成本高 | 可用于短期研究，不作为正式结构 |
+| B. 完整复制 SuperLink 后逐步替换桌面壳 | 搬入所有代码，先保留原 `App` 对象 | 前期可快速调用已有业务入口 | Wails、React、巨型绑定层及多宿主状态仍然存在；后期清理成本高 | 可用于短期研究，不作为正式结构 |
 | C. 从零重写全部驱动与功能 | 只参考产品流程，自写所有接入 | 结构自由、历史依赖少 | 37 入口会反复处理认证、方言、取消和平台依赖；验收工作最多 | 不符合首版广覆盖目标 |
 
-重要限制：Go 的 `internal` 包有导入可见性规则，新仓库不能直接 `go get` 后导入 GoNavi 的 `internal/db` 等包。首阶段选择带来源记录的源码迁入，修正模块路径；未来双方维护者愿意合作时，再考虑抽公共 SDK。[Go internal 包规则](https://go.dev/doc/go1.4#internalpackages)
+重要限制：Go 的 `internal` 包有导入可见性规则，新仓库不能直接 `go get` 后导入 SuperLink 的 `internal/db` 等包。首阶段选择带来源记录的源码迁入，修正模块路径；未来双方维护者愿意合作时，再考虑抽公共 SDK。[Go internal 包规则](https://go.dev/doc/go1.4#internalpackages)
 
 ### 3.1 迁入规则
 
 1. 固定上游 commit；建立 `UPSTREAM.md`，记录文件来源、原路径、修改和同步日期。
-2. 保留适用的许可、版权声明和上游 NOTICE；将修改说明写进迁移记录。GoNavi 当前使用 Apache-2.0，按其再分发条款处理。[上游许可][g-license]、[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
+2. 保留适用的许可、版权声明和上游 NOTICE；将修改说明写进迁移记录。SuperLink 当前使用 Apache-2.0，按其再分发条款处理。[上游许可][g-license]、[Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0)
 3. 先迁驱动、类型、SSH / TLS / 代理及必要工具，再按依赖迁应用业务。保留 `third_party` 中必要的本地替换实现。
-4. 更新模块名为 `github.com/ealink1/super-link`，避免继续使用 `GoNavi-Wails`。
+4. 更新模块名为 `github.com/ealink1/super-link`，避免继续使用 `SuperLink-Wails`。
 5. 不直接把 `internal/app` 的巨大 `App` 实例作为新 UI 后端。将所需业务拆入应用服务，桌面操作通过接口提供。
 6. 复用测试中真实表达协议行为、类型转换和保护边界的部分，调整路径与契约；不为了表面覆盖率搬入全部旧 UI 测试。
 7. 搜索直接及间接 Wails 依赖。已发现 AI 的数据目录选择仍调用 Wails 文件对话框，不能把整个 AI 目录当作完全无 UI 耦合的库。[耦合实例][g-ai-host]
@@ -287,7 +287,7 @@ Fyne 2.8 新项目启用 `FyneApp.toml` 中 `[Migrations] fyneDo = true`。后�
 
 ### 8.1 保留内置驱动 + 可选 Agent 路线
 
-GoNavi 当前有 13 个内置类型、22 个可选驱动类型，另有 Custom 和 Nacos 专门入口。可选工厂主要返回代理对象；不能把 `full` 构建名称理解成全部驱动都在主进程内。[驱动分类][g-driver-support]、[可选工厂][g-optional]
+SuperLink 当前有 13 个内置类型、22 个可选驱动类型，另有 Custom 和 Nacos 专门入口。可选工厂主要返回代理对象；不能把 `full` 构建名称理解成全部驱动都在主进程内。[驱动分类][g-driver-support]、[可选工厂][g-optional]
 
 首版尽量保留该结构，以接入速度和协议兼容为先：
 
@@ -403,7 +403,7 @@ Fyne Table 按需更新 Cell 模板，适合作为结果表格基础；矩形选
 
 ### 11.1 状态数据
 
-默认使用新应用自己的配置、缓存、日志与数据目录，通过平台目录 API 解析，并用稳定 AppID 区分，例如 `io.github.ealink1.superlink`。与 GoNavi 的原目录隔离，避免互相覆盖。
+默认使用新应用自己的配置、缓存、日志与数据目录，通过平台目录 API 解析，并用稳定 AppID 区分，例如 `io.github.ealink1.superlink`。与 SuperLink 的原目录隔离，避免互相覆盖。
 
 | 数据 | 建议存储 | 规则 |
 | --- | --- | --- |
@@ -418,12 +418,12 @@ Fyne Table 按需更新 Cell 模板，适合作为结果表格基础；矩形选
 
 配置迁移执行备份、事务、版本校验；失败时保留旧数据并解释恢复方式。新程序回退还要考虑状态 schema 是否兼容，不能只替换旧二进制就声称回滚完成。
 
-### 11.2 凭据与 GoNavi 配置导入
+### 11.2 凭据与 SuperLink 配置导入
 
-- 复用 SecretStore 的接口思路，改掉硬编码的 `gonavi` 服务名、健康检查 key 和应用标签。[上游 SecretStore][g-secrets]
+- 复用 SecretStore 的接口思路，改掉硬编码的 `superlink` 服务名、健康检查 key 和应用标签。[上游 SecretStore][g-secrets]
 - 系统密钥库不可用时，允许当次连接使用内存凭据；明确提示无法保存，不静默回落到明文 JSON。
 - TLS 默认验证证书；SSH 使用 known_hosts 或明确的主机指纹信任流程，不默认关闭校验。
-- 只导入用户选择的 GoNavi 导出文件或目录；先预览类型、连接和冲突，备份后导入。
+- 只导入用户选择的 SuperLink 导出文件或目录；先预览类型、连接和冲突，备份后导入。
 - 保留 ID 映射或生成新 ID；重名、类型别名、字段版本变化、凭据不可读分别反馈。
 - 旧配置中的明文密码仅在明确选择迁移凭据时写进新密钥库，不复制到新数据库字段，不修改旧文件。
 
@@ -511,7 +511,7 @@ Fyne 的打包命令能够生成应用包，但安装器、签名、公证、更
 
 可以评估 [fynelabs/selfupdate](https://github.com/fynelabs/selfupdate) 的单文件替换、验证或进度能力，以及 [fyneselfupdate](https://github.com/fynelabs/fyneselfupdate) 的 Fyne 确认 UI。是否采用在 P0 原型中确定并锁定版本。
 
-本项目更新同时涉及 `.app` 资源、Helper 和多个 Agent，因此默认以自有 `UpdateService + Installer` 控制完整生命周期，不假定引入一个包就完成跨平台更新。也可以复用 GoNavi 的清单、平台匹配、校验和安装阶段划分，但要移除 Wails 事件、品牌路径及上游安装目标。[清单选择][g-update-manifest]、[安装入口][g-update-install]、[清单生成器][g-update-generator]
+本项目更新同时涉及 `.app` 资源、Helper 和多个 Agent，因此默认以自有 `UpdateService + Installer` 控制完整生命周期，不假定引入一个包就完成跨平台更新。也可以复用 SuperLink 的清单、平台匹配、校验和安装阶段划分，但要移除 Wails 事件、品牌路径及上游安装目标。[清单选择][g-update-manifest]、[安装入口][g-update-install]、[清单生成器][g-update-generator]
 
 ## 13. 后续高级功能路线
 
@@ -554,7 +554,7 @@ Fyne 的打包命令能够生成应用包，但安装器、签名、公证、更
 
 ### 14.1 首版阶段安排
 
-估算前提：一名熟悉 Go 与桌面应用的开发者，复用固定 GoNavi 基线，有代表测试服务与 CI 资源。单位是人日，表示初步预算，尚未经过原型校准；不包括等待专有库环境、签名证书、额外需求和完整高级编辑器研发。
+估算前提：一名熟悉 Go 与桌面应用的开发者，复用固定 SuperLink 基线，有代表测试服务与 CI 资源。单位是人日，表示初步预算，尚未经过原型校准；不包括等待专有库环境、签名证书、额外需求和完整高级编辑器研发。
 
 | 阶段 | 工作项 | 可评审交付物 / 验收条件 | 初步人日 |
 | --- | --- | --- | --- |
@@ -567,7 +567,7 @@ Fyne 的打包命令能够生成应用包，但安装器、签名、公证、更
 | P6 更新与交付 | 主程序和 Agent 包；签名清单；下载、平台 Installer、退出协调；全驱动离线包 | 至少两个本仓库测试版本完成各正式平台升级；损坏包、占用、权限、恢复路径符合设计 | 8–14 |
 | P7 首版稳定与发布 | 逐类型集成验收、平台验收、性能、文案、故障处理、安装文档 | 发布实际覆盖矩阵；已验证入口不只有连接测试；严重缺陷清零；结果类型、保护、关闭和升级路径通过 | 10–18 |
 
-合计约 **67–112 人日，单人按每周 5 个工作日约 14–23 周**。这包含全类型基础界面和基础验证，不能等同于 GoNavi 全功能复刻。P0 完成后根据输入法、原生依赖和测试环境调整预算；未知环境不能被算成开发已经完成。
+合计约 **67–112 人日，单人按每周 5 个工作日约 14–23 周**。这包含全类型基础界面和基础验证，不能等同于 SuperLink 全功能复刻。P0 完成后根据输入法、原生依赖和测试环境调整预算；未知环境不能被算成开发已经完成。
 
 ### 14.2 依赖与早期可见成果
 
@@ -691,7 +691,7 @@ README 的功能列表从验收记录生成或人工核对，区分基础功能�
 - 背景：Fyne 标准输入组件不能直接提供 Monaco 的完整能力。
 - 决策：通过 SQLEditor 接口封装多行 Entry；高级高亮和补全需原型通过后加入。
 - 收益：继承基础输入能力，全类型接入可以继续推进。
-- 代价：首版编辑体验不会覆盖 GoNavi 的全部 Monaco 功能。
+- 代价：首版编辑体验不会覆盖 SuperLink 的全部 Monaco 功能。
 - 替代：起步即维护复杂自定义编辑器，或引入 WebView 编辑器。
 - 验证：输入法、选区、保存、快捷键、大文本测试；首版保持 Fyne 原生界面。
 
@@ -744,7 +744,7 @@ README 的功能列表从验收记录生成或人工核对，区分基础功能�
 | 首版编辑器 | 基础原生编辑能力；高级彩色编辑后置 | 若要求首版达到 Monaco 体验，需重新评估 P0 和排期 |
 | 发行包 | 标准包 + 对应平台全驱动离线包 | 全离线包更大，需完整验证原生依赖与许可 |
 | 系统安装方式 | Portable / `.app` / 用户目录，权限不足手动安装 | MSI、系统目录自动提权、商店渠道需独立工程 |
-| GoNavi 配置兼容 | 提供预览式一次性导入，不共用原目录 | 若要求双向同步，增加冲突与凭据同步设计 |
+| SuperLink 配置兼容 | 提供预览式一次性导入，不共用原目录 | 若要求双向同步，增加冲突与凭据同步设计 |
 | 专有数据库测试 | 先建立可获得环境清单；缺项标记未验证 | 正式宣称对应版本支持需要实际环境与记录 |
 | 数据外发 | 首版无 AI 和自动遥测 | 后续 AI / 云备份需另行明确外发范围与存储 |
 
@@ -770,16 +770,16 @@ README 的功能列表从验收记录生成或人工核对，区分基础功能�
 - [更新元数据与回退][g-update-manifest]、[安装协调][g-update-install]、[静态清单生成][g-update-generator]
 - [发布工作流][g-release]、[上游许可][g-license]
 
-[g-capability]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/data_source_capability_contract.json
-[g-factory]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database.go#L1132
-[g-optional]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database_optional_factories_lite.go#L5
-[g-driver-support]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/driver_support.go#L15
-[g-agent]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/cmd/optional-driver-agent/main.go#L21
-[g-cancel]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database.go#L336
-[g-secrets]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/secretstore/keyring_store.go#L24
-[g-ai-host]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/ai/service/service_agent_data.go#L19
-[g-update-manifest]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/app/update_manifest.go#L472
-[g-update-install]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/app/methods_update_install.go#L14
-[g-update-generator]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/tools/generate-update-latest-manifest.py#L219
-[g-release]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/.github/workflows/release.yml#L1782
-[g-license]: https://github.com/Syngnat/GoNavi/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/LICENSE
+[g-capability]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/data_source_capability_contract.json
+[g-factory]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database.go#L1132
+[g-optional]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database_optional_factories_lite.go#L5
+[g-driver-support]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/driver_support.go#L15
+[g-agent]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/cmd/optional-driver-agent/main.go#L21
+[g-cancel]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/db/database.go#L336
+[g-secrets]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/secretstore/keyring_store.go#L24
+[g-ai-host]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/ai/service/service_agent_data.go#L19
+[g-update-manifest]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/app/update_manifest.go#L472
+[g-update-install]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/internal/app/methods_update_install.go#L14
+[g-update-generator]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/tools/generate-update-latest-manifest.py#L219
+[g-release]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/.github/workflows/release.yml#L1782
+[g-license]: https://github.com/Syngnat/SuperLink/blob/6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871/LICENSE

@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	TransferFileFormat  = "gonavi.nacos.configs"
+	TransferFileFormat  = "superlink.nacos.configs"
 	TransferFileVersion = 1
 )
 
@@ -20,7 +20,7 @@ func NewTransferFile(namespaceID, namespaceName string) TransferFile {
 		ExportedAt:    time.Now().UTC().Format(time.RFC3339),
 		NamespaceID:   normalizeNamespaceID(namespaceID),
 		NamespaceName: strings.TrimSpace(namespaceName),
-		SourceAppName: "GoNavi",
+		SourceAppName: "SuperLink",
 		Configs:       []TransferConfigEntry{},
 	}
 }

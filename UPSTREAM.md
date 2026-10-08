@@ -29,7 +29,7 @@ regenerate catalogs, tidy dependencies and pass tests before refreshing hashes:
 ```sh
 python3 tools/verify-upstream.py
 # Only after reviewing intentional upstream changes:
-python3 tools/verify-upstream.py --refresh /path/to/pinned/GoNavi
+python3 tools/verify-upstream.py --refresh /path/to/pinned/upstream
 ```
 
 ## Intentional adaptations
@@ -38,7 +38,7 @@ python3 tools/verify-upstream.py --refresh /path/to/pinned/GoNavi
   `github.com/ealink1/super-link`, environment variables use `SUPERLINK_`, and
   app-owned temporary paths and log names use `superlink`. The import rewrite,
   retained source/tests, provenance hashes and adaptation patch were refreshed
-  together against the same pinned upstream commit. Original GoNavi attribution,
+  together against the same pinned upstream commit. Original upstream attribution,
   driver build tags and protocol revisions remain unchanged.
 - JVM management is excluded by user request. No JVM connector, Java helper,
   JDK requirement, JVM DTO or JVM capability registry entry is retained. Unused
@@ -46,7 +46,7 @@ python3 tools/verify-upstream.py --refresh /path/to/pinned/GoNavi
   of database services do not create a Java runtime dependency.
 - Module imports target `github.com/ealink1/super-link/internal/upstream`.
   App-specific environment variables use `SUPERLINK_`; storage/log/agent names
-  are isolated from GoNavi. Existing `gonavi_*_driver` build tags and `src-*`
+  are isolated from the upstream application. Existing `superlink_*_driver` build tags and `src-*`
   compatibility revisions now carry the `fyne-values1-` prefix; agents from the
   original baseline must be rebuilt/reinstalled for the adapted value transport.
 - The unused Wails logger adapter and its test are omitted. The retained logger
@@ -118,7 +118,7 @@ tests run in selfcheck/CI. See `docs/memory-analysis-2026-10-02.md` and
 `docs/memory-refinement-2026-10-02.md` for measurements and known upstream
 container snapshot failures on this Mac.
 
-`internal/ui/assets/gonavi/sources.json` records hashes and source paths for 63
+`internal/ui/assets/superlink/sources.json` records hashes and source paths for 63
 UI icons, 21 database SVGs and 13 database PNGs. JSX icon geometry was extracted
 mechanically; PNG/SVG assets were copied, and ICO pixels converted to PNG.
 `tools/verify-ui-assets.py` verifies the complete inventory. Fyne applies the
@@ -127,3 +127,12 @@ strokes and explicit fills.
 
 Retained upstream files preserve existing structure and size to support review
 and upstream comparisons. New production files follow the limits in AGENTS.md.
+
+## SuperLink namespace cleanup (2026-10-08)
+
+Product text, authored documentation, retained driver build tags, tests and
+internal protocol keys now use the SuperLink namespace. UI assets live under
+`internal/ui/assets/superlink`. Original repository URLs and attribution remain
+in provenance and license records. Retained hashes and the adaptation patch
+were refreshed against the pinned source. Driver revisions now carry the `superlink-values2-` prefix. Binaries must be rebuilt for
+this namespace change; do not reuse older driver builds.

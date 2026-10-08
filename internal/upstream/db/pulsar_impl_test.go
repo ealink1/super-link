@@ -175,7 +175,7 @@ func TestPulsarPingWithoutDefaultTopicChecksBrokerAndAdmin(t *testing.T) {
 	client := &pulsarClientProbe{err: pulsar.ErrTopicNotfound}
 	adminChecked := false
 	p := &PulsarDB{
-		client: client, probeTopic: "persistent://public/default/__gonavi_connection_probe__",
+		client: client, probeTopic: "persistent://public/default/__superlink_connection_probe__",
 		listTopics: func(context.Context) ([]string, error) {
 			adminChecked = true
 			return []string{}, nil

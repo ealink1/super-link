@@ -140,7 +140,7 @@ func lookupManagedHostKey(storePath, address string) (cryptossh.PublicKey, bool,
 	}
 	key, _, _, _, err := cryptossh.ParseAuthorizedKey([]byte(record.PublicKey))
 	if err != nil {
-		return nil, false, fmt.Errorf("parse GoNavi trusted SSH host key for %s: %w", address, err)
+		return nil, false, fmt.Errorf("parse SuperLink trusted SSH host key for %s: %w", address, err)
 	}
 	return key, true, nil
 }
@@ -151,14 +151,14 @@ func readManagedHostKeyTrustStore(path string) (managedHostKeyTrustStore, error)
 		return managedHostKeyTrustStore{Version: managedHostKeyTrustStoreVersion, Hosts: map[string]managedHostKeyTrustRecord{}}, nil
 	}
 	if err != nil {
-		return managedHostKeyTrustStore{}, fmt.Errorf("read GoNavi SSH trusted-host store: %w", err)
+		return managedHostKeyTrustStore{}, fmt.Errorf("read SuperLink SSH trusted-host store: %w", err)
 	}
 	store := managedHostKeyTrustStore{}
 	if err := json.Unmarshal(data, &store); err != nil {
-		return managedHostKeyTrustStore{}, fmt.Errorf("parse GoNavi SSH trusted-host store: %w", err)
+		return managedHostKeyTrustStore{}, fmt.Errorf("parse SuperLink SSH trusted-host store: %w", err)
 	}
 	if store.Version != 0 && store.Version != managedHostKeyTrustStoreVersion {
-		return managedHostKeyTrustStore{}, fmt.Errorf("unsupported GoNavi SSH trusted-host store version %d", store.Version)
+		return managedHostKeyTrustStore{}, fmt.Errorf("unsupported SuperLink SSH trusted-host store version %d", store.Version)
 	}
 	store.Version = managedHostKeyTrustStoreVersion
 	if store.Hosts == nil {
@@ -169,32 +169,32 @@ func readManagedHostKeyTrustStore(path string) (managedHostKeyTrustStore, error)
 
 func writeManagedHostKeyTrustStore(path string, store managedHostKeyTrustStore) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("create GoNavi SSH trusted-host directory: %w", err)
+		return fmt.Errorf("create SuperLink SSH trusted-host directory: %w", err)
 	}
 	data, err := json.MarshalIndent(store, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("encode SuperLink SSH trusted-host store: %w", err)
 	}
 	data = append(data, '\n')
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".ssh-host-keys-*.json")
 	if err != nil {
-		return fmt.Errorf("create temporary GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("create temporary SuperLink SSH trusted-host store: %w", err)
 	}
 	temporaryPath := temporary.Name()
 	defer func() { _ = os.Remove(temporaryPath) }()
 	if err := temporary.Chmod(0o600); err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("protect temporary GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("protect temporary SuperLink SSH trusted-host store: %w", err)
 	}
 	if _, err := temporary.Write(data); err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("write temporary GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("write temporary SuperLink SSH trusted-host store: %w", err)
 	}
 	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("close temporary GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("close temporary SuperLink SSH trusted-host store: %w", err)
 	}
 	if err := os.Rename(temporaryPath, path); err != nil {
-		return fmt.Errorf("replace GoNavi SSH trusted-host store: %w", err)
+		return fmt.Errorf("replace SuperLink SSH trusted-host store: %w", err)
 	}
 	return nil
 }
@@ -202,7 +202,7 @@ func writeManagedHostKeyTrustStore(path string, store managedHostKeyTrustStore) 
 func persistManagedHostKey(storePath string, config connection.SSHConfig, key cryptossh.PublicKey) error {
 	storePath = strings.TrimSpace(storePath)
 	if storePath == "" {
-		return errors.New("GoNavi SSH trusted-host store is unavailable")
+		return errors.New("SuperLink SSH trusted-host store is unavailable")
 	}
 	address, _, err := sshHostKeyAddress(config)
 	if err != nil {
@@ -235,7 +235,7 @@ func ProbeSSHHostKey(config connection.SSHConfig) (HostKeyTrustStatus, error) {
 	return hostKeyTrustStatusForKey(config, key, "unknown", "discovered", ""), nil
 }
 
-// TrustSSHHostKey re-reads the remote key before saving it to GoNavi's own
+// TrustSSHHostKey re-reads the remote key before saving it to SuperLink's own
 // trust store. The fingerprint must match the value just shown to the user;
 // this prevents a key that changes between confirmation and persistence from
 // being trusted accidentally.
@@ -256,7 +256,7 @@ func TrustSSHHostKey(config connection.SSHConfig, storePath, expectedFingerprint
 	if err := persistManagedHostKey(storePath, config, key); err != nil {
 		return HostKeyTrustStatus{}, err
 	}
-	status := hostKeyTrustStatusForKey(config, key, "trusted", "gonavi", "")
+	status := hostKeyTrustStatusForKey(config, key, "trusted", "superlink", "")
 	return status, nil
 }
 
@@ -273,7 +273,7 @@ func probeSSHHostPublicKey(config connection.SSHConfig, address string) (cryptos
 	}
 	var captured cryptossh.PublicKey
 	clientConfig := &cryptossh.ClientConfig{
-		User: "gonavi-host-key-probe",
+		User: "superlink-host-key-probe",
 		HostKeyCallback: func(_ string, _ net.Addr, key cryptossh.PublicKey) error {
 			captured = key
 			return errSSHHostKeyCaptured
@@ -312,7 +312,7 @@ func managedHostKeyMatches(config connection.SSHConfig, key cryptossh.PublicKey)
 		config,
 		key,
 		"changed",
-		"gonavi",
+		"superlink",
 		cryptossh.FingerprintSHA256(trustedKey),
 	), nil
 }

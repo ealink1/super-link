@@ -33,7 +33,7 @@ func TestMQTTLiveConfiguredSubscriptionCapturesMessageBeforeQuery(t *testing.T) 
 		t.Fatalf("parse MQTT port: %v", err)
 	}
 
-	topic := fmt.Sprintf("gonavi/debug/subscription/live-%d", time.Now().UnixNano())
+	topic := fmt.Sprintf("superlink/debug/subscription/live-%d", time.Now().UnixNano())
 	db := &MQTTDB{}
 	if err := db.Connect(connection.ConnectionConfig{
 		Type:             "mqtt",
@@ -50,7 +50,7 @@ func TestMQTTLiveConfiguredSubscriptionCapturesMessageBeforeQuery(t *testing.T) 
 	t.Cleanup(func() { _ = db.Close() })
 
 	payload := map[string]interface{}{
-		"source":   "gonavi-live-regression",
+		"source":   "superlink-live-regression",
 		"sequence": time.Now().UnixNano(),
 	}
 	command, err := json.Marshal(map[string]interface{}{

@@ -175,3 +175,12 @@ func TestSuccessfulUpgradeRetainsBackupsAndExclusiveWorkspace(t *testing.T) {
 		t.Fatal("accepted self replacement")
 	}
 }
+
+func TestHelperWorkingDirectoryOutsideInstall(t *testing.T) {
+	root := t.TempDir()
+	helper := filepath.Join(root, "updates", "helper-test", "helper")
+	command := helperCommand(helper, filepath.Join(root, "request.json"))
+	if command.Dir != filepath.Dir(helper) {
+		t.Fatal("helper inherited application working directory")
+	}
+}

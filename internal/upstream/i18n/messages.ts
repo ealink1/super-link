@@ -272,9 +272,9 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.field.clickHouseProtocol.auto": "自动",
     "connection.modal.field.oceanBaseProtocol.label": "OceanBase 协议",
     "connection.modal.field.oceanBaseProtocol.help.primary":
-      "MySQL 租户选择 MySQL；Oracle 租户选择 Oracle。GoNavi 会根据端口自动选择：OB MySQL wire 端口走 OBClient capability 注入（与 Navicat 相同路径），OBProxy Oracle listener 端口走标准 TNS。",
+      "MySQL 租户选择 MySQL；Oracle 租户选择 Oracle。SuperLink 会根据端口自动选择：OB MySQL wire 端口走 OBClient capability 注入（与 Navicat 相同路径），OBProxy Oracle listener 端口走标准 TNS。",
     "connection.modal.field.oceanBaseProtocol.help.connectionAttributes":
-      "如果 Oracle 租户连接报「Error 1235」或 OBClient 握手失败，可在「连接参数」字段通过 {attributes} 覆盖 GoNavi 默认注入的 OBClient capability。",
+      "如果 Oracle 租户连接报「Error 1235」或 OBClient 握手失败，可在「连接参数」字段通过 {attributes} 覆盖 SuperLink 默认注入的 OBClient capability。",
     "connection.modal.field.defaultDatabase.label": "默认连接数据库（可选）",
     "connection.modal.field.defaultDatabase.help":
       "留空会自动尝试 postgres、template1、与当前用户名同名数据库",
@@ -337,7 +337,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.mode.endpoint.description":
       "通过服务端管理接口读取 JVM 资源与配置。",
     "connection.modal.jvm.mode.agent.description":
-      "通过 GoNavi Java Agent 提供更完整的增强能力。",
+      "通过 SuperLink Java Agent 提供更完整的增强能力。",
     "connection.modal.jvm.mode.disable": "停用",
     "connection.modal.jvm.mode.enablePreferred": "启用并设为首选",
     "connection.modal.jvm.preferredSummary":
@@ -365,14 +365,14 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.endpoint.apiKey.placeholder":
       "端点受 Token 保护时填写",
     "connection.modal.jvm.agent.description":
-      "连接 GoNavi Java Agent 管理端口，用于增强采集和诊断链路。",
+      "连接 SuperLink Java Agent 管理端口，用于增强采集和诊断链路。",
     "connection.modal.jvm.agent.address.label": "Agent 地址",
     "connection.modal.jvm.agent.address.required":
       "启用 Agent 模式时请输入 Agent 地址",
     "connection.modal.jvm.agent.address.help":
-      "目标 Java 服务需要以 -javaagent 方式启动 GoNavi Agent。",
+      "目标 Java 服务需要以 -javaagent 方式启动 SuperLink Agent。",
     "connection.modal.jvm.agent.address.placeholder":
-      "例如：http://127.0.0.1:19090/gonavi/agent/jvm",
+      "例如：http://127.0.0.1:19090/superlink/agent/jvm",
     "connection.modal.jvm.agent.apiKey.label": "Agent API Key（可选）",
     "connection.modal.jvm.agent.apiKey.placeholder":
       "Agent 启用 Token 校验时填写",
@@ -385,7 +385,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
       "关闭时只保存 JVM 连接与监控能力，不显示诊断会话入口。",
     "connection.modal.jvm.diagnostic.transport.label": "诊断传输",
     "connection.modal.jvm.diagnostic.transport.agentBridge.description":
-      "通过 GoNavi Agent 桥接诊断命令。",
+      "通过 SuperLink Agent 桥接诊断命令。",
     "connection.modal.jvm.diagnostic.transport.arthasTunnel.description":
       "连接官方 Tunnel / Web Console。",
     "connection.modal.jvm.diagnostic.arthasTunnelAddress.label":
@@ -399,7 +399,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.diagnostic.arthasTunnelAddress.help":
       "例如：http://127.0.0.1:7777，支持反向代理后的访问前缀。",
     "connection.modal.jvm.diagnostic.bridgeAddress.help":
-      "例如：http://127.0.0.1:19091/gonavi/diag",
+      "例如：http://127.0.0.1:19091/superlink/diag",
     "connection.modal.jvm.diagnostic.targetId.agentId.label":
       "目标实例标识（AgentId）",
     "connection.modal.jvm.diagnostic.targetId.label": "目标实例标识",
@@ -626,7 +626,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyVerificationHint":
       "必须配置 known_hosts 路径或 SHA256 指纹；未知或变更的服务端密钥会被拒绝，应用不会自动写入或覆盖密钥。",
     "connection.modal.network.ssh.hostKeyAutomaticHint":
-      "GoNavi 会自动识别并验证服务器身份。首次连接时，请通过可信渠道核对指纹后确认；已信任的服务器会自动通过，密钥变化将被阻止。",
+      "SuperLink 会自动识别并验证服务器身份。首次连接时，请通过可信渠道核对指纹后确认；已信任的服务器会自动通过，密钥变化将被阻止。",
     "connection.modal.network.ssh.hostKeyConfirmationRequired":
       "需要确认 SSH 服务器身份后才能继续。",
     "connection.modal.network.ssh.hostKeyTrustSaved":
@@ -634,7 +634,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyDialog.unknownTitle": "确认 SSH 服务器身份",
     "connection.modal.network.ssh.hostKeyDialog.changedTitle": "SSH 服务器密钥已变化",
     "connection.modal.network.ssh.hostKeyDialog.unknownMessage":
-      "GoNavi 已在 SSH 握手中识别到服务器公钥。请通过可信渠道核对指纹后再继续。",
+      "SuperLink 已在 SSH 握手中识别到服务器公钥。请通过可信渠道核对指纹后再继续。",
     "connection.modal.network.ssh.hostKeyDialog.changedMessage":
       "服务器返回的密钥与已信任记录不同。为防止中间人攻击，连接已被阻止。",
     "connection.modal.network.ssh.hostKeyDialog.host": "服务器",
@@ -645,7 +645,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyDialog.trustAndSave": "信任并保存",
     "connection.modal.network.ssh.hostKeyDialog.replaceAndTrust": "替换并信任",
     "connection.modal.network.ssh.hostKeyDialog.saveExplanation":
-      "仅会保存到 GoNavi 的可信主机库，不会修改 ~/.ssh/known_hosts。",
+      "仅会保存到 SuperLink 的可信主机库，不会修改 ~/.ssh/known_hosts。",
     "connection.modal.network.ssh.hostKeyDialog.saveFailure":
       "保存服务器身份失败：{detail}",
     "connection.modal.network.ssh.retained": "已保存 SSH 密码",
@@ -739,9 +739,9 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.guidance.localImportDirectoryHelp":
       "如果应用内下载链路失败，可先手动下载驱动包到该目录，再使用“导入驱动包”或“导入驱动目录”完成安装。",
     "driver.guidance.localImportSingleFileHelp":
-      "行内“导入驱动包”仅用于单个驱动文件/总包（如 `mariadb-driver-agent`、`mariadb-driver-agent.exe`、`GoNavi-DriverAgents.zip`），不支持直接导入 JDBC Jar；批量导入请使用上方“导入驱动目录”。",
+      "行内“导入驱动包”仅用于单个驱动文件/总包（如 `mariadb-driver-agent`、`mariadb-driver-agent.exe`、`SuperLink-DriverAgents.zip`），不支持直接导入 JDBC Jar；批量导入请使用上方“导入驱动目录”。",
     "driver.guidance.customConnectionDriverHelp":
-      "已支持: mysql, starrocks, oceanbase, postgres, opengauss, sqlite, oracle, dm, kingbase, clickhouse；别名支持 postgresql/pgx、open_gauss/open-gauss、dm8、kingbase8/kingbasees/kingbasev8。ClickHouse 自定义连接可填写 clickhouse://、http(s)://、jdbc:clickhouse:// 或 jdbc:ch:// DSN，并复用 GoNavi ClickHouse driver-agent，不会加载 JDBC Jar。其他驱动请填写 GoNavi 已注册的 Go database/sql 驱动名，不能直接填写系统 ODBC/JDBC 驱动名。",
+      "已支持: mysql, starrocks, oceanbase, postgres, opengauss, sqlite, oracle, dm, kingbase, clickhouse；别名支持 postgresql/pgx、open_gauss/open-gauss、dm8、kingbase8/kingbasees/kingbasev8。ClickHouse 自定义连接可填写 clickhouse://、http(s)://、jdbc:clickhouse:// 或 jdbc:ch:// DSN，并复用 SuperLink ClickHouse driver-agent，不会加载 JDBC Jar。其他驱动请填写 SuperLink 已注册的 Go database/sql 驱动名，不能直接填写系统 ODBC/JDBC 驱动名。",
     "driver.modal.title": "驱动管理",
     "driver.modal.footer.refresh": "刷新",
     "driver.modal.footer.networkCheck": "网络检测",
@@ -750,7 +750,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.modal.header.description.install":
       "除 MySQL / Redis / Oracle / PostgreSQL 外，其他数据源需先安装启用后再连接。",
     "driver.modal.header.description.agent":
-      "驱动代理独立运行，GoNavi 升级后如提示重装，请重新安装对应驱动以应用新的 agent 逻辑。",
+      "驱动代理独立运行，SuperLink 升级后如提示重装，请重新安装对应驱动以应用新的 agent 逻辑。",
     "driver.modal.stats.total": "全部",
     "driver.modal.stats.enabled": "已启用",
     "driver.modal.stats.canUpdate": "可更新",
@@ -762,7 +762,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.modal.network.unreachable.general":
       "重要提醒：驱动下载网络不可达",
     "driver.modal.network.unreachable.description":
-      "当前可能能访问 GitHub 页面，但驱动包下载会跳转到资产域名。请优先在 GoNavi 顶部“代理”中启用全局代理（填写代理应用本地地址和端口）。",
+      "当前可能能访问 GitHub 页面，但驱动包下载会跳转到资产域名。请优先在 SuperLink 顶部“代理”中启用全局代理（填写代理应用本地地址和端口）。",
     "driver.modal.network.unreachable.proxyButton": "打开全局代理设置",
     "driver.modal.network.unreachable.proxyHint":
       "若仍失败，请在代理规则放行：{hosts}；仍无法调整规则时，再考虑开启 TUN 模式。",
@@ -1235,9 +1235,9 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.field.clickHouseProtocol.auto": "Auto",
     "connection.modal.field.oceanBaseProtocol.label": "OceanBase protocol",
     "connection.modal.field.oceanBaseProtocol.help.primary":
-      "Choose MySQL for MySQL tenants and Oracle for Oracle tenants. GoNavi auto-selects by port: OB MySQL wire ports use OBClient capability injection (same path as Navicat), and OBProxy Oracle listener ports use standard TNS.",
+      "Choose MySQL for MySQL tenants and Oracle for Oracle tenants. SuperLink auto-selects by port: OB MySQL wire ports use OBClient capability injection (same path as Navicat), and OBProxy Oracle listener ports use standard TNS.",
     "connection.modal.field.oceanBaseProtocol.help.connectionAttributes":
-      "If an Oracle tenant reports \"Error 1235\" or the OBClient handshake fails, override GoNavi's default OBClient capability injection through {attributes} in the Connection parameters field.",
+      "If an Oracle tenant reports \"Error 1235\" or the OBClient handshake fails, override SuperLink's default OBClient capability injection through {attributes} in the Connection parameters field.",
     "connection.modal.field.defaultDatabase.label":
       "Default connection database",
     "connection.modal.field.defaultDatabase.help":
@@ -1303,7 +1303,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.mode.endpoint.description":
       "Read JVM resources and configuration through the server management API.",
     "connection.modal.jvm.mode.agent.description":
-      "Use GoNavi Java Agent for richer enhanced capabilities.",
+      "Use SuperLink Java Agent for richer enhanced capabilities.",
     "connection.modal.jvm.mode.disable": "Disable",
     "connection.modal.jvm.mode.enablePreferred": "Enable and set preferred",
     "connection.modal.jvm.preferredSummary":
@@ -1333,14 +1333,14 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.endpoint.apiKey.placeholder":
       "Enter it when the endpoint is protected by Token validation",
     "connection.modal.jvm.agent.description":
-      "Connect to the GoNavi Java Agent management port for enhanced collection and diagnostics.",
+      "Connect to the SuperLink Java Agent management port for enhanced collection and diagnostics.",
     "connection.modal.jvm.agent.address.label": "Agent address",
     "connection.modal.jvm.agent.address.required":
       "Enter the Agent address when Agent mode is enabled",
     "connection.modal.jvm.agent.address.help":
-      "The target Java service must start GoNavi Agent with -javaagent.",
+      "The target Java service must start SuperLink Agent with -javaagent.",
     "connection.modal.jvm.agent.address.placeholder":
-      "For example: http://127.0.0.1:19090/gonavi/agent/jvm",
+      "For example: http://127.0.0.1:19090/superlink/agent/jvm",
     "connection.modal.jvm.agent.apiKey.label": "Agent API Key",
     "connection.modal.jvm.agent.apiKey.placeholder":
       "Enter it when Agent enables Token validation",
@@ -1354,7 +1354,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.diagnostic.transport.label":
       "Diagnostic transport",
     "connection.modal.jvm.diagnostic.transport.agentBridge.description":
-      "Bridge diagnostic commands through GoNavi Agent.",
+      "Bridge diagnostic commands through SuperLink Agent.",
     "connection.modal.jvm.diagnostic.transport.arthasTunnel.description":
       "Connect to the official Tunnel / Web Console.",
     "connection.modal.jvm.diagnostic.arthasTunnelAddress.label":
@@ -1368,7 +1368,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.jvm.diagnostic.arthasTunnelAddress.help":
       "For example: http://127.0.0.1:7777. Reverse-proxy path prefixes are supported.",
     "connection.modal.jvm.diagnostic.bridgeAddress.help":
-      "For example: http://127.0.0.1:19091/gonavi/diag",
+      "For example: http://127.0.0.1:19091/superlink/diag",
     "connection.modal.jvm.diagnostic.targetId.agentId.label":
       "Target instance ID (AgentId)",
     "connection.modal.jvm.diagnostic.targetId.label": "Target instance ID",
@@ -1613,7 +1613,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyVerificationHint":
       "Configure a known_hosts path or SHA256 fingerprint. Unknown or changed server keys are rejected; keys are never written or overwritten automatically.",
     "connection.modal.network.ssh.hostKeyAutomaticHint":
-      "GoNavi automatically identifies and verifies the server's identity. On first connection, verify the fingerprint through a trusted channel and confirm it; trusted servers pass automatically, while changed keys are blocked.",
+      "SuperLink automatically identifies and verifies the server's identity. On first connection, verify the fingerprint through a trusted channel and confirm it; trusted servers pass automatically, while changed keys are blocked.",
     "connection.modal.network.ssh.hostKeyConfirmationRequired":
       "Confirm the SSH server identity before continuing.",
     "connection.modal.network.ssh.hostKeyTrustSaved":
@@ -1621,7 +1621,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyDialog.unknownTitle": "Confirm SSH server identity",
     "connection.modal.network.ssh.hostKeyDialog.changedTitle": "SSH server key changed",
     "connection.modal.network.ssh.hostKeyDialog.unknownMessage":
-      "GoNavi identified the server public key during the SSH handshake. Verify this fingerprint through a trusted channel before continuing.",
+      "SuperLink identified the server public key during the SSH handshake. Verify this fingerprint through a trusted channel before continuing.",
     "connection.modal.network.ssh.hostKeyDialog.changedMessage":
       "The server presented a key that differs from the trusted record. The connection was blocked to protect against man-in-the-middle attacks.",
     "connection.modal.network.ssh.hostKeyDialog.host": "Server",
@@ -1632,7 +1632,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.ssh.hostKeyDialog.trustAndSave": "Trust and save",
     "connection.modal.network.ssh.hostKeyDialog.replaceAndTrust": "Replace and trust",
     "connection.modal.network.ssh.hostKeyDialog.saveExplanation":
-      "This saves the key only in GoNavi's trusted-host store; ~/.ssh/known_hosts is not changed.",
+      "This saves the key only in SuperLink's trusted-host store; ~/.ssh/known_hosts is not changed.",
     "connection.modal.network.ssh.hostKeyDialog.saveFailure":
       "Could not save the server identity: {detail}",
     "connection.modal.network.ssh.retained": "saved SSH password",
@@ -1705,7 +1705,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "connection.modal.network.keepAliveInterval.label":
       "Keep-alive interval (minutes)",
     "connection.modal.network.keepAliveInterval.help":
-      "GoNavi runs Ping or the custom keep-alive SQL on established cached connections at this interval. Default is 240 minutes.",
+      "SuperLink runs Ping or the custom keep-alive SQL on established cached connections at this interval. Default is 240 minutes.",
     "connection.modal.network.keepAliveInterval.range":
       "Keep-alive interval must be between 1 and 1440 minutes.",
     "connection.modal.network.keepAliveSQL.label": "Custom keep-alive SQL",
@@ -1735,9 +1735,9 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.guidance.localImportDirectoryHelp":
       "If the in-app download chain fails, download the driver package into this directory first, then use \"Import driver package\" or \"Import driver directory\" to finish installation.",
     "driver.guidance.localImportSingleFileHelp":
-      "The inline \"Import driver package\" action only accepts a single driver file or bundle (for example `mariadb-driver-agent`, `mariadb-driver-agent.exe`, `GoNavi-DriverAgents.zip`). It does not import JDBC Jar directly. Use \"Import driver directory\" above for batch import.",
+      "The inline \"Import driver package\" action only accepts a single driver file or bundle (for example `mariadb-driver-agent`, `mariadb-driver-agent.exe`, `SuperLink-DriverAgents.zip`). It does not import JDBC Jar directly. Use \"Import driver directory\" above for batch import.",
     "driver.guidance.customConnectionDriverHelp":
-      "Supported: mysql, starrocks, oceanbase, postgres, opengauss, sqlite, oracle, dm, kingbase, clickhouse; aliases include postgresql/pgx, open_gauss/open-gauss, dm8, kingbase8/kingbasees/kingbasev8. ClickHouse custom connections accept clickhouse://, http(s)://, jdbc:clickhouse://, or jdbc:ch:// DSNs and reuse the GoNavi ClickHouse driver-agent; no JDBC Jar is loaded. For other drivers, enter a Go database/sql driver name already registered by GoNavi, not a system ODBC/JDBC driver name.",
+      "Supported: mysql, starrocks, oceanbase, postgres, opengauss, sqlite, oracle, dm, kingbase, clickhouse; aliases include postgresql/pgx, open_gauss/open-gauss, dm8, kingbase8/kingbasees/kingbasev8. ClickHouse custom connections accept clickhouse://, http(s)://, jdbc:clickhouse://, or jdbc:ch:// DSNs and reuse the SuperLink ClickHouse driver-agent; no JDBC Jar is loaded. For other drivers, enter a Go database/sql driver name already registered by SuperLink, not a system ODBC/JDBC driver name.",
     "driver.modal.title": "Driver Manager",
     "driver.modal.footer.refresh": "Refresh",
     "driver.modal.footer.networkCheck": "Network check",
@@ -1746,7 +1746,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.modal.header.description.install":
       "Except for MySQL / Redis / Oracle / PostgreSQL, other data sources must be installed and enabled before connecting.",
     "driver.modal.header.description.agent":
-      "Driver agents run independently. If GoNavi asks for reinstallation after an upgrade, reinstall the affected driver so the new agent logic is applied.",
+      "Driver agents run independently. If SuperLink asks for reinstallation after an upgrade, reinstall the affected driver so the new agent logic is applied.",
     "driver.modal.stats.total": "Total",
     "driver.modal.stats.enabled": "Enabled",
     "driver.modal.stats.canUpdate": "Can update",
@@ -1758,7 +1758,7 @@ export const messages: Record<SupportedLanguage, Record<MessageKey, string>> = {
     "driver.modal.network.unreachable.general":
       "Important: driver download network is unreachable",
     "driver.modal.network.unreachable.description":
-      "GitHub pages may still open, but driver package downloads jump to asset hosts. Enable the global proxy from the GoNavi top bar first by entering the local proxy address and port used by the proxy app.",
+      "GitHub pages may still open, but driver package downloads jump to asset hosts. Enable the global proxy from the SuperLink top bar first by entering the local proxy address and port used by the proxy app.",
     "driver.modal.network.unreachable.proxyButton": "Open global proxy settings",
     "driver.modal.network.unreachable.proxyHint":
       "If it still fails, allow these hosts in the proxy rules: {hosts}. If the rules still cannot be adjusted, consider enabling TUN mode.",

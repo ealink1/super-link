@@ -1,4 +1,4 @@
-//go:build gonavi_kingbase_driver
+//go:build superlink_kingbase_driver
 
 package db
 

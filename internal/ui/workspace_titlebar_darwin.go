@@ -64,7 +64,7 @@ func installWorkspaceTitlebar(window fyne.Window, run func(int), utility func(in
 			}
 			selected := Theme{Dark: dark}
 			background := nativeThemeRGB(selected.Color(theme.ColorNameBackground, theme.VariantLight))
-			accent := nativeThemeRGB(selected.Color(theme.ColorNamePrimary, theme.VariantLight))
+			accent := nativeThemeRGB(color.NRGBA{R: 51, G: 122, B: 255, A: 255})
 			C.navi_workspace_select(pointer, C.int(mode), darkMode, background, accent)
 		}, func() {
 			once.Do(func() {

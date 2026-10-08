@@ -1,4 +1,4 @@
-//go:build gonavi_iotdb_driver
+//go:build superlink_iotdb_driver
 
 package main
 

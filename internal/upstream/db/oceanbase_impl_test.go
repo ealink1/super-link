@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_oceanbase_driver
+//go:build superlink_full_drivers || superlink_oceanbase_driver
 
 package db
 
@@ -1133,7 +1133,7 @@ func TestOceanBaseOracleCreateStatementFallbackErrorUsesCurrentLanguage(t *testi
 
 // 用户通过 ConnectionParams 设置 connectionAttributes 时，OceanBase MySQL wire 路径必须把
 // 这些 attribute 透传到 go-sql-driver/mysql DSN，让 driver 在握手响应里发 CLIENT_CONNECT_ATTRS。
-// 这是 OBClient 协议握手探索的入口：高级用户/DBA 可以试错不同 attribute 组合而不需要改 GoNavi 代码。
+// 这是 OBClient 协议握手探索的入口：高级用户/DBA 可以试错不同 attribute 组合而不需要改 SuperLink 代码。
 func TestOceanBaseMySQLDSNPassesThroughConnectionAttributes(t *testing.T) {
 	t.Parallel()
 

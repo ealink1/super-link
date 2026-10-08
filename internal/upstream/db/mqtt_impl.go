@@ -35,7 +35,7 @@ const (
 	mqttSubscriptionBuffer      = 1024
 	mqttSubscriptionBufferBytes = 8 * 1024 * 1024
 	mqttSyntheticDatabase       = "topics"
-	mqttDefaultClientID         = "GoNavi"
+	mqttDefaultClientID         = "SuperLink"
 )
 
 type mqttRuntime interface {

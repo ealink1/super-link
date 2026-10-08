@@ -1,4 +1,4 @@
-# GoNavi 与 SuperLink 原生界面对比
+# SuperLink 与 SuperLink 原生界面对比
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
@@ -10,7 +10,7 @@
 
 | 项目 | 本轮状态 |
 | --- | --- |
-| 参考应用 | 已安装 `/Applications/GoNavi.app`，关于页显示 1.0.0 |
+| 参考应用 | 已安装 `/Applications/SuperLink.app`，关于页显示 1.0.0 |
 | 实现应用 | `.cache/parity-qa/SuperLinkQA.app`，关于页显示 0.1.0，独立 QA 工作区 |
 | 窗口 | 两端均为 2940 × 1724 物理像素，Retina 下约 1470 × 862 逻辑尺寸 |
 | 操作方式 | 电脑控制原生应用；未使用浏览器 |
@@ -53,9 +53,9 @@ JVM 管理连接器按用户要求排除，不计入缺失功能。
 
 ### 3.1 欢迎页与主窗口
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi 欢迎工作台](../.cache/ui-compare-2026-10-02/02-gonavi-welcome.jpg) | ![Fyne 欢迎页](../.cache/ui-compare-2026-10-02/08-fyne-welcome.jpg) |
+| ![SuperLink 欢迎工作台](../.cache/ui-compare-2026-10-02/02-superlink-welcome.jpg) | ![Fyne 欢迎页](../.cache/ui-compare-2026-10-02/08-fyne-welcome.jpg) |
 
 原版有主标题、说明、四个快捷动作，以及最近连接、已存查询、最近 SQL 文件、
 置顶表、外部 SQL 文件五块卡片。Fyne 欢迎页只有说明文字，且单独占用一个工作标签。
@@ -67,9 +67,9 @@ Fyne 标签初始宽度也明显小于原版，类型摘要缺少原版的独立
 
 ### 3.2 数据源选择器
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi 数据源选择](../.cache/ui-compare-2026-10-02/03-gonavi-datasource.jpg) | ![Fyne 数据源选择](../.cache/ui-compare-2026-10-02/09-fyne-datasource.jpg) |
+| ![SuperLink 数据源选择](../.cache/ui-compare-2026-10-02/03-superlink-datasource.jpg) | ![Fyne 数据源选择](../.cache/ui-compare-2026-10-02/09-fyne-datasource.jpg) |
 
 原版选择器约 760 逻辑像素宽，Fyne 约 960，宽约 26%。原版第一行是
 MySQL / MariaDB，第二行 Doris / StarRocks；Fyne 第一行 MySQL / GoldenDB，
@@ -82,9 +82,9 @@ MySQL 和 MariaDB 的品牌图案在 Fyne 实际截图中为空框。
 
 ### 3.3 MySQL 基本配置
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi MySQL 基本配置](../.cache/ui-compare-2026-10-02/04-gonavi-connection-basic.jpg) | ![Fyne MySQL 基本配置](../.cache/ui-compare-2026-10-02/10-fyne-connection-basic.jpg) |
+| ![SuperLink MySQL 基本配置](../.cache/ui-compare-2026-10-02/04-superlink-connection-basic.jpg) | ![Fyne MySQL 基本配置](../.cache/ui-compare-2026-10-02/10-fyne-connection-basic.jpg) |
 
 同为新建 MySQL，原版弹窗约 760 逻辑像素宽，Fyne 约 920，宽约 21%。
 原版的连接串为多行输入，有模板、可选说明及“或手动填写”分隔；Fyne 为单行密码
@@ -97,9 +97,9 @@ MySQL 和 MariaDB 的品牌图案在 Fyne 实际截图中为空框。
 
 ### 3.4 MySQL 网络与安全
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi 网络与安全](../.cache/ui-compare-2026-10-02/05-gonavi-connection-network.jpg) | ![Fyne 网络与安全](../.cache/ui-compare-2026-10-02/11-fyne-connection-network.jpg) |
+| ![SuperLink 网络与安全](../.cache/ui-compare-2026-10-02/05-superlink-connection-network.jpg) | ![Fyne 网络与安全](../.cache/ui-compare-2026-10-02/11-fyne-connection-network.jpg) |
 
 原版有 SSL/TLS、SSH、代理和 Navicat HTTP 隧道四行，以及超时、后台探活、
 间隔和自定义探活 SQL。Fyne 当前为前三行加“编辑”按钮，未显示隧道或探活设置。
@@ -108,9 +108,9 @@ SSL/TLS 未启用时，原版显示说明；Fyne 仍显示验证模式及证书�
 
 ### 3.5 查询编辑器
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi 新建查询](../.cache/ui-compare-2026-10-02/06-gonavi-query-empty.jpg) | ![Fyne 新建查询](../.cache/ui-compare-2026-10-02/14-fyne-query-empty.jpg) |
+| ![SuperLink 新建查询](../.cache/ui-compare-2026-10-02/06-superlink-query-empty.jpg) | ![Fyne 新建查询](../.cache/ui-compare-2026-10-02/14-fyne-query-empty.jpg) |
 
 原版在未选择连接时也能先新建查询。Fyne 在欢迎页、未选择连接时点击顶栏
 “新建查询”没有打开新页，见[点击后的实际画面](../.cache/ui-compare-2026-10-02/12-fyne-query-no-selection.jpg)。
@@ -130,9 +130,9 @@ Fyne 当前显示执行、保存、更多、搜索、换行和设置六个按钮
 
 ### 3.6 设置中心与关于页
 
-| GoNavi | SuperLink |
+| SuperLink | SuperLink |
 | --- | --- |
-| ![GoNavi 设置与关于](../.cache/ui-compare-2026-10-02/01-gonavi-settings.jpg) | ![Fyne 设置与关于](../.cache/ui-compare-2026-10-02/13-fyne-settings.jpg) |
+| ![SuperLink 设置与关于](../.cache/ui-compare-2026-10-02/01-superlink-settings.jpg) | ![Fyne 设置与关于](../.cache/ui-compare-2026-10-02/13-fyne-settings.jpg) |
 
 原版为搜索框加分组目录，包含语言、显示与字体、工作区、对象显示、全局代理、
 下载镜像、云备份、AI / MCP / Skills 等多个入口。Fyne 当前为主题、连接、
@@ -153,13 +153,13 @@ Fyne 当前显示执行、保存、更多、搜索、换行和设置六个按钮
 数据表行号从第 10 行起被截断为 `1`，需要修复并以多位行号复验。
 字段和 DDL 视图还保留数据分页栏，需按视图处理显示。
 
-本轮没有在 GoNavi 中打开同一个 fixture，故表数据 / 字段 / DDL 只做 Fyne
+本轮没有在 SuperLink 中打开同一个 fixture，故表数据 / 字段 / DDL 只做 Fyne
 可打开检查，不给出两端一比一通过结论。也未测试用户 MySQL 连接的可用性，
 不能以本地 SQLite 结果推断用户业务库是否连接成功。
 
 ## 5. 可访问性与未覆盖范围
 
-电脑控制的原生 AX 树能读取 GoNavi 的内部控件；Fyne 仅暴露窗口、系统按钮和
+电脑控制的原生 AX 树能读取 SuperLink 的内部控件；Fyne 仅暴露窗口、系统按钮和
 菜单，内部按钮 / 输入框没有出现在本轮树中，因此 Fyne 操作主要使用截图坐标。
 这是本轮工具观察，尚未完成 VoiceOver、完整键盘导航或 WCAG 检查。
 
@@ -182,4 +182,4 @@ Git 提交或推送。本轮仅新增观察文档与 QA 记录，未修改产品
 
 每批修改完成后再获取新的原生截图，固定相同窗口与数据状态验收；本报告作为
 修复基线，不能直接用作后续修改的通过证据。完整功能范围继续遵循
-[已接受的一比一设计](plans/2026-10-01-gonavi-parity-design.md)。
+[已接受的一比一设计](plans/2026-10-01-superlink-parity-design.md)。

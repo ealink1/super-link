@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_mariadb_driver
+//go:build superlink_full_drivers || superlink_mariadb_driver
 
 package db
 

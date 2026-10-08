@@ -12,14 +12,14 @@ func TestSSHRuntimeSnapshotCarriesOnlyAgentSafeState(t *testing.T) {
 		Host: "127.0.0.1",
 		Port: 37167,
 	}.WithProgressReporter(func(SSHProgressEvent) { progressCalls++ }).
-		WithManagedHostKeyTrustStore("/private/gonavi/ssh/host_keys.json").
+		WithManagedHostKeyTrustStore("/private/superlink/ssh/host_keys.json").
 		WithHostKeyIdentity("bastion.example.test", 37167)
 
 	snapshot := config.RuntimeSnapshot()
 	if snapshot == nil {
 		t.Fatal("expected SSH runtime snapshot")
 	}
-	if snapshot.ManagedHostKeyTrustStorePath != "/private/gonavi/ssh/host_keys.json" {
+	if snapshot.ManagedHostKeyTrustStorePath != "/private/superlink/ssh/host_keys.json" {
 		t.Fatalf("managed trust-store path = %q", snapshot.ManagedHostKeyTrustStorePath)
 	}
 	if snapshot.HostKeyIdentityHost != "bastion.example.test" || snapshot.HostKeyIdentityPort != 37167 {

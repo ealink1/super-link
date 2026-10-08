@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-const mysqlTableCatalogDriverName = "gonavi-mysql-table-catalog"
+const mysqlTableCatalogDriverName = "superlink-mysql-table-catalog"
 
 var (
 	registerMySQLTableCatalogDriverOnce sync.Once

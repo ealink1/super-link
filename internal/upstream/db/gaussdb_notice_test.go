@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_gaussdb_driver
+//go:build superlink_full_drivers || superlink_gaussdb_driver
 
 package db
 

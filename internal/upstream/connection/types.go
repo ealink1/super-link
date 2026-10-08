@@ -68,7 +68,7 @@ func (c SSHConfig) WithProgressReporter(reporter SSHProgressReporter) SSHConfig 
 	return c
 }
 
-// WithManagedHostKeyTrustStore attaches GoNavi's private host-key trust
+// WithManagedHostKeyTrustStore attaches SuperLink's private host-key trust
 // store for this runtime connection. The path is deliberately transient: it
 // is never sent to the frontend or persisted with a saved data source.
 func (c SSHConfig) WithManagedHostKeyTrustStore(path string) SSHConfig {
@@ -85,7 +85,7 @@ func (c SSHConfig) WithManagedHostKeyTrustStore(path string) SSHConfig {
 	return c
 }
 
-// ManagedHostKeyTrustStorePath returns the private GoNavi trust-store path
+// ManagedHostKeyTrustStorePath returns the private SuperLink trust-store path
 // attached to this runtime connection, if any.
 func (c SSHConfig) ManagedHostKeyTrustStorePath() string {
 	if c.runtime == nil {

@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	poolRecordingDriverName = "gonavi_pool_recording"
-	poolBlockingDriverName  = "gonavi_pool_blocking"
+	poolRecordingDriverName = "superlink_pool_recording"
+	poolBlockingDriverName  = "superlink_pool_blocking"
 )
 
 var (

@@ -26,12 +26,12 @@ func (w *Window) buildSQLWorkspace() fyne.CanvasObject {
 	query := headerAction("新建查询", w.newSelectedQuery)
 	connection := headerAction("新建连接", func() { w.editProfile(domain.Profile{}) })
 	header := container.NewHBox(query, connection,
-		headerAction("管理连接分组", w.groupManager), action("SQL 工具", "", w.sqlTools), action("驱动管理", "", w.driverManager), action("关于", "", w.about), layout.NewSpacer())
-	header.Layout = &toolbarLayout{height: 34}
+		headerAction("管理连接分组", w.groupManager), headerDivider(), headerAction("SQL 工具", w.sqlTools), headerAction("驱动管理", w.driverManager), headerDivider(), headerAction("关于", w.about), layout.NewSpacer())
+	header.Layout = &toolbarLayout{height: 56}
 	sidebar := container.New(layout.NewCustomPaddedLayout(0, 0, 0, 6), w.sidebar.content())
 	documents := container.New(layout.NewCustomPaddedLayout(0, 0, 6, 0), w.docHost)
 	main := container.NewHSplit(sidebar, documents)
 	main.Offset = 0.18
 	w.syncDocuments()
-	return container.NewBorder(header, nil, nil, nil, main)
+	return container.NewBorder(container.NewVBox(header, widget.NewSeparator()), nil, nil, nil, main)
 }

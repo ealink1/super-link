@@ -10,6 +10,7 @@ import (
 
 func (n *noteWorkspace) formatToolbar() *fyne.Container {
 	objects := []fyne.CanvasObject{}
+	n.formatButtons = nil
 	for _, format := range []struct{ name, icon, prefix, suffix string }{
 		{"", "bold", "**", "**"}, {"", "italic", "*", "*"}, {"", "strikethrough", "~~", "~~"}, {"", "code", "`", "`"},
 		{"H1", "", "# ", ""}, {"H2", "", "## ", ""}, {"H3", "", "### ", ""}, {"H4", "", "#### ", ""},
@@ -17,6 +18,7 @@ func (n *noteWorkspace) formatToolbar() *fyne.Container {
 	} {
 		item := format
 		button := shellButton(item.name, item.icon, false, func() { n.insertFormat(item.prefix, item.suffix) })
+		n.formatButtons = append(n.formatButtons, noteFormatButton{item.prefix, item.suffix, button})
 		objects = append(objects, shellButtonView(button), shellFixed(layout.NewSpacer(), 4, 0))
 	}
 	objects = append(objects, shellButtonView(shellButton("撤销", "undo-2", false, n.editor.Undo)), shellButtonView(shellButton("重做", "redo-2", false, n.editor.Redo)))
@@ -32,13 +34,9 @@ func (n *noteWorkspace) insertFormat(prefix, suffix string) {
 	if note == nil || note.Deleted {
 		return
 	}
-	selected := n.editor.SelectedText()
-	if selected == "" {
-		selected = "内容"
-	}
-	replacement := formatNoteSelection(selected, prefix, suffix)
-	n.editor.TypedShortcut(&fyne.ShortcutPaste{Clipboard: &noteClipboard{text: replacement}})
+	n.applyNoteFormat(prefix, suffix)
 	n.owner.Window.Canvas().Focus(n.editor)
+	n.refreshFormatState()
 }
 func formatNoteSelection(value, prefix, suffix string) string {
 	if suffix == "" {

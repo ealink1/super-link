@@ -349,5 +349,5 @@ func (n *navigator) locate() {
 }
 func (n *navigator) connectionMenu() {
 	menu := fyne.NewMenu("连接", fyne.NewMenuItem("新建查询", n.owner.newSelectedQuery), fyne.NewMenuItem("打开工作台", n.owner.openSelected), fyne.NewMenuItem("编辑连接", n.owner.editSelected), fyne.NewMenuItem("断开连接", n.owner.disconnectSelected), fyne.NewMenuItem("删除连接", n.owner.deleteSelected))
-	widget.ShowPopUpMenuAtPosition(menu, n.owner.Window.Canvas(), fyne.NewPos(12, 90))
+	showContextMenu(menu, n.owner.Window.Canvas(), fyne.NewPos(12, 90))
 }

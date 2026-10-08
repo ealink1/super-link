@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_gaussdb_driver
+//go:build superlink_full_drivers || superlink_gaussdb_driver
 
 package db
 
@@ -25,7 +25,7 @@ func TestGaussDBConnectInitializesSearchPathForEveryPhysicalConnection(t *testin
 		Type:     "gaussdb",
 		Host:     "127.0.0.1",
 		Port:     5432,
-		User:     "gonavi",
+		User:     "superlink",
 		Password: "test",
 		Database: "app",
 		SSLMode:  "disable",
@@ -67,7 +67,7 @@ func TestGaussDBConnectFailsWhenDSNSearchPathCannotInitialize(t *testing.T) {
 		Type:     "gaussdb",
 		Host:     "127.0.0.1",
 		Port:     5432,
-		User:     "gonavi",
+		User:     "superlink",
 		Password: "test",
 		Database: "app",
 		SSLMode:  "disable",

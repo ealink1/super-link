@@ -14,6 +14,7 @@ import (
 )
 
 type noteWorkspace struct {
+	formatButtons                           []noteFormatButton
 	owner                                   *Window
 	service                                 *application.Notebook
 	book                                    domain.Notebook
@@ -181,5 +182,5 @@ func (n *noteWorkspace) filterGroupID() string {
 	return ""
 }
 func (n *noteWorkspace) updateCount() {
-	n.count.SetText(fmt.Sprintf("%d 字 · Markdown", len([]rune(n.editor.Text))))
+	n.count.SetText(fmt.Sprintf("%d 字", len([]rune(n.editor.Text))))
 }

@@ -61,12 +61,12 @@ func TestPostgresDSNHasExplicitSearchPath(t *testing.T) {
 		},
 		{
 			name: "selected schema with other params",
-			dsn:  `postgres://user:pass@localhost:5432/app?application_name=gonavi&search_path=%22sales%22`,
+			dsn:  `postgres://user:pass@localhost:5432/app?application_name=superlink&search_path=%22sales%22`,
 			want: true,
 		},
 		{
 			name: "missing search path",
-			dsn:  `postgres://user:pass@localhost:5432/app?application_name=gonavi`,
+			dsn:  `postgres://user:pass@localhost:5432/app?application_name=superlink`,
 			want: false,
 		},
 		{
@@ -103,7 +103,7 @@ func TestPostgresConnectInitializesSearchPathForEveryPhysicalConnection(t *testi
 		Type:     "postgres",
 		Host:     "127.0.0.1",
 		Port:     5432,
-		User:     "gonavi",
+		User:     "superlink",
 		Password: "test",
 		Database: "app",
 		SSLMode:  "disable",
@@ -142,7 +142,7 @@ func TestPostgresConnectFailsWhenDSNSearchPathCannotInitialize(t *testing.T) {
 		Type:     "postgres",
 		Host:     "127.0.0.1",
 		Port:     5432,
-		User:     "gonavi",
+		User:     "superlink",
 		Password: "test",
 		Database: "app",
 		SSLMode:  "disable",

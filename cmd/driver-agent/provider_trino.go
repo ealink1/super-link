@@ -1,4 +1,4 @@
-//go:build gonavi_trino_driver
+//go:build superlink_trino_driver
 
 package main
 

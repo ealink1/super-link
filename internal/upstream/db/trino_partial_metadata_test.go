@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_trino_driver
+//go:build superlink_full_drivers || superlink_trino_driver
 
 package db
 
@@ -71,7 +71,7 @@ func (r *trinoPartialMetadataRows) Next(dest []driver.Value) error {
 
 func newTrinoPartialMetadataDB(t *testing.T, results map[string]trinoPartialMetadataResult) *TrinoDB {
 	t.Helper()
-	driverName := fmt.Sprintf("gonavi_trino_partial_metadata_%d", trinoPartialMetadataDriverID.Add(1))
+	driverName := fmt.Sprintf("superlink_trino_partial_metadata_%d", trinoPartialMetadataDriverID.Add(1))
 	sql.Register(driverName, trinoPartialMetadataDriver{results: results})
 	conn, err := sql.Open(driverName, "")
 	if err != nil {

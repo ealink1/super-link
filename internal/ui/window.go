@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -97,8 +98,11 @@ func New(app fyne.App, deps Dependencies) *Window {
 	})
 	quit := fyne.NewMenuItem("退出", w.shutdown)
 	quit.IsQuit = true
-	w.Window.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("文件", fyne.NewMenuItem("新建连接", w.newWorkspaceConnection), fyne.NewMenuItem("SQL 草稿", func() { w.switcher.selectMode(0); w.draftManager() }), quit)))
+	if runtime.GOOS != "windows" {
+		w.Window.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("文件", fyne.NewMenuItem("新建连接", w.newWorkspaceConnection), fyne.NewMenuItem("SQL 草稿", func() { w.switcher.selectMode(0); w.draftManager() }), quit)))
+	}
 	w.load()
+	w.checkUpdateReport()
 	return w
 }
 func (w *Window) Show() {

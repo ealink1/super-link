@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-const transactionExecerDriverName = "gonavi_transaction_execer"
+const transactionExecerDriverName = "superlink_transaction_execer"
 
 var (
 	transactionExecerRegisterOnce sync.Once

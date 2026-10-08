@@ -53,9 +53,10 @@ func main() {
 		}
 	}
 	_ = update.WriteReport(request.Report, report)
-	if report.RolledBack {
-		if p, err := update.ReadPackage(request.Target); err == nil {
+	if !report.Success {
+		if p, err := update.ReadPackage(request.Target); err == nil && p.Version != request.Version {
 			command := exec.Command(filepath.Join(request.Target, filepath.FromSlash(p.Executable)), "--data-root", request.DataRoot)
+			command.Dir = request.Target
 			if command.Start() == nil {
 				_ = command.Process.Release()
 			}

@@ -1,4 +1,4 @@
-//go:build gonavi_oceanbase_driver
+//go:build superlink_oceanbase_driver
 
 package main
 

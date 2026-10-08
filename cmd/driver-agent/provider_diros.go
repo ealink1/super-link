@@ -1,4 +1,4 @@
-//go:build gonavi_diros_driver
+//go:build superlink_diros_driver
 
 package main
 

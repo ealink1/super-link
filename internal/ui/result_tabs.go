@@ -11,7 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-// resultTabs gives the output bar GoNavi's compact rounded tabs while retaining
+// resultTabs gives the output bar SuperLink's compact rounded tabs while retaining
 // native keyboard-focusable buttons. Only the selected page owns a layout.
 type resultTabs struct {
 	widget.BaseWidget

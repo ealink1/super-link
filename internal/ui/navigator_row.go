@@ -110,5 +110,5 @@ func (r *treeRow) TappedSecondary(event *fyne.PointEvent) {
 	r.navigator.tree.Select(r.node.id)
 	node := r.node
 	menu := r.navigator.nodeMenu(node)
-	widget.ShowPopUpMenuAtPosition(menu, r.navigator.owner.Window.Canvas(), event.AbsolutePosition)
+	showContextMenu(menu, r.navigator.owner.Window.Canvas(), event.AbsolutePosition)
 }

@@ -1,4 +1,4 @@
-//go:build gonavi_sphinx_driver
+//go:build superlink_sphinx_driver
 
 package main
 

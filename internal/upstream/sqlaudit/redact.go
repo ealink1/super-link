@@ -17,7 +17,7 @@ var sqlQueryTypes = map[string]struct{}{
 	"duckdb": {}, "oracle": {}, "dameng": {}, "dm": {}, "kingbase": {}, "highgo": {},
 	"vastbase": {}, "opengauss": {}, "gaussdb": {}, "iris": {}, "cache": {},
 	"tdengine": {}, "iotdb": {}, "clickhouse": {}, "trino": {}, "custom": {},
-	"gonavi": {},
+	"superlink": {},
 }
 
 var redisReadCommands = map[string]struct{}{

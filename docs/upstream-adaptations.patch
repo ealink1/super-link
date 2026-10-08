@@ -1466,7 +1466,7 @@
 +	if revision == "" {
 +		return ""
 +	}
-+	return "fyne-values1-" + revision
++	return "superlink-values2-" + revision
  }
  
  // IsBuiltinDriver 返回指定驱动类型是否为核心内置驱动（始终可用，无需安装）。
@@ -1517,7 +1517,7 @@
 --- a/internal/upstream/db/dsn_tls_fixture_test.go
 +++ b/internal/upstream/db/dsn_tls_fixture_test.go
 @@ -0,0 +1,55 @@
-+//go:build gonavi_full_drivers
++//go:build superlink_full_drivers
 +
 +package db
 +

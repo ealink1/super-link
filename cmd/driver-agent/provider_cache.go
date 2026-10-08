@@ -1,4 +1,4 @@
-//go:build gonavi_cache_driver
+//go:build superlink_cache_driver
 
 package main
 

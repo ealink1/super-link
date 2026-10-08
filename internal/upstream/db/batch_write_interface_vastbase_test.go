@@ -1,4 +1,4 @@
-//go:build gonavi_vastbase_driver
+//go:build superlink_vastbase_driver
 
 package db
 

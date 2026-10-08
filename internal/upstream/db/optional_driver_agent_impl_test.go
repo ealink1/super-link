@@ -609,7 +609,7 @@ func TestOptionalDriverAgentCancellationAfterGateAcquisitionDoesNotStartOperatio
 }
 
 func TestOptionalDriverAgentUnresponsiveProcessIsReapedAfterTimeout(t *testing.T) {
-	const helperMarker = "gonavi-optional-agent-hang-helper"
+	const helperMarker = "superlink-optional-agent-hang-helper"
 	if os.Getenv("SUPERLINK_OPTIONAL_AGENT_HANG_HELPER") == "1" &&
 		len(os.Args) > 0 &&
 		os.Args[len(os.Args)-1] == helperMarker {

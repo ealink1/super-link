@@ -9,7 +9,7 @@ import (
 const (
 	// Azure SQL Database / Synapse serverless / Fabric reject or hang on
 	// three-part catalog names such as [db].sys.tables even for the current
-	// database. GoNavi already opens a DSN with database=dbName, so two-part
+	// database. SuperLink already opens a DSN with database=dbName, so two-part
 	// sys.* names are the portable catalog form.
 	sqlServerEngineEditionAzureSQLDatabase       = 5
 	sqlServerEngineEditionAzureSynapseAnalytics  = 6

@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_sqlite_driver
+//go:build superlink_full_drivers || superlink_sqlite_driver
 
 package db
 

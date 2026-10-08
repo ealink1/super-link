@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_clickhouse_driver
+//go:build superlink_full_drivers || superlink_clickhouse_driver
 
 package db
 
@@ -30,7 +30,7 @@ import (
 	clickhouseproto "github.com/ClickHouse/clickhouse-go/v2/lib/proto"
 )
 
-const fakeClickHouseDriverName = "gonavi-fake-clickhouse"
+const fakeClickHouseDriverName = "superlink-fake-clickhouse"
 
 var clickHouseProtocolFailureI18nKeys = []string{
 	"db.backend.error.clickhouse_http_client_protocol_version_unsupported",

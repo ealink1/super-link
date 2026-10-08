@@ -258,7 +258,7 @@ func TestMySQLDBNavicatHTTPTunnelBatchesStatementsInOneRequest(t *testing.T) {
 				}
 				queries = append(queries, string(decoded))
 			}
-			if !reflect.DeepEqual(queries, []string{"SET @gonavi_value = 7", "SELECT @gonavi_value AS value"}) {
+			if !reflect.DeepEqual(queries, []string{"SET @superlink_value = 7", "SELECT @superlink_value AS value"}) {
 				t.Errorf("q[] = %#v", queries)
 			}
 			_, _ = w.Write(navicatTunnelTestBatchResponse(
@@ -291,8 +291,8 @@ func TestMySQLDBNavicatHTTPTunnelBatchesStatementsInOneRequest(t *testing.T) {
 	}
 
 	results, err := database.QueryStatementsMultiContext(context.Background(), []string{
-		"SET @gonavi_value = 7",
-		"SELECT @gonavi_value AS value",
+		"SET @superlink_value = 7",
+		"SELECT @superlink_value AS value",
 	})
 	if err != nil {
 		t.Fatalf("QueryStatementsMultiContext: %v", err)
@@ -501,11 +501,11 @@ func TestNavicatMySQLTransactionControlDetection(t *testing.T) {
 		"/* comment */ START TRANSACTION",
 		"-- comment\nBEGIN",
 		"# comment\r\nSET autocommit=0",
-		"XA START 'gonavi'",
-		"XA END 'gonavi'",
-		"XA PREPARE 'gonavi'",
-		"XA COMMIT 'gonavi'",
-		"XA ROLLBACK 'gonavi'",
+		"XA START 'superlink'",
+		"XA END 'superlink'",
+		"XA PREPARE 'superlink'",
+		"XA COMMIT 'superlink'",
+		"XA ROLLBACK 'superlink'",
 		"/*!40101 SET AUTOCOMMIT=0 */",
 		"SET @@SESSION.autocommit = 0",
 	} {
@@ -534,7 +534,7 @@ func TestNavicatMySQLTransactionBatchMustCloseWithinRequest(t *testing.T) {
 		{"START TRANSACTION", "UPDATE items SET active = 1"},
 		{"COMMIT"},
 		{"SET autocommit=0", "UPDATE items SET active = 1", "COMMIT"},
-		{"XA START 'gonavi'", "XA END 'gonavi'"},
+		{"XA START 'superlink'", "XA END 'superlink'"},
 	} {
 		if err := validateNavicatMySQLTransactionBatch(queries); err == nil {
 			t.Errorf("expected unsafe transaction batch rejection for %#v", queries)

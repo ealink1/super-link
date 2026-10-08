@@ -608,7 +608,7 @@ func TestHandleRequest_ConnectRestoresSSHRuntimeAndReportsTrustStatus(t *testing
 		SSH: connection.SSHConfig{
 			Host: "127.0.0.1",
 			Port: 37167,
-		}.WithManagedHostKeyTrustStore("/private/gonavi/ssh/host_keys.json").
+		}.WithManagedHostKeyTrustStore("/private/superlink/ssh/host_keys.json").
 			WithHostKeyIdentity("bastion.example.test", 37167),
 	}
 	request := agentRequest{
@@ -633,7 +633,7 @@ func TestHandleRequest_ConnectRestoresSSHRuntimeAndReportsTrustStatus(t *testing
 	if response.Success {
 		t.Fatal("expected SSH host-key trust confirmation response")
 	}
-	if got := fake.connectConfig.SSH.ManagedHostKeyTrustStorePath(); got != "/private/gonavi/ssh/host_keys.json" {
+	if got := fake.connectConfig.SSH.ManagedHostKeyTrustStorePath(); got != "/private/superlink/ssh/host_keys.json" {
 		t.Fatalf("agent did not restore managed trust-store path: %q", got)
 	}
 	if host, port := fake.connectConfig.SSH.HostKeyIdentity(); host != "bastion.example.test" || port != 37167 {

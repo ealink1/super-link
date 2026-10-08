@@ -156,7 +156,7 @@ jobs:
         run: |
           python -m unittest discover -s tools -p 'test_release_*.py' -v
           go test -tags ci ./internal/ui ./internal/infra/state ./internal/infra/release ./internal/infra/drivers
-          go test -tags ci,gonavi_sqlite_driver ./internal/upstream/db ./cmd/driver-agent
+          go test -tags ci,superlink_sqlite_driver ./internal/upstream/db ./cmd/driver-agent
       - name: Build application and required drivers
         shell: bash
         env:

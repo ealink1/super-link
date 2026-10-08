@@ -1,4 +1,4 @@
-//go:build gonavi_opengauss_driver
+//go:build superlink_opengauss_driver
 
 package main
 

@@ -15,7 +15,7 @@ func pgQuote(s string) string { return `"` + s + `"` }
 // oracleRowIDValueColumn 与 frontend/src/utils/rowLocator.ts 的
 // ORACLE_ROWID_LOCATOR_COLUMN 保持一致：Oracle 行定位在 WHERE 里写 ROWID，
 // 实际取值走查询时额外投影的别名列。
-const oracleRowIDValueColumn = "__gonavi_oracle_rowid__"
+const oracleRowIDValueColumn = "__superlink_oracle_rowid__"
 
 func TestGenerateChangeReverseUpdateRestoresPreviousValues(t *testing.T) {
 	changes := connection.ChangeSet{
@@ -194,12 +194,12 @@ func TestGenerateChangeReverseInsertUsesUnquotedOracleRowID(t *testing.T) {
 func TestGenerateChangeReverseInsertUsesUnquotedDuckDBRowID(t *testing.T) {
 	changes := connection.ChangeSet{
 		Inserts: []map[string]interface{}{{
-			"__gonavi_duckdb_rowid__": 17,
-			"name":                    "x",
+			"__superlink_duckdb_rowid__": 17,
+			"name":                       "x",
 		}},
 		LocatorStrategy: "duckdb-rowid",
 		LocatorColumns: []connection.LocatorColumn{{
-			Key: "rowid", ValueColumn: "__gonavi_duckdb_rowid__",
+			Key: "rowid", ValueColumn: "__superlink_duckdb_rowid__",
 		}},
 	}
 

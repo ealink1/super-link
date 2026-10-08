@@ -27,7 +27,11 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 	query := fyne.NewMenuItem("新建查询", func() { n.queryForNode(node) })
 	refresh := fyne.NewMenuItem("刷新", func() { n.selected = node.id; n.refresh() })
 	if node.kind != "object" {
-		return fyne.NewMenu("连接", query, refresh, fyne.NewMenuItem("编辑连接", func() { n.owner.selected = node.profileID; n.owner.editSelected() }), fyne.NewMenuItem("断开连接", func() { n.owner.selected = node.profileID; n.owner.disconnectSelected() }))
+		menu := fyne.NewMenu("连接", query, refresh, fyne.NewMenuItem("编辑连接", func() { n.owner.selected = node.profileID; n.owner.editSelected() }), fyne.NewMenuItem("断开连接", func() { n.owner.selected = node.profileID; n.owner.disconnectSelected() }))
+		if node.kind == "connection" {
+			menu.Items = append(menu.Items[:1], append([]*fyne.MenuItem{n.createDatabaseItem(node)}, menu.Items[1:]...)...)
+		}
+		return menu
 	}
 	menu := fyne.NewMenu("对象", fyne.NewMenuItem("查看数据", func() { n.openObject(node) }), query, fyne.NewMenuItem("复制名称", func() { n.owner.Window.Clipboard().SetContent(node.object.Name) }), refresh)
 	p, ok := n.nodeProfile(node)

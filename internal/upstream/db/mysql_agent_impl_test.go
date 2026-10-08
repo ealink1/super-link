@@ -564,7 +564,7 @@ func TestMySQLAgentCancellationAfterGateAcquisitionDoesNotDispatch(t *testing.T)
 }
 
 func TestMySQLAgentUnresponsiveProcessIsReapedAfterTimeout(t *testing.T) {
-	const helperMarker = "gonavi-mysql-agent-hang-helper"
+	const helperMarker = "superlink-mysql-agent-hang-helper"
 	if os.Getenv("SUPERLINK_MYSQL_AGENT_HANG_HELPER") == "1" && len(os.Args) > 0 && os.Args[len(os.Args)-1] == helperMarker {
 		time.Sleep(time.Hour)
 		return

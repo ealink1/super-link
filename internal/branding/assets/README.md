@@ -1,6 +1,6 @@
 # SuperLink 应用图标
 
-`source.png` 为用户在 2026-10-02 提供的黑底白色 SL 与齿轮图片；保留原图案和颜色，不使用 GoNavi 或 Fyne 品牌标识。
+`source.png` 为用户在 2026-10-02 提供的黑底白色 SL 与齿轮图片；保留原图案和颜色，不使用 SuperLink 或 Fyne 品牌标识。
 
 `superlink-rounded.png` 是根据用户后续要求，以原图为参考通过 imagegen 编辑的 Dock 版本：缩小黑色底板，增加透明留白，四角改为圆角，保留白色 SL 与齿轮标志。
 

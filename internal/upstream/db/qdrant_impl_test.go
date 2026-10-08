@@ -485,7 +485,7 @@ func TestQdrantLiveSmoke(t *testing.T) {
 	}
 
 	db := newTestQdrantDB(t, serverURL)
-	collection := "gonavi_smoke_live"
+	collection := "superlink_smoke_live"
 	_, _ = db.Exec(fmt.Sprintf(`{"delete_collection":%q}`, collection))
 	if _, err := db.Exec(fmt.Sprintf(`{"create_collection":%q,"size":3,"distance":"Cosine"}`, collection)); err != nil {
 		t.Fatalf("create live collection: %v", err)

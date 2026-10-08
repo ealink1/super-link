@@ -5,7 +5,7 @@
 日期：2026-10-01。实施目录：`.`。
 目标 remote：`git@github.com:ealink1/super-link.git`。
 
-已实现独立 Go 模块和 Fyne 原生应用，选择性复用固定 GoNavi 基线的数据库 / 协议代码。
+已实现独立 Go 模块和 Fyne 原生应用，选择性复用固定 SuperLink 基线的数据库 / 协议代码。
 目录包含 36 类固定数据源与自定义 Driver / DSN，共 37 个入口；已构建 22 个可选
 原生 Agent，并对 12 类数据源完成真实数据操作。当前交付是 Alpha，尚未达到完整
 实施计划中全部平台、专有数据库及高级功能的发布验收门槛。
@@ -26,7 +26,7 @@
 | 隔离 | 不挂载宿主目录，服务端口仅绑定 127.0.0.1 临时端口，容器结束后清理 |
 | UI 检查 | Fyne 无显示驱动测试 / 渲染检查，以及真实原生应用进程启动和升级 |
 
-按用户要求，未调用浏览器进行测试。没有改动原 GoNavi 应用源码，没有提交 / 推送代码，
+按用户要求，未调用浏览器进行测试。没有改动原 SuperLink 应用源码，没有提交 / 推送代码，
 没有发布 Release，也没有调用真实生产数据库。测试凭据随机生成，临时配置 0600，
 测试结束清理；原生启动 / 更新使用私有测试工作区和临时应用包。
 
@@ -40,7 +40,7 @@
 | `python3 tools/check-architecture.py` | 通过；核心层不依赖 Fyne / Wails；新生产文件不超过 800 行；没有 JVM 模块 |
 | `python3 tools/verify-upstream.py` | 通过；510 个保留上游文件与来源记录 / 当前摘要一致 |
 | `go test ./...` | 通过；默认主工程与保留的上游单元测试 |
-| `go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent` | 通过；全部原生驱动组合及 Agent 合约测试 |
+| `go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent` | 通过；全部原生驱动组合及 Agent 合约测试 |
 | `go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign` | 通过；应用、自研基础设施、UI 和签名工具竞争检测 |
 | `go vet ./...` | 通过 |
 | `python3 tools/build.py --all-drivers --package` | 通过；22 个本机 Agent 构建 / metadata 握手，主程序 / Helper / `.app` / ZIP |

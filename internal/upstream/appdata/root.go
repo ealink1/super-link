@@ -282,7 +282,7 @@ func DefaultSavedQueryDirectory(activeRoot string) string {
 }
 
 // DefaultAgentDataDirectory keeps the historical layout: unless explicitly
-// overridden, the encrypted Agent ledger lives directly in the active GoNavi
+// overridden, the encrypted Agent ledger lives directly in the active SuperLink
 // data root. This avoids silently splitting existing installations after the
 // per-feature directory setting is introduced.
 func DefaultAgentDataDirectory(activeRoot string) string {

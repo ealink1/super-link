@@ -87,7 +87,7 @@ def linux_installers(bundle, dist, version, arch, temporary):
         'Package: superlink\n' + f'Version: {version.replace("-", "~", 1)}\nArchitecture: {arch}\n'
         'Maintainer: SuperLink <noreply@github.com>\nSection: devel\nPriority: optional\n'
         f'Installed-Size: {installed_kib}\n'
-        'Depends: libgl1, libx11-6, libxcursor1, libxrandr2, libxinerama1, libxi6, libxxf86vm1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxkbcommon0\n'
+        'Depends: zenity, libgl1, libx11-6, libxcursor1, libxrandr2, libxinerama1, libxi6, libxxf86vm1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxkbcommon0\n'
         'Homepage: https://github.com/ealink1/super-link\n'
         'Description: Native database, SSH and notes workspace\n'
         ' Includes an offline SQLite driver.\n')

@@ -173,7 +173,7 @@ func writeSelfSignedCertificate(t *testing.T, dir string) (string, string, []byt
 	template := x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName: "GoNavi Test",
+			CommonName: "SuperLink Test",
 		},
 		NotBefore:             time.Now().Add(-time.Hour),
 		NotAfter:              time.Now().Add(time.Hour),

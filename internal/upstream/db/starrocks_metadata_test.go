@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_starrocks_driver
+//go:build superlink_full_drivers || superlink_starrocks_driver
 
 package db
 

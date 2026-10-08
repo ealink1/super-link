@@ -47,7 +47,7 @@ func TestManagedHostKeyTrustRequestsConfirmationThenVerifies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TrustSSHHostKey() error = %v", err)
 	}
-	if trusted.State != "trusted" || trusted.Source != "gonavi" {
+	if trusted.State != "trusted" || trusted.Source != "superlink" {
 		t.Fatalf("unexpected trust result: %#v", trusted)
 	}
 	if _, err := os.Stat(storePath); err != nil {
@@ -120,15 +120,15 @@ func TestManagedHostKeyTrustStoreReplacesExistingRecord(t *testing.T) {
 
 func TestManagedHostKeyTrustStoreDoesNotChangeConnectionJSON(t *testing.T) {
 	config := connection.SSHConfig{Host: "bastion.example.com", Port: 22}.
-		WithManagedHostKeyTrustStore("C:/private/gonavi-host-keys.json")
-	if got := config.ManagedHostKeyTrustStorePath(); got != "C:/private/gonavi-host-keys.json" {
+		WithManagedHostKeyTrustStore("C:/private/superlink-host-keys.json")
+	if got := config.ManagedHostKeyTrustStorePath(); got != "C:/private/superlink-host-keys.json" {
 		t.Fatalf("managed trust-store path = %q", got)
 	}
 	encoded, err := json.Marshal(config)
 	if err != nil {
 		t.Fatalf("marshal SSH config: %v", err)
 	}
-	if strings.Contains(string(encoded), "gonavi-host-keys.json") {
+	if strings.Contains(string(encoded), "superlink-host-keys.json") {
 		t.Fatalf("runtime trust-store path leaked into persisted config: %s", encoded)
 	}
 }

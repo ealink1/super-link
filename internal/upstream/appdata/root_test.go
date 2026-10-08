@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestResolveActiveRootDefaultsToLegacyGonaviDir(t *testing.T) {
+func TestResolveActiveRootDefaultsToLegacySuperLinkDir(t *testing.T) {
 	homeDir := t.TempDir()
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
@@ -27,7 +27,7 @@ func TestSetActiveRootWritesBootstrapAndResolveUsesIt(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	customRoot := filepath.Join(t.TempDir(), "gonavi-data")
+	customRoot := filepath.Join(t.TempDir(), "superlink-data")
 	savedRoot, err := SetActiveRoot(customRoot)
 	if err != nil {
 		t.Fatalf("SetActiveRoot returned error: %v", err)
@@ -52,7 +52,7 @@ func TestSetActiveRootResetToDefaultRemovesBootstrap(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	customRoot := filepath.Join(t.TempDir(), "gonavi-data")
+	customRoot := filepath.Join(t.TempDir(), "superlink-data")
 	if _, err := SetActiveRoot(customRoot); err != nil {
 		t.Fatalf("SetActiveRoot custom returned error: %v", err)
 	}
@@ -96,8 +96,8 @@ func TestDataRootAndLogDirectoryPreserveEachOtherInBootstrap(t *testing.T) {
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	customDataRoot := filepath.Join(t.TempDir(), "gonavi-data")
-	customLogDirectory := filepath.Join(t.TempDir(), "gonavi-logs")
+	customDataRoot := filepath.Join(t.TempDir(), "superlink-data")
+	customLogDirectory := filepath.Join(t.TempDir(), "superlink-logs")
 	if _, err := SetConfiguredLogDirectory(customLogDirectory); err != nil {
 		t.Fatalf("SetConfiguredLogDirectory returned error: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestDataRootAndLogDirectoryPreserveEachOtherInBootstrap(t *testing.T) {
 }
 
 func TestDefaultSavedQueryDirectoryUsesActiveRoot(t *testing.T) {
-	activeRoot := filepath.Join(t.TempDir(), "gonavi-data")
+	activeRoot := filepath.Join(t.TempDir(), "superlink-data")
 	want := filepath.Join(activeRoot, savedQueryDirectoryName)
 	if got := DefaultSavedQueryDirectory(activeRoot); got != want {
 		t.Fatalf("DefaultSavedQueryDirectory = %q, want %q", got, want)
@@ -194,8 +194,8 @@ func TestSavedQueryDirectoryAndOtherSettingsPreserveEachOtherInBootstrap(t *test
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	customDataRoot := filepath.Join(t.TempDir(), "gonavi-data")
-	customLogDirectory := filepath.Join(t.TempDir(), "gonavi-logs")
+	customDataRoot := filepath.Join(t.TempDir(), "superlink-data")
+	customLogDirectory := filepath.Join(t.TempDir(), "superlink-logs")
 	customSavedQueryDirectory := filepath.Join(t.TempDir(), "saved-queries")
 	if _, err := SetActiveRoot(customDataRoot); err != nil {
 		t.Fatalf("SetActiveRoot returned error: %v", err)
@@ -265,7 +265,7 @@ func TestAgentDataDirectoryDefaultsToActiveRootAndSupportsOverride(t *testing.T)
 	t.Setenv("HOME", homeDir)
 	t.Setenv("USERPROFILE", homeDir)
 
-	activeRoot := filepath.Join(t.TempDir(), "gonavi-data")
+	activeRoot := filepath.Join(t.TempDir(), "superlink-data")
 	if _, err := SetActiveRoot(activeRoot); err != nil {
 		t.Fatalf("SetActiveRoot: %v", err)
 	}

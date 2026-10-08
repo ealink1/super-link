@@ -59,7 +59,7 @@ def main():
     for driver in chosen:
         print(f'Building {driver} agent ({goos}/{arch})', flush=True)
         output = agents / f'{driver}-driver-agent{suffix}'
-        run(['go','build','-trimpath','-ldflags','-s -w','-tags',f'gonavi_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
+        run(['go','build','-trimpath','-ldflags','-s -w','-tags',f'superlink_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
         probe = subprocess.run([str(output)], input='{"id":1,"method":"metadata"}\n',
                                capture_output=True, text=True, timeout=45, check=True)
         response = json.loads(probe.stdout.strip())
@@ -115,7 +115,7 @@ def main():
             shutil.copy2(source, license_dir/source.name)
         for source in (ROOT/'third_party/fonts').glob('*OFL*'):
             shutil.copy2(source, license_dir/source.name)
-        shutil.copy2(ROOT/'internal/ui/assets/gonavi/sources.json', resources/'gonavi-ui-assets.json')
+        shutil.copy2(ROOT/'internal/ui/assets/superlink/sources.json', resources/'superlink-ui-assets.json')
         shutil.copy2(ROOT/'internal/ui/assets/shell/sources.json', resources/'shell-ui-assets.json')
         shutil.copy2(ROOT/'internal/ui/assets/shell/LICENSE', license_dir/'Lucide-LICENSE.txt')
         shutil.copy2(ROOT/'internal/branding/assets/superlink.png', resources/'superlink.png')

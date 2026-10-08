@@ -1,4 +1,4 @@
-//go:build gonavi_clickhouse_driver
+//go:build superlink_clickhouse_driver
 
 package main
 

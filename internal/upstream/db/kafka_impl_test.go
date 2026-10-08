@@ -402,7 +402,7 @@ func TestKafkaQuerySelectAndConsumeKeepTopicNameIntact(t *testing.T) {
 	}
 	client := &KafkaDB{
 		runtime:      runtime,
-		defaultGroup: "gonavi",
+		defaultGroup: "superlink",
 		startLatest:  false,
 	}
 
@@ -424,7 +424,7 @@ func TestKafkaQuerySelectAndConsumeKeepTopicNameIntact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CONSUME failed: %v", err)
 	}
-	if runtime.lastFetchRequest.Topic != "logs.app-1" || runtime.lastFetchRequest.GroupID != "gonavi" || runtime.lastFetchRequest.Latest {
+	if runtime.lastFetchRequest.Topic != "logs.app-1" || runtime.lastFetchRequest.GroupID != "superlink" || runtime.lastFetchRequest.Latest {
 		t.Fatalf("unexpected consume request: %#v", runtime.lastFetchRequest)
 	}
 }

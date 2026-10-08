@@ -43,7 +43,7 @@ func TestBuildSessionActionStatement(t *testing.T) {
 		{name: "sqlserver terminate", engine: "sqlserver", request: actionRequest(connection.SessionActionTerminateSession, "51", ""), wantSQL: "KILL 51"},
 		{name: "dameng terminate", engine: "dameng", request: actionRequest(connection.SessionActionTerminateSession, "91", ""), wantSQL: "CALL SP_CLOSE_SESSION(91)"},
 		{name: "clickhouse quote", engine: "clickhouse", request: actionRequest(connection.SessionActionCancelQuery, "", "query'7"), wantSQL: "KILL QUERY WHERE query_id = 'query''7' SYNC"},
-		{name: "trino quote", engine: "trino", request: actionRequest(connection.SessionActionCancelQuery, "", "query'7"), wantSQL: "CALL system.runtime.kill_query(query_id => 'query''7', message => 'Cancelled from GoNavi session workbench')"},
+		{name: "trino quote", engine: "trino", request: actionRequest(connection.SessionActionCancelQuery, "", "query'7"), wantSQL: "CALL system.runtime.kill_query(query_id => 'query''7', message => 'Cancelled from SuperLink session workbench')"},
 		{name: "tdengine cancel", engine: "tdengine", request: actionRequest(connection.SessionActionCancelQuery, "session-1", "query-1"), wantSQL: "KILL QUERY 'query-1'"},
 		{name: "tdengine terminate", engine: "tdengine", request: actionRequest(connection.SessionActionTerminateSession, "42", "query-1"), wantSQL: "KILL CONNECTION 42"},
 		{name: "iotdb cancel", engine: "iotdb", request: actionRequest(connection.SessionActionCancelQuery, "", "query-3"), wantSQL: "KILL QUERY query-3"},

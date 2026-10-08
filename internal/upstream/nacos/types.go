@@ -296,7 +296,7 @@ type InstanceRequest struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
-// Client is the Nacos OpenAPI client used by GoNavi.
+// Client is the Nacos OpenAPI client used by SuperLink.
 type Client interface {
 	Connect(config connection.ConnectionConfig) error
 	Close() error

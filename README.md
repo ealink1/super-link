@@ -53,6 +53,7 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 需要 Go、Python 3，以及 Fyne / CGO 所需的本机编译工具。
 macOS 使用 Xcode Command Line Tools；Linux 需要 OpenGL / X11 开发库；
 Windows 使用 GCC。其他平台的完整应用尚未在本次机器上运行验收。
+Linux 的系统文件选择器需要 `zenity`（DEB 包会声明此依赖；便携包需系统预先安装）。
 
 ```sh
 # 默认构建主程序、更新 Helper 和离线 SQLite Agent
@@ -183,7 +184,7 @@ MQTT、RabbitMQ、Qdrant、Chroma、Nacos。其他类型保留接入实现，但
 `~/Library/Application Support/SuperLink`。可用 `--data-root` 或 `SUPERLINK_DATA_ROOT` 指定。
 应用 ID 为 `io.github.ealink1.superlink`；目录优先级为 `--data-root`、`SUPERLINK_DATA_ROOT`、默认目录。
 不自动读取、迁移或修改旧版工作区，不识别旧环境变量。
-不复用 GoNavi 的数据目录，同一工作区同时只允许一个进程打开。
+不复用 SuperLink 的数据目录，同一工作区同时只允许一个进程打开。
 
 | 内容 | 保存位置 / 行为 |
 | --- | --- |
@@ -230,7 +231,7 @@ python3 tools/verify-upstream.py
 python3 tools/verify-ui-assets.py
 go run ./tools/check-go-size
 go test ./...
-go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent
+go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
 go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
 go vet ./...
 python3 tools/build.py --all-drivers --package
@@ -265,7 +266,7 @@ macOS / Windows / Linux 的 ARM64 / x64 六平台原生构建；v0.1.7 的 CI、
 - 数据库编辑快照、诊断、慢查询、备份恢复。
 - 跨库迁移、数据 / 结构比较与同步、任务恢复和检查点。
 - 更完整的协议工作台、分页、运维信息和权限适配。
-- GoNavi 配置预览式导入；完整设置中心、字体 / 快捷键持久化、插件、国际化、AI 自动执行 / MCP / Skills 与云备份。
+- 外部配置预览式导入；完整设置中心、字体 / 快捷键持久化、插件、国际化、AI 自动执行 / MCP / Skills 与云备份。
 - Windows / Linux / macOS 两种 CPU 的真实平台验收、签名公证和生产更新验证。
 
 ## 开发文档
@@ -277,8 +278,8 @@ macOS / Windows / Linux 的 ARM64 / x64 六平台原生构建；v0.1.7 的 CI、
 <summary>展开设计与验证资料</summary>
 
 - [实施计划及高级功能路线](docs/plans/2026-10-01-superlink-implementation-plan.md)
-- [完整功能与界面对齐设计（当前范围）](docs/plans/2026-10-01-gonavi-parity-design.md)
-- [GoNavi 实际页面、操作流程与功能对齐清单](docs/gonavi-ui-observation-2026-10-01.md)
+- [完整功能与界面对齐设计（当前范围）](docs/plans/2026-10-01-superlink-parity-design.md)
+- [参考界面、操作流程与功能对齐清单](docs/superlink-ui-observation-2026-10-01.md)
 - [最新代码自检与未验证范围](docs/selfcheck-2026-10-02.md)
 - [内存问题定位、修复与原生对照数据](docs/memory-analysis-2026-10-02.md)
 - [第二轮内存精简与页面释放复查](docs/memory-refinement-2026-10-02.md)
@@ -298,7 +299,7 @@ macOS / Windows / Linux 的 ARM64 / x64 六平台原生构建；v0.1.7 的 CI、
 
 ## 许可
 
-项目沿用 Apache-2.0，并保留 GoNavi 及第三方归属说明。
+项目沿用 Apache-2.0，并保留上游贡献者及第三方归属说明。
 查看 [LICENSE](LICENSE)、[NOTICE](NOTICE)、[UPSTREAM.md](UPSTREAM.md) 和
 [第三方许可文本](THIRD_PARTY_NOTICES.md)。图标保留上游来源；字体衍生自已许可的
 Inter / Noto Sans / Noto Sans SC / DejaVu Powerline，不再分发系统字体。

@@ -408,7 +408,7 @@ func TestCustomDBConnectReportsUnregisteredGoDriver(t *testing.T) {
 
 	message := err.Error()
 	for _, want := range []string{
-		"未在 GoNavi 中注册",
+		"未在 SuperLink 中注册",
 		"Go database/sql",
 	} {
 		if !strings.Contains(message, want) {

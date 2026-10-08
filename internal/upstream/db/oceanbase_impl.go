@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_oceanbase_driver
+//go:build superlink_full_drivers || superlink_oceanbase_driver
 
 // Package db 中的 OceanBase 实现说明（请在调整 Oracle 路径前阅读，避免方向摇摆）：
 //
@@ -9,9 +9,9 @@
 // Navicat 的"OceanBase"数据源经实测能在 OB MySQL wire 端口上直接连接 Oracle 租户，
 // 但本机企业版验证表明：仅通过 go-sql-driver/mysql 注入 CLIENT_CONNECT_ATTRS 不足以
 // 让 Oracle 租户放行，还需要 CLIENT_SUPPORT_ORACLE_MODE 等 OceanBase 私有 capability。
-// 因此 GoNavi 将 Oracle 租户的 MySQL-wire 路径隔离到 OB Oracle 专用 driver。
+// 因此 SuperLink 将 Oracle 租户的 MySQL-wire 路径隔离到 OB Oracle 专用 driver。
 //
-// GoNavi 当前路由（按 OceanBase 协议字段选择决定）：
+// SuperLink 当前路由（按 OceanBase 协议字段选择决定）：
 //   - 协议=MySQL：走 go-sql-driver/mysql，连 MySQL 租户。OB 服务端在 Oracle 租户上返回
 //     "Error 1235 (0A000): Oracle tenant for current client driver is not supported"
 //     时，错误信息提示用户切换到 Oracle 协议。
@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	oceanbaseDriverName             = "gonavi_oceanbase_mysql"
+	oceanbaseDriverName             = "superlink_oceanbase_mysql"
 	oceanbaseOracleOBClientDriver   = "oboracle"
 	defaultOceanBasePort            = 2881
 	oceanBaseProtocolMySQL          = "mysql"
@@ -443,7 +443,7 @@ func annotateOceanBaseOracleConnectError(err error) error {
 		strings.Contains(lower, "unexpected packet"),
 		strings.Contains(lower, "got packets out of order"),
 		strings.Contains(lower, "use of closed network connection"):
-		return fmt.Errorf("%w（OceanBase Oracle TNS 路径握手失败：当前端口可能是 OBServer 的 MySQL wire 协议端口而非 OBProxy 的 Oracle listener。GoNavi 会优先尝试 OB Oracle 专用 MySQL-wire 路径；如这里仍报此错说明该路径也未成功，详见随后的 OBClient 错误诊断）", err)
+		return fmt.Errorf("%w（OceanBase Oracle TNS 路径握手失败：当前端口可能是 OBServer 的 MySQL wire 协议端口而非 OBProxy 的 Oracle listener。SuperLink 会优先尝试 OB Oracle 专用 MySQL-wire 路径；如这里仍报此错说明该路径也未成功，详见随后的 OBClient 错误诊断）", err)
 	case strings.Contains(lower, "ora-"):
 		return fmt.Errorf("%w（OceanBase Oracle 租户认证或服务名失败：请确认服务名（Service Name）、用户名（如 SYS@oracle_tenant#cluster_name）与权限配置）", err)
 	}
@@ -672,7 +672,7 @@ func (o *OceanBaseDB) connectOracleViaOBClient(config connection.ConnectionConfi
 func formatOceanBaseOBClientAttemptError(address string, err error) string {
 	if isOceanBaseOracleTenantMySQLDriverError(err) {
 		return fmt.Sprintf("%s 验证失败：OceanBase 服务端仍返回 Error 1235 拒绝当前 client driver。"+
-			"GoNavi 已使用 OB Oracle 专用握手路径；如仍失败，请确认该端口是 OceanBase Oracle 租户的 MySQL-wire 入口，"+
+			"SuperLink 已使用 OB Oracle 专用握手路径；如仍失败，请确认该端口是 OceanBase Oracle 租户的 MySQL-wire 入口，"+
 			"并在 ConnectionParams 中通过 preset/cap.add/cap.drop 或 connectionAttributes=key1:value1 覆盖驱动握手参数。"+
 			"详细错误：%v", address, err)
 	}

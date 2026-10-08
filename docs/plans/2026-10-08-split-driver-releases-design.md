@@ -1,6 +1,6 @@
 # SuperLink 应用与驱动分仓发布
 
-用户已确认沿用 GoNavi 的分仓发布方式。主仓库为 ealink1/super-link，驱动仓库为 ealink1/SuperLink-DriverAgents。
+用户已确认沿用 SuperLink 的分仓发布方式。主仓库为 ealink1/super-link，驱动仓库为 ealink1/SuperLink-DriverAgents。
 
 主 Release 仅上传 14 个应用包、发布说明、SHA256SUMS.txt 与签名清单及签名；平台构建元数据留在 Actions Artifact。驱动 Release 上传 131 个可选驱动、同一签名清单与签名及独立校验文件。
 

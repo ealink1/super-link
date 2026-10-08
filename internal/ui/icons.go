@@ -12,15 +12,15 @@ import (
 
 // The upstream icon geometry is preserved; sources.json records every asset.
 //
-//go:embed assets/gonavi/*.svg assets/gonavi/*.png
+//go:embed assets/superlink/*.svg assets/superlink/*.png
 var sourceIcons embed.FS
 
 func icon(name string) fyne.Resource {
 	file := name + ".svg"
-	raw, err := sourceIcons.ReadFile("assets/gonavi/" + file)
+	raw, err := sourceIcons.ReadFile("assets/superlink/" + file)
 	if err != nil && strings.HasPrefix(name, "db-") {
 		file = name + ".png"
-		raw, err = sourceIcons.ReadFile("assets/gonavi/" + file)
+		raw, err = sourceIcons.ReadFile("assets/superlink/" + file)
 	}
 	if err != nil {
 		if strings.HasPrefix(name, "db-") {

@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_trino_driver
+//go:build superlink_full_drivers || superlink_trino_driver
 
 package db
 
@@ -71,7 +71,7 @@ func TestTrinoRowsAffectedPreservesSuccessfulCount(t *testing.T) {
 }
 
 func TestTrinoCloseCleansStateWhenDatabaseCloseFails(t *testing.T) {
-	const driverName = "gonavi_trino_close_test"
+	const driverName = "superlink_trino_close_test"
 	trinoCloseTestDriverOnce.Do(func() {
 		sql.Register(driverName, trinoCloseTestDriver{})
 	})
@@ -100,7 +100,7 @@ func TestTrinoCloseCleansStateWhenDatabaseCloseFails(t *testing.T) {
 }
 
 func TestOpenTrinoSQLConnectionConfiguresPool(t *testing.T) {
-	const driverName = "gonavi_trino_close_test"
+	const driverName = "superlink_trino_close_test"
 	trinoCloseTestDriverOnce.Do(func() {
 		sql.Register(driverName, trinoCloseTestDriver{})
 	})

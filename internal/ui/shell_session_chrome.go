@@ -56,6 +56,9 @@ func (p *shellPane) showAuxiliary(kind, title string, body fyne.CanvasObject) {
 	}
 	header := shellFixed(shellInset(shellBorder(nil, nil, shellText(title, 12, true, shellTextColor), shellButtonView(shellButton("", "panel-left-close", false, p.hideAuxiliary)), layout.NewSpacer()), 10), 0, 40)
 	panel := container.NewStack(shellRectangle(shellPanelColor, 0, nil), shellBorder(shellVBox(header, shellLine()), nil, nil, nil, body))
+	if kind == "monitor" {
+		panel = container.NewStack(body)
+	}
 	p.aux.Objects = []fyne.CanvasObject{container.New(&shellAuxiliaryLayout{canvas: p.workspace.owner.Window.Canvas()}, panel)}
 	p.auxKind = kind
 	p.aux.Show()

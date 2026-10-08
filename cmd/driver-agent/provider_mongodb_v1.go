@@ -1,4 +1,4 @@
-//go:build gonavi_mongodb_driver_v1
+//go:build superlink_mongodb_driver_v1
 
 package main
 

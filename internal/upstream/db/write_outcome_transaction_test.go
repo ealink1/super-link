@@ -16,7 +16,7 @@ import (
 	"github.com/ealink1/super-link/internal/upstream/connection"
 )
 
-const writeOutcomeTransactionDriverName = "gonavi_write_outcome_transaction"
+const writeOutcomeTransactionDriverName = "superlink_write_outcome_transaction"
 
 var (
 	registerWriteOutcomeTransactionDriverOnce sync.Once

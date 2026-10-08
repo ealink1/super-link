@@ -19,7 +19,7 @@ selfcheck:
 	python3 tools/verify-fyne.py
 	python3 tools/verify-ui-assets.py
 	go test ./...
-	go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent
+	go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
 	go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
 	go vet ./...
 	go -C third_party/fyne test -race -tags=test ./internal/painter ./internal/cache

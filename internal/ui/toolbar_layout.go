@@ -5,7 +5,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 )
 
-// toolbarLayout preserves GoNavi's compact bar height while retaining HBox sizing.
+// toolbarLayout preserves SuperLink's compact bar height while retaining HBox sizing.
 type toolbarLayout struct{ height float32 }
 
 func (l *toolbarLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {

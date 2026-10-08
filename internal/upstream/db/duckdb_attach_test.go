@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_duckdb_driver
+//go:build superlink_full_drivers || superlink_duckdb_driver
 
 package db
 
@@ -136,7 +136,7 @@ func TestDuckDBAttachMySQLSecretSyntaxAndErrorSanitization(t *testing.T) {
 	const password = "s3cret-DO-NOT-LEAK"
 	err := host.AttachExternalDatabase(ctx, ExternalAttachSpec{
 		Kind: ExternalAttachKindMySQL, Host: "127.0.0.1", Port: 1,
-		User: "gonavi-test", Password: password, Database: "no_such_db",
+		User: "superlink-test", Password: password, Database: "no_such_db",
 		Alias: "mysql_ext", ReadOnly: true,
 	})
 	if err == nil {
@@ -147,7 +147,7 @@ func TestDuckDBAttachMySQLSecretSyntaxAndErrorSanitization(t *testing.T) {
 	}
 	var secretCount int
 	if err := host.conn.QueryRowContext(ctx,
-		"SELECT count(*) FROM duckdb_secrets() WHERE name = 'gonavi_attach_mysql_ext'").Scan(&secretCount); err != nil {
+		"SELECT count(*) FROM duckdb_secrets() WHERE name = 'superlink_attach_mysql_ext'").Scan(&secretCount); err != nil {
 		t.Fatalf("query secrets: %v", err)
 	}
 	if secretCount != 0 {
@@ -165,8 +165,8 @@ func TestDuckDBAttachMySQLSecretSyntaxAndErrorSanitization(t *testing.T) {
 func TestDuckDBAttachMySQLUsesSecretDatabase(t *testing.T) {
 	spec := ExternalAttachSpec{
 		Kind: ExternalAttachKindMySQL, Host: "127.0.0.1", Port: 3306,
-		User: "gonavi-test", Password: "pw", Database: "orders_db",
-		Alias: "mysql_ext", SecretName: "gonavi_attach_mysql_ext", ReadOnly: true,
+		User: "superlink-test", Password: "pw", Database: "orders_db",
+		Alias: "mysql_ext", SecretName: "superlink_attach_mysql_ext", ReadOnly: true,
 	}
 
 	// 1) 静态契约：ATTACH 路径必须为空，库名走 SECRET 的 DATABASE
@@ -222,7 +222,7 @@ func TestDuckDBAttachRerunAfterNativeDetachIsIdempotent(t *testing.T) {
 
 	spec := ExternalAttachSpec{
 		Kind: ExternalAttachKindMySQL, Host: "127.0.0.1", Port: 1,
-		User: "gonavi-test", Password: "pw", Database: "no_such_db",
+		User: "superlink-test", Password: "pw", Database: "no_such_db",
 		Alias: "mysql_ext", SecretName: externalSecretName("mysql_ext"), ReadOnly: true,
 	}
 

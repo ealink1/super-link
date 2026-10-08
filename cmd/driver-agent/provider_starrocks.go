@@ -1,4 +1,4 @@
-//go:build gonavi_starrocks_driver
+//go:build superlink_starrocks_driver
 
 package main
 

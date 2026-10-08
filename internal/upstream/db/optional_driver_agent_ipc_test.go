@@ -173,7 +173,7 @@ func TestOptionalAgentConnectRequestCarriesSSHRuntimeSeparately(t *testing.T) {
 		SSH: connection.SSHConfig{
 			Host: "127.0.0.1",
 			Port: 37167,
-		}.WithManagedHostKeyTrustStore("/private/gonavi/ssh/host_keys.json").
+		}.WithManagedHostKeyTrustStore("/private/superlink/ssh/host_keys.json").
 			WithHostKeyIdentity("bastion.example.test", 37167),
 	}
 
@@ -184,7 +184,7 @@ func TestOptionalAgentConnectRequestCarriesSSHRuntimeSeparately(t *testing.T) {
 	if !request.StreamSSHProgress {
 		t.Fatal("SSH connect request did not subscribe to SSH progress frames")
 	}
-	if request.SSHRuntime.ManagedHostKeyTrustStorePath != "/private/gonavi/ssh/host_keys.json" {
+	if request.SSHRuntime.ManagedHostKeyTrustStorePath != "/private/superlink/ssh/host_keys.json" {
 		t.Fatalf("request managed trust-store path = %q", request.SSHRuntime.ManagedHostKeyTrustStorePath)
 	}
 	if request.SSHRuntime.HostKeyIdentityHost != "bastion.example.test" || request.SSHRuntime.HostKeyIdentityPort != 37167 {
@@ -205,7 +205,7 @@ func TestOptionalAgentConnectRequestCarriesSSHRuntimeSeparately(t *testing.T) {
 	if got := decoded.Config.SSH.ManagedHostKeyTrustStorePath(); got != "" {
 		t.Fatalf("SSH runtime leaked into serialized connection config: %q", got)
 	}
-	if decoded.SSHRuntime == nil || decoded.SSHRuntime.ManagedHostKeyTrustStorePath != "/private/gonavi/ssh/host_keys.json" {
+	if decoded.SSHRuntime == nil || decoded.SSHRuntime.ManagedHostKeyTrustStorePath != "/private/superlink/ssh/host_keys.json" {
 		t.Fatalf("decoded request lost SSH runtime snapshot: %#v", decoded.SSHRuntime)
 	}
 }

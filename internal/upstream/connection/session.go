@@ -20,7 +20,7 @@ const (
 
 // SessionCapability describes the server-side session operations exposed by a
 // data source. Supported refers to listing live server sessions, not to the
-// generic ability to execute queries through GoNavi.
+// generic ability to execute queries through SuperLink.
 type SessionCapability struct {
 	Supported                          bool                `json:"supported"`
 	CanCancelQuery                     bool                `json:"canCancelQuery"`

@@ -529,7 +529,7 @@ func TestChromaLiveSmoke(t *testing.T) {
 	}
 
 	db := newTestChromaDB(t, serverURL)
-	collection := "gonavi_smoke_live"
+	collection := "superlink_smoke_live"
 	_, _ = db.Exec(fmt.Sprintf(`{"delete_collection":%q}`, collection))
 	if _, err := db.Exec(fmt.Sprintf(`{"create_collection":%q,"get_or_create":true}`, collection)); err != nil {
 		t.Fatalf("create live collection: %v", err)
@@ -539,7 +539,7 @@ func TestChromaLiveSmoke(t *testing.T) {
 	if err := db.ApplyChanges(collection, connection.ChangeSet{
 		Inserts: []map[string]interface{}{{
 			"id":            "doc-1",
-			"document":      "GoNavi Chroma live smoke",
+			"document":      "SuperLink Chroma live smoke",
 			"metadata.kind": "smoke",
 			"embedding":     []float64{0.1, 0.2, 0.3},
 		}},

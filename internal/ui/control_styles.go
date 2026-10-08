@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
@@ -59,19 +60,23 @@ func (r *controlFrameRenderer) Refresh() {
 func (r *controlFrameRenderer) Destroy() {}
 
 func headerAction(label string, run func()) fyne.CanvasObject {
-	button := widget.NewButton(label, run)
-	return container.NewThemeOverride(button, headerButtonTheme{})
+	return newHeaderAction(label, run)
 }
 
-type headerButtonTheme struct{ Theme }
+func headerDivider() fyne.CanvasObject {
+	line := widget.NewSeparator()
+	return container.New(layout.NewCustomPaddedLayout(12, 12, 12, 12), line)
+}
+
+type headerButtonTheme struct {
+	Theme
+	primary bool
+}
 
 func (t headerButtonTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	current := fyne.CurrentApp().Settings().Theme()
-	if name == theme.ColorNameButton {
-		if value, ok := current.(Theme); ok && value.Dark {
-			return color.NRGBA{R: 24, G: 46, B: 36, A: 255}
-		}
-		return color.NRGBA{R: 233, G: 242, B: 237, A: 255}
+	if name == theme.ColorNameForeground && t.primary {
+		return color.NRGBA{R: 51, G: 122, B: 255, A: 255}
 	}
 	return current.Color(name, variant)
 }

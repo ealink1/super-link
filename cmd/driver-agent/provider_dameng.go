@@ -1,4 +1,4 @@
-//go:build gonavi_dameng_driver
+//go:build superlink_dameng_driver
 
 package main
 

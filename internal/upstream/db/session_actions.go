@@ -202,7 +202,7 @@ func buildTrinoSessionAction(request connection.SessionActionRequest) (sessionAc
 	}
 	return sessionActionStatement{
 		sql: fmt.Sprintf(
-			"CALL system.runtime.kill_query(query_id => '%s', message => 'Cancelled from GoNavi session workbench')",
+			"CALL system.runtime.kill_query(query_id => '%s', message => 'Cancelled from SuperLink session workbench')",
 			escapeSessionStringLiteral(queryID),
 		),
 	}, nil

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const metadataContextDriverName = "gonavi_metadata_context_test"
+const metadataContextDriverName = "superlink_metadata_context_test"
 
 var (
 	registerMetadataContextDriver sync.Once

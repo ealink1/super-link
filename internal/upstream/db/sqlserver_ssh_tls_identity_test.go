@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_sqlserver_driver
+//go:build superlink_full_drivers || superlink_sqlserver_driver
 
 package db
 
@@ -26,7 +26,7 @@ import (
 	"github.com/microsoft/go-mssqldb/msdsn"
 )
 
-const sqlServerIdentityProbeDriverName = "gonavi-sqlserver-identity-probe"
+const sqlServerIdentityProbeDriverName = "superlink-sqlserver-identity-probe"
 
 var registerSQLServerIdentityProbeDriver sync.Once
 
@@ -58,7 +58,7 @@ func openSQLServerIdentityProbeDB(t *testing.T) (*sql.DB, error) {
 	return sql.Open(sqlServerIdentityProbeDriverName, "")
 }
 
-const sqlServerPingFailureProbeDriverName = "gonavi-sqlserver-ping-failure-probe"
+const sqlServerPingFailureProbeDriverName = "superlink-sqlserver-ping-failure-probe"
 
 var (
 	registerSQLServerPingFailureProbeDriver sync.Once

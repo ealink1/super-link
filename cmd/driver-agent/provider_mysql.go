@@ -1,4 +1,4 @@
-//go:build gonavi_mysql_driver
+//go:build superlink_mysql_driver
 
 package main
 

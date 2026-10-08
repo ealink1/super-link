@@ -5,584 +5,584 @@
   "conversion": "Mechanical JSX to SVG conversion; paths, geometry and stroke properties unchanged. Database SVGs copied byte-for-byte.",
   "assets": [
     {
-      "file": "internal/ui/assets/gonavi/search.svg",
+      "file": "internal/ui/assets/superlink/search.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSearchIcon",
       "sha256": "5c4b7f817708cb89d6944322db1d7443c077cf891679131f2ded628cbb7e566e"
     },
     {
-      "file": "internal/ui/assets/gonavi/locate.svg",
+      "file": "internal/ui/assets/superlink/locate.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnLocateIcon",
       "sha256": "50b9f2d4244e1e8959faf8823969945713b8c3aaf55536f69a4215b19b2019ed"
     },
     {
-      "file": "internal/ui/assets/gonavi/scroll-top.svg",
+      "file": "internal/ui/assets/superlink/scroll-top.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnScrollTopIcon",
       "sha256": "d1c280ffa83643b6af45e3a1bc0ba85fb5662e1124a41d034117657780e92fe4"
     },
     {
-      "file": "internal/ui/assets/gonavi/connection-menu.svg",
+      "file": "internal/ui/assets/superlink/connection-menu.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnConnectionMenuIcon",
       "sha256": "885e6e093564387835ff22807d0e7cf2499d67d667d9ed11f6d29b8ba2d976e1"
     },
     {
-      "file": "internal/ui/assets/gonavi/all-objects.svg",
+      "file": "internal/ui/assets/superlink/all-objects.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnAllObjectsIcon",
       "sha256": "c8ba1f49d1e5b281fc5c9943e1de17089b6518ea0939032b662e80d51a7b4a1e"
     },
     {
-      "file": "internal/ui/assets/gonavi/table.svg",
+      "file": "internal/ui/assets/superlink/table.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnTableIcon",
       "sha256": "54ae78252e8d7a473aa7587957ab0732be29a1a75ecb901ea0780bd83a976b28"
     },
     {
-      "file": "internal/ui/assets/gonavi/view.svg",
+      "file": "internal/ui/assets/superlink/view.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnViewIcon",
       "sha256": "e6c7ed9eccc158cd40569c3fe6fb6f73e0f89d5f4ae24231be5711e9bea68dc5"
     },
     {
-      "file": "internal/ui/assets/gonavi/sequence.svg",
+      "file": "internal/ui/assets/superlink/sequence.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSequenceIcon",
       "sha256": "5747b562678c676cc9cb0f0d7f31db3350a2cc048f21cd78a2c973c4bdc0922d"
     },
     {
-      "file": "internal/ui/assets/gonavi/function.svg",
+      "file": "internal/ui/assets/superlink/function.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFunctionIcon",
       "sha256": "6893f4d2246f38f50cc3bcb58354ba77aa07d9bd3017fa17ec39be3c93364d7f"
     },
     {
-      "file": "internal/ui/assets/gonavi/package.svg",
+      "file": "internal/ui/assets/superlink/package.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnPackageIcon",
       "sha256": "a1e2d37d383fc4088d2dc02aa6e3dba926cb9ed651c36596182cc6de2d887f14"
     },
     {
-      "file": "internal/ui/assets/gonavi/event.svg",
+      "file": "internal/ui/assets/superlink/event.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnEventIcon",
       "sha256": "27030db435b5878b5a328a1baf0f54bafbc36857414ce0c78fafeadd7d3c2b73"
     },
     {
-      "file": "internal/ui/assets/gonavi/bolt.svg",
+      "file": "internal/ui/assets/superlink/bolt.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnBoltIcon",
       "sha256": "9af825353b51966f5f3dba1fe9046366be69fe01cce1b34b512e5b6d5aa895f1"
     },
     {
-      "file": "internal/ui/assets/gonavi/materialized-view.svg",
+      "file": "internal/ui/assets/superlink/materialized-view.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnMaterializedViewIcon",
       "sha256": "6daa5a077835f6dfc450ba06ed796c0c993927ed78541f437a619aec8d45276f"
     },
     {
-      "file": "internal/ui/assets/gonavi/cloud.svg",
+      "file": "internal/ui/assets/superlink/cloud.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnCloudIcon",
       "sha256": "6289869b09681ad0699a43c7ce97d6968fb44250d2ef1b9e05e11796e1ae9f18"
     },
     {
-      "file": "internal/ui/assets/gonavi/config-file.svg",
+      "file": "internal/ui/assets/superlink/config-file.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnConfigFileIcon",
       "sha256": "ac2ce1c707aaa061d87f97f0b5648917e04337d8e6413f0985446148d3e3f53b"
     },
     {
-      "file": "internal/ui/assets/gonavi/new-connection.svg",
+      "file": "internal/ui/assets/superlink/new-connection.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnNewConnectionIcon",
       "sha256": "c8571086f6bf165b0c98b8b2f9a331bffcd21e3343cc6c3604e481db07646f16"
     },
     {
-      "file": "internal/ui/assets/gonavi/new-query.svg",
+      "file": "internal/ui/assets/superlink/new-query.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnNewQueryIcon",
       "sha256": "aa65a354318e4685bed420d329e092c86be5d5550c43efddca49ae160988e0ac"
     },
     {
-      "file": "internal/ui/assets/gonavi/refresh.svg",
+      "file": "internal/ui/assets/superlink/refresh.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnRefreshIcon",
       "sha256": "b2d099495ee1ac18d1dea90bf09c174444a473aeb31312ce757252b96302b95a"
     },
     {
-      "file": "internal/ui/assets/gonavi/filter.svg",
+      "file": "internal/ui/assets/superlink/filter.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFilterIcon",
       "sha256": "67a4a2e8e73557b8ecc9b611336f4c46f02f3a7d3f03b2c632bd02cf14a7e715"
     },
     {
-      "file": "internal/ui/assets/gonavi/add-row.svg",
+      "file": "internal/ui/assets/superlink/add-row.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnAddRowIcon",
       "sha256": "919d6c432a437dbe63feee3ff540e228e8da974a12f720ca640fa676293a48ae"
     },
     {
-      "file": "internal/ui/assets/gonavi/trash.svg",
+      "file": "internal/ui/assets/superlink/trash.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnTrashIcon",
       "sha256": "f5e308247727305ed2f936ec7de7bff3f6ff994cdad2f6b2276627c97f558050"
     },
     {
-      "file": "internal/ui/assets/gonavi/undo.svg",
+      "file": "internal/ui/assets/superlink/undo.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnUndoIcon",
       "sha256": "5c62105d708ab0212a300de0639295f13d683ad239428ff299ff674891ad4e23"
     },
     {
-      "file": "internal/ui/assets/gonavi/rollback.svg",
+      "file": "internal/ui/assets/superlink/rollback.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnRollbackIcon",
       "sha256": "8aeca09dc1d221c601fd1be48a119f41f2f27d9e4ccf7f7133fb3af18b644610"
     },
     {
-      "file": "internal/ui/assets/gonavi/cell-select.svg",
+      "file": "internal/ui/assets/superlink/cell-select.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnCellSelectIcon",
       "sha256": "8e07953b7602fd28a725e2c0e9051c71ed8b028286fce7f806f3c14c8ffbceb6"
     },
     {
-      "file": "internal/ui/assets/gonavi/copy.svg",
+      "file": "internal/ui/assets/superlink/copy.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnCopyIcon",
       "sha256": "d2b800091c25922961c3997c3ea506edf31472dad8bdf5fcbaa477504577cf5d"
     },
     {
-      "file": "internal/ui/assets/gonavi/clipboard.svg",
+      "file": "internal/ui/assets/superlink/clipboard.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnClipboardIcon",
       "sha256": "8269d587e7406b1b204885420bed56c801ec79f7abe3a081d05314b8e7575dd2"
     },
     {
-      "file": "internal/ui/assets/gonavi/pencil.svg",
+      "file": "internal/ui/assets/superlink/pencil.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnPencilIcon",
       "sha256": "8dcc6286fdca2edbc475f1b1fd582a063b84b10b14ff60ac79506cb6cf2352d8"
     },
     {
-      "file": "internal/ui/assets/gonavi/fill-down.svg",
+      "file": "internal/ui/assets/superlink/fill-down.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFillDownIcon",
       "sha256": "a754e21a5fd745512de87904d54bc68c439cf5f0d1574cb120fb8f00e94d866e"
     },
     {
-      "file": "internal/ui/assets/gonavi/sigma.svg",
+      "file": "internal/ui/assets/superlink/sigma.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSigmaIcon",
       "sha256": "ef86a70dd1311c1de6a815242a55e003fd1ec5adab7f8dd864d7b1dd30f0195d"
     },
     {
-      "file": "internal/ui/assets/gonavi/save.svg",
+      "file": "internal/ui/assets/superlink/save.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSaveIcon",
       "sha256": "e6cdb7379ae3014d6d9088eadf5a2532659935b3b4ce7c6fd6acbab35ae55ce0"
     },
     {
-      "file": "internal/ui/assets/gonavi/sql-doc.svg",
+      "file": "internal/ui/assets/superlink/sql-doc.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSqlDocIcon",
       "sha256": "efcd0240a5e06ba5806abcd6c27dff3d32eb80263c8092c0ef5e9ec21c046775"
     },
     {
-      "file": "internal/ui/assets/gonavi/sliders.svg",
+      "file": "internal/ui/assets/superlink/sliders.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSlidersIcon",
       "sha256": "c515250e781f2bf6e833fe6fc30bb1f8ea7fdb0dbd47d24c3cd9d3e0ce703c2a"
     },
     {
-      "file": "internal/ui/assets/gonavi/import.svg",
+      "file": "internal/ui/assets/superlink/import.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnImportIcon",
       "sha256": "41cd82001cb4127202eee833bd885e2c229f3efda78d6aa76a5ff6001b16b4a2"
     },
     {
-      "file": "internal/ui/assets/gonavi/export.svg",
+      "file": "internal/ui/assets/superlink/export.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnExportIcon",
       "sha256": "f3335a6ed14245afd7c7a6ae44edf9cdcdd8d11467853a6efe7a0e1c6176ae26"
     },
     {
-      "file": "internal/ui/assets/gonavi/table-design.svg",
+      "file": "internal/ui/assets/superlink/table-design.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnTableDesignIcon",
       "sha256": "976dd9039a131447c15cfc6616dba8c0274f7f1d6c048fda767b12102552b153"
     },
     {
-      "file": "internal/ui/assets/gonavi/fields.svg",
+      "file": "internal/ui/assets/superlink/fields.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFieldsIcon",
       "sha256": "7d6a0bea3f66c07f91b8bba4a9091ac49f633932c5f91f1e52a8e1a54c9c14c8"
     },
     {
-      "file": "internal/ui/assets/gonavi/er-diagram.svg",
+      "file": "internal/ui/assets/superlink/er-diagram.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnErDiagramIcon",
       "sha256": "d78fcb6804c681900798ba456988712c14686e0efe4d83982b2d17db4f510a75"
     },
     {
-      "file": "internal/ui/assets/gonavi/sql-log.svg",
+      "file": "internal/ui/assets/superlink/sql-log.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnLogIcon",
       "sha256": "a1268361de2574720ab03b80e254406340e837e8f75bf1e76554f854ff345a65"
     },
     {
-      "file": "internal/ui/assets/gonavi/columns.svg",
+      "file": "internal/ui/assets/superlink/columns.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnColumnsIcon",
       "sha256": "cdb2accefe97648d17b629a5229a3b3d73f333252f83d5d4fcbf05ee51b5005d"
     },
     {
-      "file": "internal/ui/assets/gonavi/jump-column.svg",
+      "file": "internal/ui/assets/superlink/jump-column.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnJumpColumnIcon",
       "sha256": "0f69ed594fbe65712bdcb301b59951851b223b6e948cf2e05a1e7df72517745b"
     },
     {
-      "file": "internal/ui/assets/gonavi/json.svg",
+      "file": "internal/ui/assets/superlink/json.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnJsonIcon",
       "sha256": "d82ef4fb29cece2a0eafb53a4cdf0904e34cfb59fec4970e3d2a62677932d96a"
     },
     {
-      "file": "internal/ui/assets/gonavi/text-view.svg",
+      "file": "internal/ui/assets/superlink/text-view.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnTextViewIcon",
       "sha256": "0a1c930b06d78f0c3130efa8ac919821391035e3f42644fccfce0ef55dedcd25"
     },
     {
-      "file": "internal/ui/assets/gonavi/folder.svg",
+      "file": "internal/ui/assets/superlink/folder.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFolderIcon",
       "sha256": "7113cd7d85ef382a0d3de32ec269f214d01da8b2be3f3530d0fe4620db9df661"
     },
     {
-      "file": "internal/ui/assets/gonavi/folder-open.svg",
+      "file": "internal/ui/assets/superlink/folder-open.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFolderOpenIcon",
       "sha256": "578b2039343888d139dfdb631b974fdd91891b0697f68f01528676345ca94fd1"
     },
     {
-      "file": "internal/ui/assets/gonavi/index.svg",
+      "file": "internal/ui/assets/superlink/index.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnIndexIcon",
       "sha256": "352ac3a0796a2db6d4aae6969ba36e7da1560c06e454c68a9568e5ea9219e791"
     },
     {
-      "file": "internal/ui/assets/gonavi/link.svg",
+      "file": "internal/ui/assets/superlink/link.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnLinkIcon",
       "sha256": "91ef5ecbeaf841551dabd8122345f7fae67028e935c9cc9b3142d9f0e3b5fd24"
     },
     {
-      "file": "internal/ui/assets/gonavi/wrap.svg",
+      "file": "internal/ui/assets/superlink/wrap.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnWrapIcon",
       "sha256": "2f8fc86838bf01b001f1fece37406ab75ffe430e6e28bc8a1c5ac1ae64d0bd06"
     },
     {
-      "file": "internal/ui/assets/gonavi/format.svg",
+      "file": "internal/ui/assets/superlink/format.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFormatIcon",
       "sha256": "0c2b0d913104f7b912c53a40c0d069e50fb2225611bb96445baa70c629cf30db"
     },
     {
-      "file": "internal/ui/assets/gonavi/fullscreen.svg",
+      "file": "internal/ui/assets/superlink/fullscreen.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFullscreenIcon",
       "sha256": "54d579cdcded86b9949e152bda1649613e773c2f3b85a4e8fe705270e9447002"
     },
     {
-      "file": "internal/ui/assets/gonavi/fullscreen-exit.svg",
+      "file": "internal/ui/assets/superlink/fullscreen-exit.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnFullscreenExitIcon",
       "sha256": "04860f7016ca4bec1534c7a467f61618832948392cfd3bd5c9fdb3b87c021d37"
     },
     {
-      "file": "internal/ui/assets/gonavi/clock.svg",
+      "file": "internal/ui/assets/superlink/clock.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnClockIcon",
       "sha256": "5288d7c210ffad5baae2fb5bdcdc82b36d6b1bac7417281b2bba2873effc533c"
     },
     {
-      "file": "internal/ui/assets/gonavi/settings.svg",
+      "file": "internal/ui/assets/superlink/settings.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSettingsIcon",
       "sha256": "da775d77ce5aee66d9f4f976d80f8dde7b8a03abfa7be75cec7d4ddf1a6e29f6"
     },
     {
-      "file": "internal/ui/assets/gonavi/history.svg",
+      "file": "internal/ui/assets/superlink/history.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnHistoryIcon",
       "sha256": "501ac150b8dbd9a0cb956a871a173ab0de40ddb74299692b02a48a76f06453c6"
     },
     {
-      "file": "internal/ui/assets/gonavi/insight.svg",
+      "file": "internal/ui/assets/superlink/insight.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnInsightIcon",
       "sha256": "d42331a66b2578764a64aa0d9b6d33a477a800fea48e1cbf6fd58d6fe7ac3980"
     },
     {
-      "file": "internal/ui/assets/gonavi/new-chat.svg",
+      "file": "internal/ui/assets/superlink/new-chat.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnNewChatIcon",
       "sha256": "fbf83a49b99c0ee40d709e20a9973ce49c80ff45aec453be35cbb96995d85998"
     },
     {
-      "file": "internal/ui/assets/gonavi/popout.svg",
+      "file": "internal/ui/assets/superlink/popout.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnPopoutIcon",
       "sha256": "079b652eeaa73e805b14b47b5fe16b3edc610901a73511b79c12023062ccd067"
     },
     {
-      "file": "internal/ui/assets/gonavi/dock.svg",
+      "file": "internal/ui/assets/superlink/dock.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnDockIcon",
       "sha256": "3279e036a276d21b60d4f96d9073a6fe23bd106080569a44a9385270aef1d13a"
     },
     {
-      "file": "internal/ui/assets/gonavi/attach.svg",
+      "file": "internal/ui/assets/superlink/attach.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnAttachIcon",
       "sha256": "95337a0c25bf9b0322baa00e6d5425dfe8b455ac01e48fd523774abed244f0a8"
     },
     {
-      "file": "internal/ui/assets/gonavi/slash-command.svg",
+      "file": "internal/ui/assets/superlink/slash-command.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSlashCommandIcon",
       "sha256": "8c0e0b537dd710adb884b54c3d6d32ff1281bb2936db05112f862ed2f9d408de"
     },
     {
-      "file": "internal/ui/assets/gonavi/send.svg",
+      "file": "internal/ui/assets/superlink/send.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnSendIcon",
       "sha256": "f48c524b23cc4bd3e3e80e7aaa9b511664bd96e44c20c32d974eb7cf0a853499"
     },
     {
-      "file": "internal/ui/assets/gonavi/stop.svg",
+      "file": "internal/ui/assets/superlink/stop.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnStopIcon",
       "sha256": "9d2277de38c2ad28ca416102af6c7ead7543896602516b95f534ca2020674240"
     },
     {
-      "file": "internal/ui/assets/gonavi/database.svg",
+      "file": "internal/ui/assets/superlink/database.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnDatabaseIcon",
       "sha256": "dc84226426f7c8fb9b86295c23aa05f1d00dcefdc389ca9f0f22cd80779221d9"
     },
     {
-      "file": "internal/ui/assets/gonavi/gauge.svg",
+      "file": "internal/ui/assets/superlink/gauge.svg",
       "source": "frontend/src/components/icons/gnIcons.tsx",
       "symbol": "GnGaugeIcon",
       "sha256": "ac67421743720f8800ce63f1a92c9bec952b05a4bb3173275d8e7790ca140438"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-chroma.svg",
+      "file": "internal/ui/assets/superlink/db-chroma.svg",
       "source": "frontend/public/db-icons/chroma.svg",
       "sha256": "265689f4d99f2d9eaa1f9b69fb94ba98f533ec3320105105b7306f69272b9a24",
       "original_sha256": "6da06571ed993d1f97b1c612d4e08d2bc9b58f6902e820206242aed68f393119",
       "transformation": "Expand compact SVG paths with FontTools SVGPathPen so the complete wordmark renders with Fyne/oksvg."
     },
     {
-      "file": "internal/ui/assets/gonavi/db-clickhouse.svg",
+      "file": "internal/ui/assets/superlink/db-clickhouse.svg",
       "source": "frontend/public/db-icons/clickhouse.svg",
       "sha256": "9fa7c12613763111ca26bbc1fe10994960028bc3da9faf47247de231a0b27589"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-diros.svg",
+      "file": "internal/ui/assets/superlink/db-diros.svg",
       "source": "frontend/public/db-icons/diros.svg",
       "sha256": "8578bb73d8804e38893263af9638c6eaf162c9929387f58c2a8f085be32cf64d"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-duckdb.svg",
+      "file": "internal/ui/assets/superlink/db-duckdb.svg",
       "source": "frontend/public/db-icons/duckdb.svg",
       "sha256": "2d53f8978d58ac12411fc618569a492922bb15e3e1798b56ba1511e72c62f826"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-elasticsearch.svg",
+      "file": "internal/ui/assets/superlink/db-elasticsearch.svg",
       "source": "frontend/public/db-icons/elasticsearch.svg",
       "sha256": "9f9e2a2b4923d4dd7c231cc4b6995d9a42819af846409bd34883f3fef4935ad9"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-iotdb.svg",
+      "file": "internal/ui/assets/superlink/db-iotdb.svg",
       "source": "frontend/public/db-icons/iotdb.svg",
       "sha256": "0c0975a2fe8ddaf6c434dc7366c27a3e0de812c27283130e05a887adecf8a348"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-mariadb.svg",
+      "file": "internal/ui/assets/superlink/db-mariadb.svg",
       "source": "frontend/public/db-icons/mariadb.svg",
       "sha256": "07e07343ec0066210f9a5caef9d276166ba0190f77d486d13da00b070bb23744",
       "original_sha256": "477435746bb2024048c7b71529f615fb70d7e679618f37bac49f78fd07e67dfe",
       "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
-      "file": "internal/ui/assets/gonavi/db-milvus.svg",
+      "file": "internal/ui/assets/superlink/db-milvus.svg",
       "source": "frontend/public/db-icons/milvus.svg",
       "sha256": "56ac45273d48fc97305a2d3dd5c8d02c26dee9542c931a97e262d31cc4f71ae3"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-mongodb.svg",
+      "file": "internal/ui/assets/superlink/db-mongodb.svg",
       "source": "frontend/public/db-icons/mongodb.svg",
       "sha256": "efec6559e512e842a7371c0e57bf3fef5c1dda21d1fd35116984a16d9077af20",
       "original_sha256": "3e71d5fe44f2e1545363d0902354f0a3f572373184733a14fbf81c61ef9578de",
       "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
-      "file": "internal/ui/assets/gonavi/db-mqtt.svg",
+      "file": "internal/ui/assets/superlink/db-mqtt.svg",
       "source": "frontend/public/db-icons/mqtt.svg",
       "sha256": "7455f23aa4913fcb37e0ab893bc55f6d1fd82a61df676e912a2cbe56303f2426"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-mysql.svg",
+      "file": "internal/ui/assets/superlink/db-mysql.svg",
       "source": "frontend/public/db-icons/mysql.svg",
       "sha256": "7c1249a142087eb906bd843cd19799cd5aa9b1740ad9caf4fe4b35e4a9c4d8ba",
       "original_sha256": "67c144cc3e44ad14062a3f20ebe29c5e7eeb2c2c9c0f43cf48d87fe6291a8b2d",
       "transformation": "Expand compact SVG path syntax with FontTools SVGPathPen for Fyne/oksvg; retain original artwork."
     },
     {
-      "file": "internal/ui/assets/gonavi/db-nacos.svg",
+      "file": "internal/ui/assets/superlink/db-nacos.svg",
       "source": "frontend/public/db-icons/nacos.svg",
       "sha256": "8816eaefd3a978ee81c9a186b3d322c62a088967e07535ea8c9b413318ba6031",
       "original_sha256": "d3565ec24d2983d2c06a6ec04b39fa8da5a1b7553273398025e5e9ce4fea9eb9",
       "transformation": "Rebase viewBox to zero and translate artwork by -680 on X for Fyne/oksvg."
     },
     {
-      "file": "internal/ui/assets/gonavi/db-postgres.svg",
+      "file": "internal/ui/assets/superlink/db-postgres.svg",
       "source": "frontend/public/db-icons/postgres.svg",
       "sha256": "c8ccadbd88c9312c2ad3734c4861b31d3485ce179ee91d64793143f83cfa745c"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-pulsar.svg",
+      "file": "internal/ui/assets/superlink/db-pulsar.svg",
       "source": "frontend/public/db-icons/pulsar.svg",
       "sha256": "70876c63976b0345d18d1b387cf5d15c437ef14bfdbfdab9e82005a3b70918b2"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-qdrant.svg",
+      "file": "internal/ui/assets/superlink/db-qdrant.svg",
       "source": "frontend/public/db-icons/qdrant.svg",
       "sha256": "58dd960dfdbfdb4dde3cf2065bda8a271d55bcd9338aeda77838d9ba7d18530a"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-rabbitmq.svg",
+      "file": "internal/ui/assets/superlink/db-rabbitmq.svg",
       "source": "frontend/public/db-icons/rabbitmq.svg",
       "sha256": "8988ed944db5f9fa1e9b0e516267edb4f88ffb3518601f6b20ffebce2dd43382"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-redis.svg",
+      "file": "internal/ui/assets/superlink/db-redis.svg",
       "source": "frontend/public/db-icons/redis.svg",
       "sha256": "186dad3ce189dc12f3d117de7c0ddbe32c6594be21b1a47218fd0184f91f1e82"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-sphinx.svg",
+      "file": "internal/ui/assets/superlink/db-sphinx.svg",
       "source": "frontend/public/db-icons/sphinx.svg",
       "sha256": "b5a48bce42e026ae24ab865fce58378a47dfff22ed07f0ceacd2a7bdf5325897"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-sqlite.svg",
+      "file": "internal/ui/assets/superlink/db-sqlite.svg",
       "source": "frontend/public/db-icons/sqlite.svg",
       "sha256": "71d4153bc9661dfe6b92dad70f737ec2b6c7c839311e502b4ca66fe664fe12b6"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-sqlserver.svg",
+      "file": "internal/ui/assets/superlink/db-sqlserver.svg",
       "source": "frontend/public/db-icons/sqlserver.svg",
       "sha256": "23e22241017228b7c9bad05e88370c74bef3bab497b054a667c9fc067cf9d12e"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-vastbase.svg",
+      "file": "internal/ui/assets/superlink/db-vastbase.svg",
       "source": "frontend/public/db-icons/vastbase.svg",
       "sha256": "47efef3eee8b464777fe5f20a50accfde232117c4318eb0817630b01ff6506dd"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-starrocks.png",
+      "file": "internal/ui/assets/superlink/db-starrocks.png",
       "source": "frontend/public/db-icons/starrocks.png",
       "sourceSha256": "f1dfbf1b6d0fcd16b2c5797deb78853e0b5e671cf4b21482a9ae6c1f645d7a97",
       "sha256": "f1dfbf1b6d0fcd16b2c5797deb78853e0b5e671cf4b21482a9ae6c1f645d7a97",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-dameng.png",
+      "file": "internal/ui/assets/superlink/db-dameng.png",
       "source": "frontend/public/db-icons/dameng.png",
       "sourceSha256": "cc7043b4a2b791acd7e242cc212b6c617866645ed2753ebff0e6d7ce1a8325a2",
       "sha256": "cc7043b4a2b791acd7e242cc212b6c617866645ed2753ebff0e6d7ce1a8325a2",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-rocketmq.png",
+      "file": "internal/ui/assets/superlink/db-rocketmq.png",
       "source": "frontend/public/db-icons/rocketmq.png",
       "sourceSha256": "6bb583a173bcb781451019237938cce2b99c590baa83f50448cb87541b17598f",
       "sha256": "6bb583a173bcb781451019237938cce2b99c590baa83f50448cb87541b17598f",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-kingbase.png",
+      "file": "internal/ui/assets/superlink/db-kingbase.png",
       "source": "frontend/public/db-icons/kingbase.ico",
       "sourceSha256": "781c20dbee4edb1732bd2a756f70fc68a0637280fd450b3d5af10b419829d467",
       "sha256": "2b47baf71efa46e0ff16adc2295b2398956b16fd89c3e9af628f97b5751520ea",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-gaussdb.png",
+      "file": "internal/ui/assets/superlink/db-gaussdb.png",
       "source": "frontend/public/db-icons/gaussdb.ico",
       "sourceSha256": "f8c39aa1c89bbac2b120a0efc70b6f1240bca9bb61a98ae2cab05d21910bcb15",
       "sha256": "5e503ea4e6cd476c6a160f6478af42cfd0cb27a1581d87184890502be6920fc7",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-tdengine.png",
+      "file": "internal/ui/assets/superlink/db-tdengine.png",
       "source": "frontend/public/db-icons/tdengine.ico",
       "sourceSha256": "bb1178ee70df4a7c487736f1e92f91bba9f46c416cce238034e23cd88181b4c9",
       "sha256": "9e35877cc7248325eac0462c02b1c3e5b98c991eb30e4d0b6d4cae71411bad87",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-iris.png",
+      "file": "internal/ui/assets/superlink/db-iris.png",
       "source": "frontend/public/db-icons/iris.png",
       "sourceSha256": "2f40d54a6855c372cea24356df26f1ab123066d3c0eae98a1a1ecf34c4e9b8b7",
       "sha256": "2f40d54a6855c372cea24356df26f1ab123066d3c0eae98a1a1ecf34c4e9b8b7",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-highgo.png",
+      "file": "internal/ui/assets/superlink/db-highgo.png",
       "source": "frontend/public/db-icons/highgo.ico",
       "sourceSha256": "031af4b720fa7a269f4e4c45c1c0899a7b44640deb7b3527645c23c87ca242c8",
       "sha256": "8d8aa1156082c9cdee9bf35eb7f00753ba481e6b7e088cc2b4e72210007bafa6",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-oceanbase.png",
+      "file": "internal/ui/assets/superlink/db-oceanbase.png",
       "source": "frontend/public/db-icons/oceanbase.png",
       "sourceSha256": "8e3ac92d87ab44b12c4c143b387d25332e369248b5b79b277ffa50df93c716da",
       "sha256": "8e3ac92d87ab44b12c4c143b387d25332e369248b5b79b277ffa50df93c716da",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-oracle.png",
+      "file": "internal/ui/assets/superlink/db-oracle.png",
       "source": "frontend/public/db-icons/oracle.ico",
       "sourceSha256": "2fd4f0ef64ea34fc2f73d168de23b663c4fb23fc24bd0619f4fa9e480e13891b",
       "sha256": "258741bdfd5fde8ef9a60cd95e6a642bab47c57f15cf9550318d69e93805b90a",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-kafka.png",
+      "file": "internal/ui/assets/superlink/db-kafka.png",
       "source": "frontend/public/db-icons/kafka.png",
       "sourceSha256": "3cfcbb2acf90114ffc5b9287a336487c4872be230e4553bdca7f2a09be6a7d33",
       "sha256": "3cfcbb2acf90114ffc5b9287a336487c4872be230e4553bdca7f2a09be6a7d33",
       "transform": "byte-for-byte copy"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-goldendb.png",
+      "file": "internal/ui/assets/superlink/db-goldendb.png",
       "source": "frontend/public/db-icons/goldendb.ico",
       "sourceSha256": "3db5274ab9e25b3f4a0216727d00289808da132842ed3d501f520cf320a93354",
       "sha256": "9c96395d356ba5fdc6c6d1263a11709ee67edf64cf30735af26c728fef19dbc8",
       "transform": "ICO pixels decoded to PNG"
     },
     {
-      "file": "internal/ui/assets/gonavi/db-opengauss.png",
+      "file": "internal/ui/assets/superlink/db-opengauss.png",
       "source": "frontend/public/db-icons/opengauss.ico",
       "sourceSha256": "10146250028da0f76985894aebffc72d9b9b443d38f76af6ffc1cdb03aa3ec92",
       "sha256": "cb86a8948d6399bfc9cf404b66badc978a63c839d543035486a3a63a645c7fb6",

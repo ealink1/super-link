@@ -109,8 +109,14 @@ func fitText(value string, width, size float32, style fyne.TextStyle) string {
 		return value
 	}
 	runes := []rune(value)
-	for len(runes) > 0 && fyne.MeasureText(string(runes)+"…", size, style).Width > width {
-		runes = runes[:len(runes)-1]
+	low, high := 0, len(runes)
+	for low < high {
+		middle := (low + high + 1) / 2
+		if fyne.MeasureText(string(runes[:middle])+"…", size, style).Width <= width {
+			low = middle
+		} else {
+			high = middle - 1
+		}
 	}
-	return strings.TrimSpace(string(runes)) + "…"
+	return strings.TrimSpace(string(runes[:low])) + "…"
 }

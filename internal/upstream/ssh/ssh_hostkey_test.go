@@ -124,7 +124,7 @@ func useEmptySSHHome(t *testing.T) {
 	t.Setenv("USERPROFILE", emptyHome)
 	// Some SSH entry points initialise the process-wide logger. Keep its open
 	// file outside t.TempDir so Windows can remove the temporary home reliably.
-	t.Setenv("SUPERLINK_LOG_DIR", filepath.Join(os.TempDir(), "gonavi-ssh-hostkey-test-logs"))
+	t.Setenv("SUPERLINK_LOG_DIR", filepath.Join(os.TempDir(), "superlink-ssh-hostkey-test-logs"))
 }
 
 func TestConnectSSHAcceptsPinnedHostKeyFingerprint(t *testing.T) {

@@ -6,7 +6,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent
-DIRECTORY = ROOT / 'internal/ui/assets/gonavi'
+DIRECTORY = ROOT / 'internal/ui/assets/superlink'
 
 
 def main():

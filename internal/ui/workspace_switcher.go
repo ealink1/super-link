@@ -14,7 +14,7 @@ type workspaceSwitcher struct {
 	shell         *shellWorkspace
 	note          *noteWorkspace
 	body, bar     *fyne.Container
-	buttons       [3]*widget.Button
+	buttons       [3]*workspaceModeButton
 	themeButton   *widget.Button
 	ai            *aiPanel
 	aiHost        *fyne.Container
@@ -28,11 +28,11 @@ func (w *Window) buildShell() {
 	s := &workspaceSwitcher{owner: w, sql: w.buildSQLWorkspace()}
 	w.switcher = s
 	s.body = container.NewStack(s.sql)
-	s.buttons[0] = widget.NewButton("SQL", func() { s.selectMode(0) })
-	s.buttons[1] = widget.NewButton("Shell", func() { s.selectMode(1) })
-	s.buttons[2] = widget.NewButton("Note", func() { s.selectMode(2) })
-	s.buttons[0].Importance = widget.HighImportance
-	menu := container.NewHBox(container.NewGridWrap(fyne.NewSize(110, 38), s.buttons[0]), container.NewGridWrap(fyne.NewSize(110, 38), s.buttons[1]), container.NewGridWrap(fyne.NewSize(110, 38), s.buttons[2]))
+	s.buttons[0] = newWorkspaceModeButton("SQL", func() { s.selectMode(0) })
+	s.buttons[1] = newWorkspaceModeButton("Shell", func() { s.selectMode(1) })
+	s.buttons[2] = newWorkspaceModeButton("Note", func() { s.selectMode(2) })
+	s.buttons[0].selected = true
+	menu := container.NewHBox(container.NewGridWrap(fyne.NewSize(56, 36), s.buttons[0]), container.NewGridWrap(fyne.NewSize(56, 36), s.buttons[1]), container.NewGridWrap(fyne.NewSize(56, 36), s.buttons[2]))
 	s.bar = container.NewBorder(nil, nil, menu, s.utilityBar(), layout.NewSpacer())
 	s.aiHost = container.NewStack()
 	s.aiHost.Hide()
@@ -62,9 +62,9 @@ func (s *workspaceSwitcher) selectMode(mode int) {
 		s.body.Objects = []fyne.CanvasObject{s.note.content}
 	}
 	for i, button := range s.buttons {
-		button.Importance = widget.LowImportance
+		button.selected = false
 		if i == mode {
-			button.Importance = widget.HighImportance
+			button.selected = true
 		}
 		button.Refresh()
 	}

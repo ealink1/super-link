@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_kingbase_driver
+//go:build superlink_full_drivers || superlink_kingbase_driver
 
 package db
 
@@ -14,7 +14,7 @@ func TestResolveKingbaseConnectDatabases_ExplicitDatabase(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type:     "kingbase",
 		Database: "analytics",
-		User:     "gonavi_kingbase",
+		User:     "superlink_kingbase",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -27,7 +27,7 @@ func TestResolveKingbaseConnectDatabases_ExplicitDatabase(t *testing.T) {
 func TestResolveKingbaseConnectDatabases_UsesKingbaseDefaultsWithoutUser(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type: "kingbase",
-		User: "gonavi_kingbase",
+		User: "superlink_kingbase",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -45,8 +45,8 @@ func TestResolveKingbaseConnectDatabases_UsesKingbaseDefaultsWithoutUser(t *test
 func TestResolveKingbaseConnectDatabases_HonorsConnectionParamDatabase(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type:             "kingbase",
-		User:             "gonavi_kingbase",
-		ConnectionParams: "application_name=GoNavi&DBNAME=analytics",
+		User:             "superlink_kingbase",
+		ConnectionParams: "application_name=SuperLink&DBNAME=analytics",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -59,8 +59,8 @@ func TestResolveKingbaseConnectDatabases_HonorsConnectionParamDatabase(t *testin
 func TestResolveKingbaseConnectDatabases_HonorsDatabaseAlias(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type:             "kingbase",
-		User:             "gonavi_kingbase",
-		ConnectionParams: "application_name=GoNavi&database=analytics",
+		User:             "superlink_kingbase",
+		ConnectionParams: "application_name=SuperLink&database=analytics",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -73,7 +73,7 @@ func TestResolveKingbaseConnectDatabases_HonorsDatabaseAlias(t *testing.T) {
 func TestResolveKingbaseConnectDatabases_UsesURIPath(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type: "kingbase",
-		URI:  "kingbase://gonavi_kingbase:pass@127.0.0.1:54321/analytics",
+		URI:  "kingbase://superlink_kingbase:pass@127.0.0.1:54321/analytics",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -86,7 +86,7 @@ func TestResolveKingbaseConnectDatabases_UsesURIPath(t *testing.T) {
 func TestResolveKingbaseConnectDatabases_ExplicitDatabaseOverridesURIPath(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type:     "kingbase",
-		URI:      "kingbase://gonavi_kingbase:pass@127.0.0.1:54321/from-uri",
+		URI:      "kingbase://superlink_kingbase:pass@127.0.0.1:54321/from-uri",
 		Database: "from-config",
 	}
 
@@ -100,7 +100,7 @@ func TestResolveKingbaseConnectDatabases_ExplicitDatabaseOverridesURIPath(t *tes
 func TestResolveKingbaseConnectDatabases_QueryOverridesURIPath(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type: "kingbase",
-		URI:  "kingbase://gonavi_kingbase:pass@127.0.0.1:54321/from-uri?dbname=from-query",
+		URI:  "kingbase://superlink_kingbase:pass@127.0.0.1:54321/from-uri?dbname=from-query",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -113,7 +113,7 @@ func TestResolveKingbaseConnectDatabases_QueryOverridesURIPath(t *testing.T) {
 func TestResolveKingbaseConnectDatabases_ConnectionParamsOverrideURIQuery(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type:             "kingbase",
-		URI:              "kingbase://gonavi_kingbase:pass@127.0.0.1:54321/from-uri?dbname=from-query",
+		URI:              "kingbase://superlink_kingbase:pass@127.0.0.1:54321/from-uri?dbname=from-query",
 		ConnectionParams: "database=from-params",
 	}
 
@@ -127,7 +127,7 @@ func TestResolveKingbaseConnectDatabases_ConnectionParamsOverrideURIQuery(t *tes
 func TestResolveKingbaseConnectDatabases_SupportsPostgresURIPath(t *testing.T) {
 	cfg := connection.ConnectionConfig{
 		Type: "kingbase",
-		URI:  "postgresql://gonavi_kingbase:pass@127.0.0.1:54321/analytics",
+		URI:  "postgresql://superlink_kingbase:pass@127.0.0.1:54321/analytics",
 	}
 
 	got := resolveKingbaseConnectDatabases(cfg)
@@ -142,7 +142,7 @@ func TestKingbaseDSN_UsesDefaultDatabaseWhenDatabaseIsEmpty(t *testing.T) {
 		Type:     "kingbase",
 		Host:     "127.0.0.1",
 		Port:     54321,
-		User:     "gonavi_kingbase",
+		User:     "superlink_kingbase",
 		Password: "pass",
 	}
 
@@ -160,9 +160,9 @@ func TestKingbaseDSN_UsesURIPathDatabaseWhenDatabaseIsEmpty(t *testing.T) {
 		Type:     "kingbase",
 		Host:     "127.0.0.1",
 		Port:     54321,
-		User:     "gonavi_kingbase",
+		User:     "superlink_kingbase",
 		Password: "pass",
-		URI:      "kingbase://gonavi_kingbase:pass@127.0.0.1:54321/analytics",
+		URI:      "kingbase://superlink_kingbase:pass@127.0.0.1:54321/analytics",
 	}
 
 	dsn := (&KingbaseDB{}).getDSN(cfg)

@@ -1,4 +1,4 @@
-//go:build gonavi_full_drivers || gonavi_duckdb_driver
+//go:build superlink_full_drivers || superlink_duckdb_driver
 
 package db
 
@@ -67,7 +67,7 @@ func (d *DuckDB) AttachExternalDatabase(ctx context.Context, spec ExternalAttach
 
 // externalSecretName 附加会话 SECRET 的确定性命名；重建/清理都依赖该约定。
 func externalSecretName(alias string) string {
-	return "gonavi_attach_" + alias
+	return "superlink_attach_" + alias
 }
 
 // secretCleanupContext SECRET 清理专用：主 ctx 可能已取消/超时（ATTACH 失败的

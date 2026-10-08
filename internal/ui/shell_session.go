@@ -136,6 +136,9 @@ func (p *shellPane) connected(value any, err error) {
 	}
 	session := p.session
 	p.setSessionState("已连接", false)
+	if _, ok := p.session.(*transport.Remote); ok {
+		p.showMonitor()
+	}
 	if p.workspace.owner.switcher.mode == 1 && p.workspace.page == 1 && p.workspace.tabs.Selected() == p.item {
 		p.workspace.owner.Window.Canvas().Focus(p.terminal)
 	}
@@ -220,6 +223,9 @@ func (p *shellPane) finish(err error) {
 	}
 }
 func (p *shellPane) stop() {
+	if p.filePane != nil {
+		p.filePane.cleanupLocalDownloads()
+	}
 	if p.closed {
 		return
 	}

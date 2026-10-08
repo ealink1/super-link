@@ -11,7 +11,7 @@ import (
 	"testing"
 )
 
-const fakeUserSchemaDriverName = "gonavi-fake-user-schema"
+const fakeUserSchemaDriverName = "superlink-fake-user-schema"
 
 var (
 	registerFakeUserSchemaDriverOnce sync.Once

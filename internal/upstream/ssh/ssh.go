@@ -170,7 +170,7 @@ func newHostKeyCallback(config connection.SSHConfig) (ssh.HostKeyCallback, error
 					// Existing connections can carry a legacy manual pin even though
 					// the simplified UI no longer exposes that field. Surface a
 					// structured change request so the user can explicitly replace
-					// it with a GoNavi-managed record instead of being stranded by a
+					// it with a SuperLink-managed record instead of being stranded by a
 					// generic mismatch error.
 					return newHostKeyTrustRequiredError(config, key, "changed", "legacy", fingerprint)
 				}
@@ -216,7 +216,7 @@ func newKnownHostsOrManagedHostKeyCallback(config connection.SSHConfig) (ssh.Hos
 		config.ReportProgress("host_key_verifying", "running")
 		if knownHostsCallback != nil && !usingDefaultKnownHosts {
 			// A path carried by an existing connection is an explicit user policy.
-			// Do not let GoNavi's convenience store bypass a mismatch or revocation
+			// Do not let SuperLink's convenience store bypass a mismatch or revocation
 			// in that file; only the auto-discovered default file may fall back to
 			// the managed confirmation flow below.
 			if err := knownHostsCallback(identity, remote, key); err != nil {
@@ -230,7 +230,7 @@ func newKnownHostsOrManagedHostKeyCallback(config connection.SSHConfig) (ssh.Hos
 		if knownHostsCallback != nil && usingDefaultKnownHosts {
 			// A managed record is a convenience trust decision, never an override
 			// for a security validation failure from OpenSSH. The only error that
-			// may continue to GoNavi's managed confirmation flow is KeyError,
+			// may continue to SuperLink's managed confirmation flow is KeyError,
 			// which represents an ordinary unknown or changed key. Certificate,
 			// revocation, CA, principal, and validity errors must fail closed.
 			if err := knownHostsCallback(identity, remote, key); err != nil {

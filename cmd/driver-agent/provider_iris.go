@@ -1,4 +1,4 @@
-//go:build gonavi_iris_driver
+//go:build superlink_iris_driver
 
 package main
 

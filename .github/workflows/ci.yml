@@ -26,7 +26,7 @@ jobs:
       - run: python3 tools/verify-fyne.py
       - run: python3 tools/verify-ui-assets.py
       - run: go test ./...
-      - run: go test -tags gonavi_full_drivers ./internal/upstream/db ./cmd/driver-agent
+      - run: go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
       - run: go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
       - run: go vet ./...
       - run: go -C third_party/fyne test -race -tags=test ./internal/painter ./internal/cache

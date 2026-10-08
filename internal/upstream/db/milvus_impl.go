@@ -40,7 +40,7 @@ const (
 	milvusIndexesDropPath         = "/v2/vectordb/indexes/drop"
 )
 
-// MilvusDB adapts the Milvus REST v2 API to GoNavi's generic database surface.
+// MilvusDB adapts the Milvus REST v2 API to SuperLink's generic database surface.
 // Collections are exposed as tables and entity rows as query results.
 type MilvusDB struct {
 	client      *http.Client

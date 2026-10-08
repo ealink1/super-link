@@ -91,7 +91,7 @@ func (p *PulsarDB) Connect(config connection.ConnectionConfig) error {
 	}
 	p.client = client
 	p.defaultTopic = runConfig.topic
-	p.probeTopic = "persistent://" + runConfig.tenant + "/" + runConfig.namespace + "/__gonavi_connection_probe__"
+	p.probeTopic = "persistent://" + runConfig.tenant + "/" + runConfig.namespace + "/__superlink_connection_probe__"
 	p.listTopics = newPulsarTopicLister(runConfig)
 	if err := p.Ping(); err != nil {
 		_ = p.Close()

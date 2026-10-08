@@ -28,7 +28,7 @@ func Launch(ctx context.Context, r Request) error {
 	if err := ValidateRequest(r); err != nil {
 		return err
 	}
-	p, err := ReadPackage(r.Target)
+	p, err := ReadPackage(r.Stage)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func Launch(ctx context.Context, r Request) error {
 		return err
 	}
 	name := filepath.Base(p.Helper)
-	input, err := os.ReadFile(filepath.Join(r.Target, filepath.FromSlash(p.Helper)))
+	input, err := os.ReadFile(filepath.Join(r.Stage, filepath.FromSlash(p.Helper)))
 	if err != nil {
 		return err
 	}
@@ -56,11 +56,20 @@ func Launch(ctx context.Context, r Request) error {
 	if err = ctx.Err(); err != nil {
 		return err
 	}
-	command := exec.Command(helper, "--request", requestPath)
+	command := helperCommand(helper, requestPath)
 	if err = command.Start(); err != nil {
 		return err
 	}
 	return command.Process.Release()
+}
+
+// Keep the helper outside the installed directory. Windows prevents renaming
+// a directory used as any running process's current working directory.
+func helperCommand(helper, requestPath string) *exec.Cmd {
+	command := exec.Command(helper, "--request", requestPath)
+	command.Dir = filepath.Dir(helper)
+	configureUpdateProcess(command)
+	return command
 }
 
 // ApplyWithHealth rolls back both a failed rename and a failed first launch.

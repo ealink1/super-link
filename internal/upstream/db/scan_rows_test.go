@@ -16,7 +16,7 @@ import (
 	"unicode/utf8"
 )
 
-const scanRowsDuplicateDriverName = "gonavi-scan-rows-duplicate"
+const scanRowsDuplicateDriverName = "superlink-scan-rows-duplicate"
 const scanRowsOracleBlobTestBytes = 16*1024 + 17
 
 var registerScanRowsDuplicateDriverOnce sync.Once

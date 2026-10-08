@@ -9,7 +9,7 @@ import (
 )
 
 // SimplifiedSelect is the deliberately small SQL compatibility surface that
-// GoNavi exposes for Elasticsearch. It is converted to a classified REST
+// SuperLink exposes for Elasticsearch. It is converted to a classified REST
 // request before execution; the SQL text is never passed to an HTTP client.
 type SimplifiedSelect struct {
 	Target  string

@@ -131,7 +131,7 @@ type agentRuntime struct {
 
 func main() {
 	if agentDatabaseFactory == nil || strings.TrimSpace(agentDriverType) == "" {
-		fmt.Fprintf(os.Stderr, "未配置驱动代理 provider，请使用 gonavi_<driver>_driver 标签构建\n")
+		fmt.Fprintf(os.Stderr, "未配置驱动代理 provider，请使用 superlink_<driver>_driver 标签构建\n")
 		os.Exit(2)
 	}
 

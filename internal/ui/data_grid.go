@@ -90,6 +90,7 @@ type gridCell struct {
 	fullText     string
 	originalText string
 	tracked      bool
+	preview      gridTextPreview
 }
 
 func newGridCell(model gridModel) *gridCell {
@@ -253,15 +254,9 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.check.Resize(size)
 	r.c.entry.Resize(size)
 	r.c.text.Move(fyne.NewPos(8, (size.Height-r.c.text.MinSize().Height)/2))
-	// canvas.Text does not clip itself. Reduce the preview to the available width.
-	text := []rune(r.c.fullText)
-	for len(text) > 0 && fyne.MeasureText(string(text), r.c.text.TextSize, r.c.text.TextStyle).Width > size.Width-12 {
-		text = text[:len(text)-1]
-	}
-	if len(text) < len([]rune(r.c.fullText)) && len(text) > 1 {
-		text[len(text)-1] = '…'
-	}
-	r.c.text.Text = string(text)
+	// Theme color changes do not change glyph widths. Reuse the clipped preview
+	// instead of shaping long values again on every layout and color refresh.
+	r.c.text.Text = r.c.preview.fit(r.c.fullText, max(0, size.Width-16), r.c.text.TextSize, r.c.text.TextStyle)
 	r.c.text.Resize(fyne.NewSize(max(0, size.Width-16), r.c.text.MinSize().Height))
 }
 func (r *gridCellRenderer) Objects() []fyne.CanvasObject {
