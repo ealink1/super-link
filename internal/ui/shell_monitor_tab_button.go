@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
@@ -56,9 +57,13 @@ func (r *monitorTabButtonRenderer) Layout(size fyne.Size) {
 	r.icon.Move(fyne.NewPos(x, (size.Height-iconSize)/2))
 	r.icon.Resize(fyne.NewSquareSize(iconSize))
 	textY := (size.Height - textSize.Height) / 2
-	// Bundled CJK glyphs have a different line-box baseline from Latin labels.
+	// CJK fallback glyphs share the selected Latin font line box. Arial on
+	// macOS needs more compensation than DejaVu/Segoe on other desktops.
 	if r.button.Text == "综合" {
-		textY -= 3
+		textY -= 1
+		if strings.HasSuffix(r.label.Theme().Font(r.label.TextStyle).Name(), "/Arial.ttf") {
+			textY -= 2
+		}
 	}
 	r.label.Move(fyne.NewPos(x+iconSize+gap, textY))
 	r.label.Resize(textSize)
