@@ -419,3 +419,21 @@ v0.1.5 的六平台 Release 用时 781 秒，Windows ARM64 构建 532 秒，汇�
 - [应用下载](https://github.com/ealink1/super-link/releases/tag/v0.1.6)；
   [驱动下载](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v0.1.6)。
 - 已重新构建并启动带正式更新公钥的本地 0.1.6 测试程序；未替用户安装发行包，未使用浏览器。
+
+
+## 16. v0.1.7 表浏览与字段页改进（2026-10-08）
+
+- 发布源码 `adc70f40`，不可变标签 `v0.1.7`；包含表格字体与列宽、字段页操作、
+  连续浅色悬停高亮、目录右键菜单、工具栏说明和导出完成闪退修复。
+- [主分支 CI](https://github.com/ealink1/super-link/actions/runs/37746674166)与
+  [六平台发布构建](https://github.com/ealink1/super-link/actions/runs/37746725835)全部成功。
+- 本次纯 UI 改动通过签名复用验证，使用公开 v0.1.6 的 131 个驱动；
+  六平台应用重新构建，不创建重复驱动版本。应用自带离线 SQLite。
+- 独立检查 18 个发布资产与 SHA256SUMS 的 GitHub 摘要、137 条更新清单记录、
+  stable 渠道及 Ed25519 签名；macOS ARM64 产物通过包大小、哈希、ZIP 身份、
+  原生 `--version` 和严格代码签名验证。
+- [SuperLink v0.1.7](https://github.com/ealink1/super-link/releases/tag/v0.1.7)
+  已公开并设置为 latest，draft=false、prerelease=false。历史发布保持原样。
+- 匿名应用更新客户端已发现 v0.1.7 并验证 137 条记录；公开 macOS ARM64 更新 ZIP
+  实际下载后通过精确大小与 SHA256 校验。
+- 未使用浏览器测试；未替用户执行发行包安装。真实服务、其他桌面环境仍需实际验收。
