@@ -106,6 +106,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
+          update: true
           install: ${{ matrix.compiler_package }}
       - name: Cache pinned Windows x64 compiler archive
         if: runner.os == 'Windows' && matrix.goarch == 'amd64'
