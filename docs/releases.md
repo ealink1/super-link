@@ -404,3 +404,18 @@ v0.1.5 的六平台 Release 用时 781 秒，Windows ARM64 构建 532 秒，汇�
   数据库条目不显示连接状态点。Shell 默认打开主机管理，修复卡片备注溢出及文字对齐。
 - 包含第 14 节的发布流程优化，本次因发布工具及运行时变更执行完整六平台构建。
 - 发布过程不使用浏览器，保留既有标签和 Release；操作系统签名仍取决于已配置证书。
+
+### v0.1.6 发布验证结果
+
+- 源码提交 `e32e604a428d3feca7b75d1e3e5c892afe11de37`，不可变标签 `v0.1.6`。
+- [主分支 CI](https://github.com/ealink1/super-link/actions/runs/37735316572)与
+  [完整六平台发布](https://github.com/ealink1/super-link/actions/runs/37735321847)成功。
+- 本地全量测试、go vet、相关竞态测试、26 项 Python 发布契约测试、actionlint、
+  架构 / 文件大小 / 上游 / Fyne / 资源归属校验通过。
+- 独立验证应用 18 与驱动 134 个资产摘要，两仓清单及签名字节一致，签名验证通过。
+  按驱动、应用顺序公开，均设为 latest 稳定版本；历史发布保持原样。
+- 匿名实际更新客户端发现 0.1.5 → 0.1.6，验证 137 条签名记录，下载 Mac ARM64 ZIP
+  并通过精确大小 / SHA256、安全解压、包身份和版本、原生版本探测与严格代码签名校验。
+- [应用下载](https://github.com/ealink1/super-link/releases/tag/v0.1.6)；
+  [驱动下载](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v0.1.6)。
+- 已重新构建并启动带正式更新公钥的本地 0.1.6 测试程序；未替用户安装发行包，未使用浏览器。
