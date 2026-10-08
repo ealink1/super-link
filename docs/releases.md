@@ -2,7 +2,7 @@
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
-当前验证版本为 v0.1.11，应用与驱动分仓；v0.1.11 已公开为最新稳定版，既有历史发布记录保留。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
+当前验证版本为 v0.1.13，应用与驱动分仓；v0.1.13 已公开为最新稳定版，既有历史发布记录保留。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
 2026-10-07 已完成六个平台的原生构建、数据库测试、驱动握手及安装包验证，并配置
 正式更新签名公钥和私钥。平台代码签名证书及 Apple 公证尚未配置；原生安装验证
 不能替代各平台图形界面全流程验收。自动流程和验证记录见后文。
@@ -456,3 +456,15 @@ v0.1.11 已公开为最新稳定版。v0.1.8 / v0.1.9 / v0.1.10 在跨平台校�
 - 签名清单包含 137 条记录（6 个应用与 131 个驱动）。已匿名下载公开清单及签名，并使用客户端信任公钥验证。
 - [SuperLink v0.1.11](https://github.com/ealink1/super-link/releases/tag/v0.1.11) / [SuperLink Driver Agents v0.1.11](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v0.1.11)。
 - Windows/Linux 图形界面真实运行及 Windows 安装版更新全流程未在本机验证。
+
+
+## 18. v0.1.13 笔记、输入法和新建表（2026-10-08）
+
+- 发布源码 `cde58b35e81561ba7e2e6f4725c17366436611ad`，不可变标签 `v0.1.13`。
+- 笔记富文本及格式工具、空格光标修复；macOS 通用输入法光标定位；可视化新建表及字段类型下拉；菜单图标和监控字体对齐。
+- v0.1.12 的发布构建在本地竞态检查发现输入法轮询调度问题后取消，未公开；标签保留。v0.1.13 将轮询接入统一 UI 调度队列，全量 UI 竞态复验通过。
+- 全量 Go 测试、静态检查、架构与文件长度检查、上游/Fyne/图标来源验证和 26 项发布工具测试通过。本机 macOS ARM64 构建及版本探测通过，并已重启。
+- [六平台发布构建](https://github.com/ealink1/super-link/actions/runs/37786921249)和 [CI](https://github.com/ealink1/super-link/actions/runs/37786912976) 全部成功；各平台完成安装包自检。
+- 公开前独立复核应用 18 个文件和驱动 134 个文件的完整 SHA256 清单、上传状态、Ed25519 签名、下载目标及发布源码。先公开驱动，再公开应用；两仓库 latest 均为 v0.1.13。
+- [SuperLink v0.1.13](https://github.com/ealink1/super-link/releases/tag/v0.1.13) / [SuperLink Driver Agents v0.1.13](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v0.1.13)。
+- 未使用浏览器测试。MySQL/PostgreSQL 建表验证为 SQL 生成及流程测试，尚未做实库建表和各平台图形界面完整人工验收。
