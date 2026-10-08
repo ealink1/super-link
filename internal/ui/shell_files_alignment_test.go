@@ -40,7 +40,7 @@ func shellFileInkBounds(im image.Image, area image.Rectangle, shade color.NRGBA)
 	for y := area.Min.Y; y < area.Max.Y; y++ {
 		for x := area.Min.X; x < area.Max.X; x++ {
 			c := color.NRGBAModel.Convert(im.At(x, y)).(color.NRGBA)
-			if math.Abs(float64(c.R)-float64(shade.R)) < 12 && math.Abs(float64(c.G)-float64(shade.G)) < 12 && math.Abs(float64(c.B)-float64(shade.B)) < 12 {
+			if shellInkMatches(c, shade) {
 				found = true
 				bounds.Min.X = min(bounds.Min.X, x)
 				bounds.Min.Y = min(bounds.Min.Y, y)
@@ -66,4 +66,30 @@ func TestShellFileRowsReferenceCapture(t *testing.T) {
 	f.list.Select(3)
 	w.Window.SetContent(container.NewThemeOverride(f.content, newShellTheme()))
 	captureShellFixtureSize(t, w, "files-rows-reference.png", fyne.NewSize(420, 760))
+}
+
+// Small fonts may contain only antialiased pixels. Match foreground coverage
+// along the blend with a light background, rather than requiring solid pixels.
+func shellInkMatches(c, shade color.NRGBA) bool {
+	channels := [3]float64{float64(c.R), float64(c.G), float64(c.B)}
+	target := [3]float64{float64(shade.R), float64(shade.G), float64(shade.B)}
+	var numerator, denominator float64
+	for i := range channels {
+		d := 255 - target[i]
+		numerator += (255 - channels[i]) * d
+		denominator += d * d
+	}
+	if denominator == 0 {
+		return false
+	}
+	coverage := numerator / denominator
+	if coverage < 0.4 || coverage > 1.1 {
+		return false
+	}
+	for i := range channels {
+		if math.Abs(channels[i]-(255-coverage*(255-target[i]))) > 16 {
+			return false
+		}
+	}
+	return true
 }

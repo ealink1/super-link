@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"strings"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -147,7 +148,12 @@ func (*monitorSectionLayout) Layout(o []fyne.CanvasObject, size fyne.Size) {
 	o[0].Move(fyne.NewPos(0, (size.Height-12)/2))
 	o[0].Resize(fyne.NewSize(12, 12))
 	height := o[1].MinSize().Height
-	// The CJK font line box includes extra leading below its visible glyphs.
-	o[1].Move(fyne.NewPos(18, (size.Height-height)/2-3))
+	// Arial has extra CJK fallback leading; do not apply that correction
+	// when the desktop uses DejaVu, Segoe or the bundled fallback font.
+	offset := float32(0)
+	if strings.Contains(desktopFonts.bold.Name(), "/Arial ") {
+		offset = -3
+	}
+	o[1].Move(fyne.NewPos(18, (size.Height-height)/2+offset))
 	o[1].Resize(fyne.NewSize(max(0, size.Width-18), height))
 }
