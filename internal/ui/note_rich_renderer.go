@@ -55,6 +55,9 @@ func (r *noteRichRenderer) draw() {
 	}
 	y := float32(12)
 	for _, line := range notePresentation(r.entry.Text) {
+		if line.fence {
+			continue
+		}
 		x := float32(0)
 		indent := float32(0)
 		if line.marker != "" || line.quote {
@@ -125,6 +128,20 @@ func (r *noteRichRenderer) draw() {
 		y += height + 12
 	}
 	r.height = y + 16
+	r.drawSelection()
+	if r.entry.Text == "" {
+		r.addText("开始记录…", fyne.NewPos(0, 12), 16, fyne.TextStyle{}, r.entry.Theme().Color(theme.ColorNamePlaceHolder, fyne.CurrentApp().Settings().ThemeVariant()))
+	}
+	if r.entry.richFocused && !r.entry.Disabled() {
+		offset := r.entry.sourceOffset()
+		point := r.nearestOffset(offset)
+		caret := canvas.NewRectangle(r.entry.Theme().Color(theme.ColorNamePrimary, fyne.CurrentApp().Settings().ThemeVariant()))
+		caret.Move(point.position)
+		caret.Resize(fyne.NewSize(2, point.height))
+		r.objects = append(r.objects, caret)
+	}
+}
+func (r *noteRichRenderer) drawSelection() {
 	selected := len([]rune(r.entry.SelectedText()))
 	if selected > 0 {
 		end := r.entry.sourceOffset()
@@ -149,17 +166,6 @@ func (r *noteRichRenderer) draw() {
 			highlights = append(highlights, rect)
 		}
 		r.objects = append(highlights, r.objects...)
-	}
-	if r.entry.Text == "" {
-		r.addText("开始记录…", fyne.NewPos(0, 12), 16, fyne.TextStyle{}, r.entry.Theme().Color(theme.ColorNamePlaceHolder, fyne.CurrentApp().Settings().ThemeVariant()))
-	}
-	if r.entry.richFocused && !r.entry.Disabled() {
-		offset := r.entry.sourceOffset()
-		point := r.nearestOffset(offset)
-		caret := canvas.NewRectangle(r.entry.Theme().Color(theme.ColorNamePrimary, fyne.CurrentApp().Settings().ThemeVariant()))
-		caret.Move(point.position)
-		caret.Resize(fyne.NewSize(2, point.height))
-		r.objects = append(r.objects, caret)
 	}
 }
 func (r *noteRichRenderer) addText(value string, pos fyne.Position, size float32, style fyne.TextStyle, col color.Color) {

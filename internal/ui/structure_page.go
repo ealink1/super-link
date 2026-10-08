@@ -96,6 +96,7 @@ func (d *tableDesigner) rebuildFields() {
 	model.current = func() bool { return d.grid == grid && !d.closed && !d.busy }
 	if d.canEdit() {
 		model.edit = d.editField
+		model.choices = map[int][]string{1: tableColumnTypes(d.profile.SQLDialect())}
 	}
 	grid = newDataGrid(model)
 	d.grid = grid

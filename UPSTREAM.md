@@ -136,3 +136,9 @@ internal protocol keys now use the SuperLink namespace. UI assets live under
 in provenance and license records. Retained hashes and the adaptation patch
 were refreshed against the pinned source. Driver revisions now carry the `superlink-values2-` prefix. Binaries must be rebuilt for
 this namespace change; do not reuse older driver builds.
+
+### macOS notebook input-method candidate position
+
+The application-owned `internal/ui/note_ime_darwin.*` bridge supplies the rich editor caret rectangle to GLFWContentView while it has focus. The pinned GLFW Cocoa implementation of `firstRectForCharacterRange:actualRange:` returns the view frame origin, which leaves Chinese input-method candidates at the screen origin. The bridge converts Fyne canvas coordinates through AppKit view/window/screen coordinates, invalidates cached input coordinates and delegates to the original method for other focused controls. GLFW sources remain unchanged; the common Fyne caret API addition is described below.
+
+The integration now covers all focused inputs, including inherited Entry controls, dialogs, SQL/grid/AI editors and terminal surfaces. The reviewed Fyne addition `widget/entry_ime.go` exposes only the rendered caret anchor, offset and size, including scroll hierarchy and blinking-independent positioning. Its hash and addition are recorded in the pinned Fyne manifest and patch. A window-scoped, coalesced UI update tracks focus without reading input values and stops on close.

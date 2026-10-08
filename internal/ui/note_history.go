@@ -16,6 +16,9 @@ type noteEditHistory struct {
 }
 
 func (e *noteEntry) SetText(value string) {
+	if e.rich {
+		value = noteEditableEmptyCode(value)
+	}
 	e.history.replay = true
 	e.Entry.SetText(value)
 	e.history = noteEditHistory{current: value}

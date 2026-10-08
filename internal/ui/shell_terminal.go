@@ -14,6 +14,7 @@ import (
 
 type terminalSurface struct {
 	widget.BaseWidget
+	imeCaret      fyne.CanvasObject
 	emulator      *vt.Emulator // All parser, input-encoding and screen calls stay on the UI goroutine.
 	resize        func(int, int)
 	closed        bool
@@ -70,6 +71,7 @@ func (t *terminalSurface) FocusLost()       { t.focused = false; t.Refresh() }
 func (t *terminalSurface) CreateRenderer() fyne.WidgetRenderer {
 	background := canvas.NewRectangle(resolveShellColor(terminalBackground))
 	cursor := canvas.NewRectangle(terminalCursorColor())
+	t.imeCaret = cursor
 	r := &terminalRenderer{terminal: t, background: background, cursor: cursor, text: &fyne.Container{}}
 	r.Refresh()
 	return r

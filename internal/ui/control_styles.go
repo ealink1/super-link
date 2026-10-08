@@ -76,7 +76,7 @@ type headerButtonTheme struct {
 func (t headerButtonTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
 	current := fyne.CurrentApp().Settings().Theme()
 	if name == theme.ColorNameForeground && t.primary {
-		return color.NRGBA{R: 51, G: 122, B: 255, A: 255}
+		return current.Color(theme.ColorNamePrimary, variant)
 	}
 	return current.Color(name, variant)
 }

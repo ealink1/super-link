@@ -79,7 +79,7 @@ func (r *connectionDotRenderer) Refresh() {
 	shade := theme.ErrorColor()
 	switch r.dot.status {
 	case application.ConnectionConnected:
-		shade = theme.PrimaryColor()
+		shade = theme.SuccessColor()
 	case application.ConnectionConnecting:
 		shade = theme.WarningColor()
 	}

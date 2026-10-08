@@ -27,6 +27,7 @@ type noteLine struct {
 	size        float32
 	marker      string
 	quote, code bool
+	fence       bool
 }
 
 var noteOrdered = regexp.MustCompile(`^\d+\. `)
@@ -42,6 +43,7 @@ func notePresentation(source string) []noteLine {
 		if strings.HasPrefix(strings.TrimSpace(raw), "```") {
 			fenced = !fenced
 			line.code = true
+			line.fence = true
 			result = append(result, line)
 			offset = line.end + 1
 			continue
@@ -93,9 +95,26 @@ func notePresentation(source string) []noteLine {
 var noteInlineMarkdown = goldmark.New(goldmark.WithExtensions(extension.Strikethrough))
 
 func noteInlineRuns(value string, start int, size float32, style fyne.TextStyle) []noteRun {
-	source := []byte(value)
+	// Markdown block parsing discards outer whitespace. Editing must retain it
+	// as real source characters with measurable caret positions.
+	leading := value[:len(value)-len(strings.TrimLeft(value, " \t"))]
+	remainder := value[len(leading):]
+	body := strings.TrimRight(remainder, " \t")
+	trailing := remainder[len(body):]
+	if body == "" {
+		if value == "" {
+			return nil
+		}
+		return []noteRun{{value, start, size, style}}
+	}
+	source := []byte(body)
+	contentStart := start + utf8.RuneCountInString(leading)
 	document := noteInlineMarkdown.Parser().Parse(goldtext.NewReader(source))
 	var runs []noteRun
+	if leading != "" {
+		runs = append(runs, noteRun{leading, start, size, style})
+	}
+	parsed := false
 	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
 		if !entering {
 			return ast.WalkContinue, nil
@@ -120,12 +139,16 @@ func noteInlineRuns(value string, start int, size float32, style fyne.TextStyle)
 			}
 		}
 		content := string(text.Segment.Value(source))
-		runs = append(runs, noteRun{content, start + utf8.RuneCount(source[:text.Segment.Start]), size, nested})
+		parsed = true
+		runs = append(runs, noteRun{content, contentStart + utf8.RuneCount(source[:text.Segment.Start]), size, nested})
 		return ast.WalkContinue, nil
 	})
 	// Keep unrecognised content editable, including standalone punctuation.
-	if len(runs) == 0 && value != "" {
-		runs = []noteRun{{value, start, size, style}}
+	if !parsed {
+		runs = append(runs, noteRun{body, contentStart, size, style})
+	}
+	if trailing != "" {
+		runs = append(runs, noteRun{trailing, contentStart + utf8.RuneCountInString(body), size, style})
 	}
 	return runs
 }

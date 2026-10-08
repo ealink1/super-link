@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -30,6 +31,11 @@ func (n *noteWorkspace) buildSidebarTree() {
 	}, func(id string, branch bool, object fyne.CanvasObject) {
 		if branch {
 			row := object.(*noteGroupRow)
+			if n.list.IsBranchOpen(id) {
+				row.arrow.SetResource(shellIcon("chevron-down", false))
+			} else {
+				row.arrow.SetResource(shellIcon("chevron-right", false))
+			}
 			row.title.SetText(n.groupName(strings.TrimPrefix(id, "group:")))
 			row.count.SetText(fmt.Sprint(len(n.groupNotes[id])))
 			row.Refresh()
@@ -62,18 +68,19 @@ func (n *noteWorkspace) buildSidebarTree() {
 type noteGroupRow struct {
 	widget.BaseWidget
 	title, count *widget.Label
+	arrow        *widget.Icon
 }
 
 func newNoteGroupRow() *noteGroupRow {
 	title := widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true})
 	title.Truncation = fyne.TextTruncateEllipsis
-	row := &noteGroupRow{title: title, count: widget.NewLabel("")}
+	row := &noteGroupRow{title: title, count: widget.NewLabel(""), arrow: widget.NewIcon(shellIcon("chevron-down", false))}
 	row.ExtendBaseWidget(row)
 	return row
 }
 
 func (r *noteGroupRow) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(container.New(&noteGroupRowLayout{}, r.title, r.count))
+	return widget.NewSimpleRenderer(container.New(&noteGroupRowLayout{}, r.arrow, widget.NewIcon(theme.FolderIcon()), shellLabel(r.title, 12), shellLabel(r.count, 11)))
 }
 
 type noteGroupRowLayout struct{}
@@ -83,10 +90,14 @@ func (*noteGroupRowLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 }
 
 func (*noteGroupRowLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	countWidth := objects[1].MinSize().Width
-	for i, object := range objects {
+	objects[0].Move(fyne.NewPos(12, (size.Height-12)/2))
+	objects[0].Resize(fyne.NewSize(12, 12))
+	objects[1].Move(fyne.NewPos(32, (size.Height-14)/2))
+	objects[1].Resize(fyne.NewSize(14, 14))
+	countWidth := float32(28)
+	for i, object := range objects[2:] {
 		height := object.MinSize().Height
-		x, width := float32(0), max(0, size.Width-countWidth)
+		x, width := float32(54), max(0, size.Width-countWidth-54)
 		if i == 1 {
 			x, width = max(0, size.Width-countWidth), countWidth
 		}

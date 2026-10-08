@@ -20,7 +20,7 @@ func TestEveryNoteFormatButton(t *testing.T) {
 		{"# ", "", "# 正文", false}, {"## ", "", "## 正文", false},
 		{"### ", "", "### 正文", false}, {"#### ", "", "#### 正文", false},
 		{"- ", "", "- 正文", true}, {"1. ", "", "1. 正文", true},
-		{"> ", "", "> 正文", true}, {"\n```\n", "\n```\n", "```\n正文\n```", true},
+		{"> ", "", "> 正文", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.prefix, func(t *testing.T) {
@@ -67,11 +67,7 @@ func TestEveryNoteFormatButton(t *testing.T) {
 				t.Fatalf("redo: %q", n.editor.Text)
 			}
 			// Re-select via a caret inside the rendered content after redo.
-			if strings.Contains(tc.prefix, "```") {
-				n.editor.selectSource(5, 5)
-			} else {
-				n.editor.selectSource(len([]rune(tc.prefix)), len([]rune(tc.want))-len([]rune(tc.suffix)))
-			}
+			n.editor.selectSource(len([]rune(tc.prefix)), len([]rune(tc.want))-len([]rune(tc.suffix)))
 			test.Tap(button)
 			expected := tc.want
 			if tc.toggle {
@@ -101,14 +97,7 @@ func TestNoteParagraphFormatTransitions(t *testing.T) {
 	if n.editor.Text != "> 第一项\n> 第二项\n> 第三项" {
 		t.Fatal(n.editor.Text)
 	}
-	n.insertFormat("\n```\n", "\n```\n")
-	if n.editor.Text != "```\n第一项\n第二项\n第三项\n```" {
-		t.Fatal(n.editor.Text)
-	}
-	n.insertFormat("\n```\n", "\n```\n")
-	if n.editor.Text != "第一项\n第二项\n第三项" {
-		t.Fatal(n.editor.Text)
-	}
+
 }
 func TestNotePartialInlineTogglePreservesSurroundingText(t *testing.T) {
 	for _, mark := range []string{"**", "*", "~~", "`"} {
@@ -134,29 +123,6 @@ func TestNotePartialInlineTogglePreservesSurroundingText(t *testing.T) {
 	}
 }
 
-func TestNoteCodeBlockUsesVisibleTextAndDisablesInlineFormatting(t *testing.T) {
-	w, n := noteTestWindow(t)
-	w.Window.SetContent(n.content)
-	n.newNote()
-	n.editor.SetText("**加粗**和*斜体*")
-	n.editor.selectSource(0, len([]rune(n.editor.Text)))
-	n.insertFormat("\n```\n", "\n```\n")
-	if n.editor.Text != "```\n加粗和斜体\n```" {
-		t.Fatal(n.editor.Text)
-	}
-	for _, item := range n.formatButtons {
-		if item.suffix != "" && !strings.Contains(item.prefix, "```") && !item.button.Disabled() {
-			t.Fatal("inline action enabled in literal code")
-		}
-	}
-	n.insertFormat("\n```\n", "\n```\n")
-	for _, item := range n.formatButtons {
-		if item.button.Disabled() {
-			t.Fatal("action not restored after code block")
-		}
-	}
-}
-
 func TestNoteListAndQuoteContinueAndExit(t *testing.T) {
 	for _, item := range []struct{ source, want string }{{"- 条目", "- 条目\n- "}, {"2. 条目", "2. 条目\n3. "}, {"> 引用", "> 引用\n> "}} {
 		w, n := noteTestWindow(t)
@@ -177,5 +143,22 @@ func TestNoteListAndQuoteContinueAndExit(t *testing.T) {
 		if n.editor.Text != item.want {
 			t.Fatalf("undo exit: %q", n.editor.Text)
 		}
+	}
+}
+
+func TestNoteCodeBlockCreationRemoved(t *testing.T) {
+	w, n := noteTestWindow(t)
+	w.Window.SetContent(n.content)
+	n.newNote()
+	for _, item := range n.formatButtons {
+		if item.button.Text == "代码块" || strings.Contains(item.prefix, "```") {
+			t.Fatal("code block action still available")
+		}
+	}
+	n.editor.SetText("正文")
+	n.editor.selectSource(0, 2)
+	n.insertFormat("\n```\n", "\n```\n")
+	if n.editor.Text != "正文" {
+		t.Fatal("removed action modified note")
 	}
 }

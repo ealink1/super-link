@@ -45,3 +45,11 @@ func currentAppearanceDark() bool {
 func resolveShellColor(shade color.Color) color.Color {
 	return color.NRGBAModel.Convert(shade)
 }
+
+// Resolve shared roles directly, bypassing local widget color overrides.
+// A themed widget must not query its own foreground through theme.Color.
+type sharedUIColor fyne.ThemeColorName
+
+func (c sharedUIColor) RGBA() (uint32, uint32, uint32, uint32) {
+	return (Theme{Dark: currentAppearanceDark()}).Color(fyne.ThemeColorName(c), theme.VariantLight).RGBA()
+}

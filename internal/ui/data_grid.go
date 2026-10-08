@@ -26,6 +26,7 @@ type gridModel struct {
 	inspect      func(int, int)
 	copyValue    func(string)
 	changed      func(int) string
+	choices      map[int][]string
 	boolColumns  map[int]bool
 	pending      func()
 	current      func() bool
@@ -83,6 +84,7 @@ type gridCell struct {
 	id           widget.TableCellID
 	text         *canvas.Text
 	check        *widget.Check
+	choice       *widget.Select
 	entry        *gridEditEntry
 	background   *canvas.Rectangle
 	divider      *canvas.Rectangle
@@ -97,6 +99,8 @@ func newGridCell(model gridModel) *gridCell {
 	c := &gridCell{model: model, text: canvas.NewText("", theme.ForegroundColor()), check: widget.NewCheck("", nil), entry: newGridEditEntry(), background: canvas.NewRectangle(color.Transparent)}
 	c.text.TextSize = 14
 	c.divider = canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 38})
+	c.choice = widget.NewSelect(nil, nil)
+	c.choice.Hide()
 	c.entry.Hide()
 	c.check.Hide()
 	c.ExtendBaseWidget(c)
@@ -121,6 +125,7 @@ func (c *gridCell) bind(id widget.TableCellID) {
 	}
 	c.id = id
 	c.check.Hide()
+	c.choice.Hide()
 	c.text.Show()
 	c.text.Color = theme.ForegroundColor()
 	c.background.FillColor = color.Transparent
@@ -185,9 +190,43 @@ func (c *gridCell) bind(id widget.TableCellID) {
 			}
 		}
 	}
+	if c.id.Col >= 2 && c.model.edit != nil && len(c.model.choices[c.id.Col-2]) > 0 && !c.editing {
+		c.choice.OnChanged = nil
+		c.choice.Options = append([]string{}, c.model.choices[c.id.Col-2]...)
+		current := displayValue(c.model.value(c.id.Row, c.id.Col-2))
+		found := false
+		for _, option := range c.choice.Options {
+			if option == current {
+				found = true
+				break
+			}
+		}
+		if !found && current != "" {
+			c.choice.Options = append(c.choice.Options, current)
+		}
+		c.choice.Options = append(c.choice.Options, "自定义…")
+		c.choice.SetSelected(current)
+		c.choice.OnChanged = func(value string) {
+			if c.model.current != nil && !c.model.current() {
+				return
+			}
+			if value == "自定义…" {
+				c.DoubleTapped(nil)
+				return
+			}
+			if err := c.model.edit(c.id.Row, c.id.Col-2, value, false); err != nil {
+				c.entry.SetValidationError(err)
+			}
+			c.bind(c.id)
+		}
+		c.text.Hide()
+		c.choice.Show()
+	}
 	if c.editing {
 		c.text.Hide()
+		c.choice.Hide()
 	}
+
 	c.fullText = c.text.Text
 	c.Refresh()
 }
@@ -221,6 +260,7 @@ func (c *gridCell) DoubleTapped(*fyne.PointEvent) {
 	c.entry.SetText(text)
 	c.editing = true
 	c.text.Hide()
+	c.choice.Hide()
 	c.entry.Show()
 	fyne.CurrentApp().Driver().CanvasForObject(c).Focus(c.entry)
 }
@@ -253,6 +293,7 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.divider.Resize(fyne.NewSize(1, size.Height))
 	r.c.check.Resize(size)
 	r.c.entry.Resize(size)
+	r.c.choice.Resize(size)
 	r.c.text.Move(fyne.NewPos(8, (size.Height-r.c.text.MinSize().Height)/2))
 	// Theme color changes do not change glyph widths. Reuse the clipped preview
 	// instead of shaping long values again on every layout and color refresh.
@@ -260,7 +301,7 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.text.Resize(fyne.NewSize(max(0, size.Width-16), r.c.text.MinSize().Height))
 }
 func (r *gridCellRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.c.background, r.c.divider, r.c.text, r.c.check, r.c.entry}
+	return []fyne.CanvasObject{r.c.background, r.c.divider, r.c.text, r.c.check, r.c.choice, r.c.entry}
 }
 func (r *gridCellRenderer) Refresh() {
 	r.Layout(r.c.Size())

@@ -14,14 +14,14 @@ func (n *noteWorkspace) formatToolbar() *fyne.Container {
 	for _, format := range []struct{ name, icon, prefix, suffix string }{
 		{"", "bold", "**", "**"}, {"", "italic", "*", "*"}, {"", "strikethrough", "~~", "~~"}, {"", "code", "`", "`"},
 		{"H1", "", "# ", ""}, {"H2", "", "## ", ""}, {"H3", "", "### ", ""}, {"H4", "", "#### ", ""},
-		{"", "list", "- ", ""}, {"", "list-ordered", "1. ", ""}, {"", "quote", "> ", ""}, {"代码块", "", "\n```\n", "\n```\n"},
+		{"", "list", "- ", ""}, {"", "list-ordered", "1. ", ""}, {"", "quote", "> ", ""},
 	} {
 		item := format
 		button := shellButton(item.name, item.icon, false, func() { n.insertFormat(item.prefix, item.suffix) })
 		n.formatButtons = append(n.formatButtons, noteFormatButton{item.prefix, item.suffix, button})
-		objects = append(objects, shellButtonView(button), shellFixed(layout.NewSpacer(), 4, 0))
+		objects = append(objects, noteButtonView(button), shellFixed(layout.NewSpacer(), 4, 0))
 	}
-	objects = append(objects, shellButtonView(shellButton("撤销", "undo-2", false, n.editor.Undo)), shellButtonView(shellButton("重做", "redo-2", false, n.editor.Redo)))
+	objects = append(objects, noteButtonView(shellButton("撤销", "undo-2", false, n.editor.Undo)), noteButtonView(shellButton("重做", "redo-2", false, n.editor.Redo)))
 	return shellHBox(objects...)
 }
 
@@ -30,6 +30,9 @@ type noteClipboard struct{ text string }
 func (c *noteClipboard) Content() string         { return c.text }
 func (c *noteClipboard) SetContent(value string) { c.text = value }
 func (n *noteWorkspace) insertFormat(prefix, suffix string) {
+	if strings.Contains(prefix, "```") {
+		return
+	}
 	note := n.current()
 	if note == nil || note.Deleted {
 		return

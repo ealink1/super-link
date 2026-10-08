@@ -31,6 +31,13 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 		if node.kind == "connection" {
 			menu.Items = append(menu.Items[:1], append([]*fyne.MenuItem{n.createDatabaseItem(node)}, menu.Items[1:]...)...)
 		}
+		if node.kind == "database" || node.kind == "schema" || node.kind == "category" && strings.HasSuffix(node.id, "/table") || node.kind == "connection" {
+			index := 1
+			if node.kind == "connection" {
+				index = 2
+			}
+			menu.Items = append(menu.Items[:index], append([]*fyne.MenuItem{n.createTableItem(node)}, menu.Items[index:]...)...)
+		}
 		return menu
 	}
 	menu := fyne.NewMenu("对象", fyne.NewMenuItem("查看数据", func() { n.openObject(node) }), query, fyne.NewMenuItem("复制名称", func() { n.owner.Window.Clipboard().SetContent(node.object.Name) }), refresh)

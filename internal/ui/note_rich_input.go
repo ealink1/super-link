@@ -3,6 +3,7 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
+	"strings"
 )
 
 func (e *noteEntry) hitSource(pos fyne.Position) int {
@@ -147,7 +148,19 @@ func (e *noteEntry) richDelete(key fyne.KeyName) bool {
 	offset := e.sourceOffset()
 	total := len([]rune(e.Text))
 	candidate := -1
-	for _, line := range notePresentation(e.Text) {
+	lines := notePresentation(e.Text)
+	blockStart, blockEnd, body, inCode := noteEnclosingCodeBlock(e.Text, offset, offset)
+	if inCode && strings.TrimSpace(body) == "" {
+		e.replaceFormatRange(blockStart, blockEnd, "", 0, 0)
+		return true
+	}
+	for index, line := range lines {
+		if line.fence {
+			continue
+		}
+		if inCode && (line.start <= blockStart || line.end >= blockEnd) {
+			continue
+		}
 		for _, run := range line.runs {
 			for i := range []rune(run.text) {
 				at := run.start + i
@@ -159,7 +172,10 @@ func (e *noteEntry) richDelete(key fyne.KeyName) bool {
 				}
 			}
 		}
-		if line.end < total {
+		// Newlines adjacent to hidden fences are structural boundaries, not
+		// editable characters. Deleting them would expose ``` inside the code.
+		boundary := index+1 < len(lines) && lines[index+1].fence
+		if line.end < total && !boundary {
 			if key == fyne.KeyBackspace && line.end < offset {
 				candidate = line.end
 			}
@@ -167,6 +183,9 @@ func (e *noteEntry) richDelete(key fyne.KeyName) bool {
 				candidate = line.end
 			}
 		}
+	}
+	if inCode && candidate >= 0 && candidate < blockStart+4 {
+		return true
 	}
 	if candidate < 0 {
 		return true

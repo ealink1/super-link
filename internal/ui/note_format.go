@@ -78,27 +78,6 @@ func (n *noteWorkspace) applyNoteFormat(prefix, suffix string) {
 		e.replaceFormatRange(start, end, replacement, len([]rune(applied)), len([]rune(replacement)))
 		return
 	}
-	if strings.Contains(prefix, "```") {
-		start, end = noteParagraphRange(source, start, end)
-		value := string(source[start:end])
-		if blockStart, blockEnd, body, ok := noteEnclosingCodeBlock(e.Text, start, end); ok {
-			e.replaceFormatRange(blockStart, blockEnd, body, 0, len([]rune(body)))
-			return
-		}
-		value = noteSetBlock(value, "")
-		lines := strings.Split(value, "\n")
-		for i, line := range lines {
-			var plain strings.Builder
-			for _, run := range noteInlineRuns(line, 0, 16, fyne.TextStyle{}) {
-				plain.WriteString(run.text)
-			}
-			lines[i] = plain.String()
-		}
-		value = strings.Join(lines, "\n")
-		replacement := "```\n" + value + "\n```"
-		e.replaceFormatRange(start, end, replacement, 4, 4+len([]rune(value)))
-		return
-	}
 	// With a caret, format the current word; an empty paragraph remains editable.
 	if start == end && len(source) > 0 {
 		for start > 0 && !noteWordBoundary(source[start-1]) {

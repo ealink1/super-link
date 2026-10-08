@@ -15,8 +15,8 @@ import (
 )
 
 var monitorSurfaceColor = shellTone{day: color.NRGBA{238, 240, 244, 255}, night: color.NRGBA{28, 33, 40, 255}}
-var monitorCoral = color.NRGBA{247, 128, 104, 255}
-var monitorSelectedFill = shellTone{day: color.NRGBA{241, 234, 236, 255}, night: color.NRGBA{62, 45, 45, 255}}
+var monitorCoral = sharedUIColor(theme.ColorNamePrimary)
+var monitorSelectedFill = sharedUIColor(theme.ColorNameSelection)
 var monitorMutedColor = shellTone{day: color.NRGBA{124, 126, 128, 255}, night: color.NRGBA{170, 175, 182, 255}}
 
 func (m *shellMonitor) navigationView() fyne.CanvasObject {

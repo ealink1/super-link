@@ -25,20 +25,20 @@ func (n *noteWorkspace) build() {
 	n.saveButton = shellButton("保存", "save", false, n.save)
 	n.saveButton.Disable()
 	n.buildSidebarTree()
-	top := shellInset(shellVBox(shellFixed(n.search, 0, 30), shellFixed(layout.NewSpacer(), 0, 12), shellFixed(shellBorder(nil, nil, nil, shellButtonView(shellButton("", "folder", false, n.editGroups)), n.newButton), 0, 30), shellFixed(layout.NewSpacer(), 0, 10), shellFixed(shellBorder(nil, nil, shellLabel(n.sidebarHeading, 12), shellLabel(n.sidebarCount, 11), layout.NewSpacer()), 0, 28)), 12)
+	top := shellInset(shellVBox(shellFixed(n.search, 0, 40), shellFixed(layout.NewSpacer(), 0, 12), shellFixed(shellBorder(nil, nil, nil, shellButtonView(shellButton("", "folder", false, n.editGroups)), container.NewThemeOverride(n.newButton, noteSidebarTheme{newShellTheme()})), 0, 36), shellFixed(layout.NewSpacer(), 0, 16), shellFixed(shellBorder(nil, nil, shellLabel(n.sidebarHeading, 12), shellLabel(n.sidebarCount, 11), layout.NewSpacer()), 0, 28)), 16)
 	footer := shellInset(shellHBox(shellButtonView(shellButton("回收站", "trash-2", false, func() { n.trash = !n.trash; n.selected = ""; n.filter(); n.showEmpty() })), layout.NewSpacer(), shellButtonView(shellButton("导入", "upload", false, n.importMarkdown))), 10)
-	sidebar := container.NewStack(shellRectangle(shellPanelColor, 0, nil), shellBorder(top, footer, nil, nil, n.list))
+	sidebar := container.NewThemeOverride(container.NewStack(shellRectangle(noteSidebarSurface, 0, nil), shellBorder(top, footer, nil, nil, container.NewThemeOverride(n.list, noteTreeTheme{noteSidebarTheme{newShellTheme()}}))), noteSidebarTheme{newShellTheme()})
 	n.body = container.NewStack()
 	n.buildEditor()
 	n.showEmpty()
-	n.content = container.NewThemeOverride(container.NewStack(shellRectangle(shellBackground, 0, nil), container.New(&noteWorkspaceLayout{}, sidebar, n.body)), newShellTheme())
+	n.content = container.NewThemeOverride(container.NewStack(shellRectangle(noteSidebarSurface, 0, nil), container.New(&noteWorkspaceLayout{}, sidebar, n.body)), noteSidebarTheme{newShellTheme()})
 }
 
 type noteWorkspaceLayout struct{}
 
 func (*noteWorkspaceLayout) MinSize([]fyne.CanvasObject) fyne.Size { return fyne.NewSize(700, 460) }
 func (*noteWorkspaceLayout) Layout(o []fyne.CanvasObject, s fyne.Size) {
-	width := min(306, max(232, s.Width*.22))
+	width := min(280, max(232, s.Width*.28))
 	o[0].Move(fyne.Position{})
 	o[0].Resize(fyne.NewSize(width, s.Height))
 	o[1].Move(fyne.NewPos(width+1, 0))
@@ -104,16 +104,16 @@ func (n *noteWorkspace) buildEditor() {
 	n.preview.Wrapping = fyne.TextWrapWord
 	n.viewPicker = widget.NewSelect([]string{"编辑", "源码", "预览", "分屏"}, func(value string) { n.view = value; n.updateEditorView() })
 	n.viewPicker.SetSelected("编辑")
-	header := shellFixed(shellInset(shellBorder(nil, nil, nil, shellHBox(shellFixed(n.groupPicker, 130, 28), shellButtonView(shellButton("更多", "ellipsis", false, n.showMore))), shellLabel(n.status, 11)), 8), 0, 48)
-	title := shellFixed(noteTitleInset(container.NewThemeOverride(n.title, noteEntryTheme{shellTheme: newShellTheme(), size: 26})), 0, 72)
+	header := shellFixed(shellInset(shellBorder(nil, nil, nil, shellHBox(shellFixed(n.groupPicker, 130, 28), shellButtonView(shellButton("更多", "ellipsis", false, n.showMore))), shellLabel(n.status, 13)), 24), 0, 64)
+	title := shellFixed(noteTitleInset(container.NewThemeOverride(n.title, noteEntryTheme{shellTheme: newShellTheme(), size: 28})), 0, 80)
 	format := container.NewHScroll(n.formatToolbar())
 	format.SetMinSize(fyne.NewSize(280, 36))
-	toolbar := shellFixed(shellInset(shellBorder(nil, nil, nil, shellFixed(n.viewPicker, 92, 28), format), 5), 0, 42)
-	bottom := shellFixed(shellInset(shellBorder(nil, nil, shellLabel(n.count, 11), shellButtonView(n.saveButton), shellFixed(n.tags, 0, 28)), 8), 0, 48)
-	n.editorHost = shellBorder(shellVBox(header, shellLine(), title, shellLine(), toolbar, shellLine()), bottom, nil, nil, n.editorArea())
+	toolbar := shellFixed(shellInset(shellBorder(nil, nil, nil, shellFixed(n.viewPicker, 92, 28), format), 12), 0, 56)
+	bottom := shellFixed(shellInset(shellBorder(nil, nil, shellLabel(n.count, 11), noteButtonView(n.saveButton), shellFixed(n.tags, 0, 28)), 12), 0, 52)
+	n.editorHost = shellBorder(shellVBox(header, shellLine(), title, noteHorizontalInset(shellVBox(toolbar, shellLine()), 48)), shellVBox(shellLine(), bottom), nil, nil, n.editorArea())
 }
 func (n *noteWorkspace) editorArea() fyne.CanvasObject {
-	return container.NewVScroll(shellInset(container.NewThemeOverride(n.editor, noteEntryTheme{shellTheme: newShellTheme(), size: 16}), 36))
+	return container.NewVScroll(shellBorder(shellFixed(layout.NewSpacer(), 0, 24), shellFixed(layout.NewSpacer(), 0, 24), shellFixed(layout.NewSpacer(), 48, 0), shellFixed(layout.NewSpacer(), 48, 0), container.NewThemeOverride(n.editor, noteEntryTheme{shellTheme: newShellTheme(), size: 16})))
 }
 func (n *noteWorkspace) updateEditorView() {
 	if n.editorHost == nil {
@@ -141,10 +141,12 @@ type noteRow struct {
 	title, summary, stamp *widget.Label
 	fill                  *shellPrimitive
 	line                  fyne.CanvasObject
+	accent                *shellPrimitive
+	selected              bool
 }
 
 func newNoteRow() *noteRow {
-	r := &noteRow{title: widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), summary: widget.NewLabel(""), stamp: widget.NewLabel(""), fill: shellRectangle(color.Transparent, 0, nil), line: shellLine()}
+	r := &noteRow{title: widget.NewLabelWithStyle("", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), summary: widget.NewLabel(""), stamp: widget.NewLabel(""), fill: shellRectangle(color.Transparent, 0, nil), line: shellLine(), accent: shellRectangle(noteSidebarAccent, 0, nil)}
 	for _, l := range []*widget.Label{r.title, r.summary, r.stamp} {
 		l.Truncation = fyne.TextTruncateEllipsis
 	}
@@ -157,36 +159,42 @@ func (r *noteRow) update(note domain.Note, selected bool) {
 		title = "无标题笔记"
 	}
 	r.title.SetText(title)
-	summary := strings.Join(strings.Fields(note.Body), " ")
+	summary := noteSidebarSummary(note.Body)
 	if summary == "" {
 		summary = "空白笔记"
 	}
 	r.summary.SetText(truncateShellTitle(summary, 120))
 	r.stamp.SetText(note.UpdatedAt.Local().Format("01/02 15:04"))
+	r.selected = selected
+	r.accent.Hide()
+	if selected {
+		r.accent.Show()
+	}
 	r.fill.fill = color.Transparent
 	if selected {
-		r.fill.fill = shellColor(theme.ColorNameSelection)
+		r.fill.fill = resolveShellColor(noteSidebarSelection)
 	}
+	r.line.Show()
 	r.fill.Refresh()
 }
 func (r *noteRow) CreateRenderer() fyne.WidgetRenderer {
-	return &noteRowRenderer{objects: []fyne.CanvasObject{r.fill, shellLabel(r.title, 15), shellLabel(r.summary, 12), shellLabel(r.stamp, 11), r.line, widget.NewIcon(theme.DocumentIcon())}}
+	return &noteRowRenderer{objects: []fyne.CanvasObject{r.fill, container.NewThemeOverride(r.title, noteRowTheme{shellLabelTheme: shellLabelTheme{newShellTheme(), 14}, row: r, title: true}), container.NewThemeOverride(r.summary, noteRowTheme{shellLabelTheme: shellLabelTheme{newShellTheme(), 12}, row: r}), container.NewThemeOverride(r.stamp, noteRowTheme{shellLabelTheme: shellLabelTheme{newShellTheme(), 11}, row: r}), r.line, r.accent}}
 }
 
 type noteRowRenderer struct{ objects []fyne.CanvasObject }
 
-func (*noteRowRenderer) MinSize() fyne.Size { return fyne.NewSize(220, 92) }
+func (*noteRowRenderer) MinSize() fyne.Size { return fyne.NewSize(220, 90) }
 func (r *noteRowRenderer) Layout(s fyne.Size) {
 	r.objects[0].Move(fyne.Position{})
 	r.objects[0].Resize(s)
 	for i, o := range r.objects[1:4] {
-		o.Move(fyne.NewPos(40, 12+float32(i)*25))
-		o.Resize(fyne.NewSize(max(0, s.Width-54), 22))
+		o.Move(fyne.NewPos(16, 10+float32(i)*23))
+		o.Resize(fyne.NewSize(max(0, s.Width-28), 22))
 	}
 	r.objects[4].Move(fyne.NewPos(0, s.Height-1))
 	r.objects[4].Resize(fyne.NewSize(s.Width, 1))
-	r.objects[5].Move(fyne.NewPos(14, 14))
-	r.objects[5].Resize(fyne.NewSize(18, 18))
+	r.objects[5].Move(fyne.Position{})
+	r.objects[5].Resize(fyne.NewSize(2, s.Height))
 }
 func (r *noteRowRenderer) Objects() []fyne.CanvasObject { return r.objects }
 func (*noteRowRenderer) Destroy()                       {}
@@ -199,5 +207,9 @@ func (r *noteRowRenderer) Refresh() {
 // Horizontal title padding follows the reference, while vertical padding keeps
 // the 26px title font within the entry's full line height.
 func noteTitleInset(object fyne.CanvasObject) fyne.CanvasObject {
-	return shellBorder(shellFixed(layout.NewSpacer(), 0, 12), shellFixed(layout.NewSpacer(), 0, 12), shellFixed(layout.NewSpacer(), 28, 0), shellFixed(layout.NewSpacer(), 28, 0), object)
+	return shellBorder(shellFixed(layout.NewSpacer(), 0, 12), shellFixed(layout.NewSpacer(), 0, 12), shellFixed(layout.NewSpacer(), 48, 0), shellFixed(layout.NewSpacer(), 48, 0), object)
+}
+
+func noteHorizontalInset(object fyne.CanvasObject, padding float32) fyne.CanvasObject {
+	return shellBorder(nil, nil, shellFixed(layout.NewSpacer(), padding, 0), shellFixed(layout.NewSpacer(), padding, 0), object)
 }

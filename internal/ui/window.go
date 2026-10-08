@@ -51,6 +51,7 @@ type Window struct {
 	dark                        bool
 	appearance                  *appearanceState
 	shuttingDown                bool
+	stopInputMethods            func()
 	onClose                     func() error
 	ready                       chan struct{}
 	startupUpdateScheduled      bool
@@ -91,6 +92,9 @@ func New(app fyne.App, deps Dependencies) *Window {
 	w.Window.SetMaster()
 	w.Window.SetCloseIntercept(w.shutdown)
 	w.Window.SetOnClosed(func() {
+		if w.stopInputMethods != nil {
+			w.stopInputMethods()
+		}
 		w.switcher.stop()
 		if w.switcher.nativeClose != nil {
 			w.switcher.nativeClose()
@@ -107,6 +111,9 @@ func New(app fyne.App, deps Dependencies) *Window {
 }
 func (w *Window) Show() {
 	w.Window.Show()
+	if w.stopInputMethods == nil {
+		w.stopInputMethods = startInputMethods(w.App)
+	}
 	fyne.Do(w.switcher.installNative)
 }
 func (w *Window) Ready() <-chan struct{} { return w.ready }

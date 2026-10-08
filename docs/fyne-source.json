@@ -2156,7 +2156,8 @@
     "container/theme.go": "d19e8cf6eb0c299e5b66fc88790a533911699d69117e6b9add95360dffdde90e",
     "container/theme_memory_test.go": "2c89cb3c87c9125ff98fc3c414c0da2f7f992621b470f51ec9f76ea3f401a6af",
     "internal/cache/theme.go": "4f2a0f90a0f96064df6c91c0dccca59c83282adc81f125ef44d8a2a793dee332",
-    "internal/painter/fallback_memory_test.go": "05881efe8481055debaca9729b467a5328540472f7f2518ff45443eeaec21c20"
+    "internal/painter/fallback_memory_test.go": "05881efe8481055debaca9729b467a5328540472f7f2518ff45443eeaec21c20",
+    "widget/entry_ime.go": "8b0ab6973b97e0d7ababc170dbdec65955a46eee39ec15a466bbdec12011af03"
   },
-  "patch_sha256": "b48a2b5ffc6c41bbd60953bef83261f994043b86431110c9c639bec348ad3b42"
+  "patch_sha256": "39cf3142aa4e20e77e5c2271366695cc4c1f3831d9e0c3e4f7e302da067454e4"
 }

@@ -72,14 +72,14 @@ func (t Theme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.
 		return color.NRGBA{R: 156, G: 163, B: 175, A: 255}
 	case theme.ColorNamePrimary:
 		if t.Dark {
-			return color.NRGBA{R: 34, G: 197, B: 94, A: 255}
+			return color.NRGBA{R: 105, G: 155, B: 255, A: 255}
 		}
-		return color.NRGBA{R: 21, G: 128, B: 61, A: 255}
+		return color.NRGBA{R: 51, G: 122, B: 255, A: 255}
 	case theme.ColorNameSelection:
 		if t.Dark {
-			return color.NRGBA{R: 24, G: 63, B: 44, A: 255}
+			return color.NRGBA{R: 38, G: 55, B: 82, A: 255}
 		}
-		return color.NRGBA{R: 200, G: 219, B: 203, A: 255}
+		return color.NRGBA{R: 233, G: 240, B: 255, A: 255}
 	case theme.ColorNameBackground:
 		if t.Dark {
 			return color.NRGBA{R: 27, G: 31, B: 39, A: 255}

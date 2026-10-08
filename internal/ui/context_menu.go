@@ -24,7 +24,7 @@ func showContextMenu(menu *fyne.Menu, c fyne.Canvas, position fyne.Position) {
 			item.Icon = theme.LogoutIcon()
 		case "删除连接":
 			item.Icon = theme.DeleteIcon()
-		case "打开工作台", "查看数据":
+		case "打开工作台", "查看数据", "新建表":
 			item.Icon = icon("table")
 		case "复制名称", "复制结构", "复制 INSERT 模板":
 			item.Icon = theme.ContentCopyIcon()
