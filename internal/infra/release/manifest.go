@@ -128,7 +128,8 @@ func TrustedURL(text string) (*url.URL, error) {
 	if u.Port() != "" && u.Port() != "443" {
 		return nil, errors.New("invalid release port")
 	}
-	if host == "github.com" && !strings.HasPrefix(u.EscapedPath(), "/ealink1/super-link/releases/download/") {
+	if host == "github.com" && !strings.HasPrefix(u.EscapedPath(), "/ealink1/super-link/releases/download/") &&
+		!strings.HasPrefix(u.EscapedPath(), "/ealink1/SuperLink-DriverAgents/releases/download/") {
 		return nil, errors.New("artifact is outside the configured repository")
 	}
 	return u, nil

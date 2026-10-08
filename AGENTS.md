@@ -1,5 +1,7 @@
 # SuperLink development
 
+- Product names, release titles and application download filenames use the exact brand `SuperLink`. Preserve upstream attribution and existing immutable release records.
+
 - Implement the accepted full feature and visual parity design in `docs/plans/2026-10-01-gonavi-parity-design.md`; this supersedes the original Alpha scope. JVM management remains excluded.
 - Do not use a browser for testing unless the user explicitly requests browser tests.
 - Native Go/Fyne implementation; application and domain packages must not import Fyne or Wails.

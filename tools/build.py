@@ -13,7 +13,7 @@ import sys
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
-from release_platforms import DRIVERS, platform_drivers, version_text
+from release_platforms import DRIVER_BASE_URL, DRIVERS, platform_drivers, version_text
 
 
 
@@ -70,7 +70,7 @@ def main():
         filename = f'{driver}-agent_{version}_{goos}_{arch}{suffix}'
         shutil.copy2(output, dist / filename)
         artifacts.append({'id':driver,'kind':'driver','os':goos,'arch':arch,'filename':filename,
-                          'url':release_url+filename,'size':output.stat().st_size,'sha256':digest,
+                          'url':DRIVER_BASE_URL+'v'+version+'/'+filename,'size':output.stat().st_size,'sha256':digest,
                           'revision':record['revision'],'protocol':record['protocol']})
     (agents / 'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':records},indent=2)+'\n')
     if not args.skip_app:
@@ -144,7 +144,7 @@ def main():
             (destination/'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':bundled},indent=2)+'\n')
             run(['codesign','--force','--options','runtime','--timestamp','--sign',identity,str(package_root)])
             run(['codesign','--verify','--deep','--strict',str(package_root)])
-        filename=f'superlink_{version}_{goos}_{arch}.zip'
+        filename=f'SuperLink_{version}_{goos}_{arch}.zip'
         output=dist/filename
         with zipfile.ZipFile(output,'w',compression=zipfile.ZIP_DEFLATED,compresslevel=6) as archive:
             for item in sorted(package_root.rglob('*')):

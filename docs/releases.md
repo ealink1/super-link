@@ -21,7 +21,7 @@ python3 tools/build.py --all-drivers --package --version 0.1.0
 | `bin/drivers/` | 所选原生 Agent 和 `bundle.json`，供开发及可信本机离线导入 |
 | `bin/SuperLink.app/` | macOS 原生应用包，包含离线 SQLite、Helper 和许可文本 |
 | `bin/SuperLink/` | Linux / Windows Portable 应用目录，包含同样的基础资源 |
-| `dist/superlink_<version>_<os>_<arch>.zip` | 一个完整应用目录的 ZIP |
+| `dist/SuperLink_<version>_<os>_<arch>.zip` | 一个完整应用目录的 ZIP |
 | `dist/<driver>-agent_<version>_<os>_<arch>[.exe]` | 单独的可选 Agent |
 | `dist/assets-<os>-<arch>.json` | 本平台资产清单：长度、SHA256、下载 URL 与驱动兼容信息 |
 
@@ -205,15 +205,27 @@ macOS 的 DMG 校验后只读挂载，逐文件对照更新 ZIP；Windows 在一
 发布汇总任务拒绝缺平台、缺驱动、旧版本、错误编译公钥、坏哈希、ZIP 越界路径及包内
 SQLite 哈希不符。签名任务校验公私钥匹配，再签署已有应用更新协议的清单。
 发布说明由 `feat` / `fix` / `perf` 等提交标题分类，包含带体积的下载表格和安装说明。
-`SHA256SUMS.txt` 覆盖全部上传文件。上传时拒绝未声明的额外文件（包括意外放入 dist
-的密钥），再对照 GitHub API 返回的每个资产名称、长度和 SHA256 digest。
+签名后的完整清单包含应用与驱动，驱动 URL 指向独立仓库 `ealink1/SuperLink-DriverAgents`。
+主 Release 仅上传 14 个应用包、发布说明、清单及签名和独立校验文件（18 个文件）；
+驱动 Release 上传 131 个驱动、同一清单及签名和独立校验文件（134 个文件）。
+平台元数据仍保存在 Actions Artifact，供完整构建验证，不上传到公开 Release。
+
+拆分前拒绝未声明的额外文件（包括意外放入 dist 的密钥）、目录和符号链接。两个仓库
+分别生成 `SHA256SUMS.txt`，再对照 GitHub API 的每个资产名称、长度和 SHA256 digest。
+两个草稿均校验成功后才允许公开；公开时先驱动、后应用。
 
 推送标签默认只创建 **草稿**。勾选手动流程的 `publish` 才会在全部验证成功后公开发布；
-公开发布必须同时配置以下两项。未配置密钥时允许生成验证用草稿，发布说明明确提示
+公开发布必须配置更新密钥及跨仓库授权。未配置密钥时允许生成验证用草稿，发布说明明确提示
 在线更新及在线驱动安装不可用。已有 Release 不会被覆盖；失败上传保留草稿供检查。
 
 - Repository Variable：`SUPERLINK_RELEASE_PUBLIC_KEY`（Base64 32 字节公钥）。
 - Repository Secret：`SUPERLINK_RELEASE_PRIVATE_KEY`（Base64 64 字节私钥）。
+- 跨仓库发布 Secret：`SUPERLINK_DRIVER_RELEASE_TOKEN`，推荐使用仅授予
+  `ealink1/SuperLink-DriverAgents` Contents 读写权限的细粒度令牌。普通 GITHUB_TOKEN
+  只用于主仓库；驱动令牌仅交给访问检查和发布步骤，构建不获取该令牌。
+
+驱动仓库须初始化默认 `main` 分支（README 指向主项目及许可来源）。发布器创建对应
+版本标签，不修改已有标签；驱动发布正文记录主项目源码提交。既有草稿不会自动覆盖。
 
 维护者仍需自行配置 Apple Developer / Windows 代码签名和 Apple 公证；更新清单签名
 不等同于操作系统代码签名。当前自动流程没有导入平台证书或执行公证，发布说明会提示。

@@ -60,6 +60,7 @@ def render(version, downloads, groups, previous=None, signed=False):
              '- **SQLite**：基础包已包含离线驱动。其他数据库驱动在驱动管理中按需安装；Windows ARM64 暂不提供 DuckDB 驱动。', '',
              '## 🔐 校验与更新', '',
              '下载后可使用 `SHA256SUMS.txt` 校验文件完整性。',
+             '[数据库驱动独立发布](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v' + version + ')，通过应用中的驱动管理按需下载。',
              '本次附带 Ed25519 签名更新清单，应用可验证更新与驱动下载。' if signed else
              '本次未配置正式更新签名，在线更新与驱动安装不可用；请使用本页安装包手动安装。', '']
     if previous:

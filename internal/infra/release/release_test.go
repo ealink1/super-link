@@ -122,3 +122,39 @@ func TestDownloadVerifiesExactBytesAndCleansPartialFiles(t *testing.T) {
 		t.Fatal("ignored cancelled download")
 	}
 }
+
+func TestSignedDriverDownloadFromSeparateRepository(t *testing.T) {
+	m, _, _, key, private := signedFixture(t)
+	m.Artifacts[0].Kind = "driver"
+	m.Artifacts[0].ID = "sqlite"
+	m.Artifacts[0].Revision = "reviewed"
+	m.Artifacts[0].Protocol = "json-lines-v2"
+	m.Artifacts[0].URL = "https://github.com/ealink1/SuperLink-DriverAgents/releases/download/v0.2.0/app.zip"
+	raw, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig := []byte(base64.StdEncoding.EncodeToString(ed25519.Sign(private, raw)))
+	verified, err := Verify(raw, sig, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := New(key)
+	client.HTTP.Transport = transportFunc(func(r *http.Request) (*http.Response, error) {
+		if r.URL.String() != m.Artifacts[0].URL {
+			t.Fatal("wrong driver repository")
+		}
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("package"))}, nil
+	})
+	if _, err := client.Download(context.Background(), verified.Artifacts[0], t.TempDir()); err != nil {
+		t.Fatal(err)
+	}
+	for _, address := range []string{
+		"https://github.com/ealink1/SuperLink-DriverAgents-evil/releases/download/v0.2.0/app.zip",
+		"https://github.com/other/SuperLink-DriverAgents/releases/download/v0.2.0/app.zip",
+	} {
+		if _, err := TrustedURL(address); err == nil {
+			t.Fatal("accepted untrusted driver repository", address)
+		}
+	}
+}

@@ -108,7 +108,7 @@ def package(dist, binary, version, goos, arch):
     marker = json.loads((resources / 'superlink.package.json').read_text())
     if (marker['version'], marker['os'], marker['arch']) != (version, goos, arch):
         raise ValueError('bundle identity differs from installer target')
-    zip_path = dist / f'superlink_{version}_{goos}_{arch}.zip'
+    zip_path = dist / f'SuperLink_{version}_{goos}_{arch}.zip'
     if not zip_path.is_file():
         raise ValueError('build the application ZIP before installers')
     makers = {'darwin': macos_installer, 'windows': windows_installer, 'linux': linux_installers}

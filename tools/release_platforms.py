@@ -10,7 +10,10 @@ DRIVERS = ['mariadb', 'oceanbase', 'diros', 'starrocks', 'sphinx', 'sqlserver',
            'opengauss', 'gaussdb', 'iris', 'cache', 'mongodb', 'tdengine',
            'iotdb', 'clickhouse', 'elasticsearch', 'trino']
 LABELS = {'darwin': 'macOS', 'windows': 'Windows', 'linux': 'Linux'}
-BASE_URL = 'https://github.com/ealink1/super-link/releases/download/'
+APP_REPO = 'ealink1/super-link'
+DRIVER_REPO = 'ealink1/SuperLink-DriverAgents'
+BASE_URL = f'https://github.com/{APP_REPO}/releases/download/'
+DRIVER_BASE_URL = f'https://github.com/{DRIVER_REPO}/releases/download/'
 
 
 def version_text(value):
@@ -42,4 +45,4 @@ def download_record(path, version, goos, arch, format_name):
     path = Path(path)
     return {'os': goos, 'arch': arch, 'format': format_name, 'filename': path.name,
             'size': path.stat().st_size, 'sha256': digest(path),
-            'url': BASE_URL + 'v' + version + '/' + path.name}
+            'url': (DRIVER_BASE_URL if format_name == 'agent' else BASE_URL) + 'v' + version + '/' + path.name}

@@ -8,9 +8,9 @@ from unittest.mock import patch
 import zipfile
 
 from package_installers import create_windows_icon, desktop_entry, package
-from publish_release import created_release, verify_uploaded, upload_files
+from publish_release import created_release, driver_tag_source, main as publish_main, stage_release, verify_uploaded, upload_files
 from release_notes import render, changes
-from release_platforms import PLATFORMS, download_record, platform_drivers, version_text
+from release_platforms import APP_REPO, DRIVER_REPO, BASE_URL, PLATFORMS, download_record, platform_drivers, version_text
 from verify_release import verify, write_checksums
 
 VERSION = '0.1.0'
@@ -29,7 +29,7 @@ def fixture(root, goos, arch):
     suffix = '.exe' if goos == 'windows' else ''
     marker = {'id': 'io.github.ealink1.superlink', 'version': VERSION, 'os': goos,
               'arch': arch, 'executable': prefix + 'superlink' + suffix, 'helper': prefix + 'update-helper' + suffix}
-    app = root / f'superlink_{VERSION}_{goos}_{arch}.zip'
+    app = root / f'SuperLink_{VERSION}_{goos}_{arch}.zip'
     with zipfile.ZipFile(app, 'w') as z:
         for name in ['superlink', 'update-helper']:
             info = zipfile.ZipInfo(executables + name + suffix)
@@ -106,7 +106,7 @@ class ReleaseContracts(unittest.TestCase):
             verify(self.root, VERSION)
 
     def test_path_traversal_rejected_even_after_rehash(self):
-        p = self.root / f'superlink_{VERSION}_darwin_arm64.zip'
+        p = self.root / f'SuperLink_{VERSION}_darwin_arm64.zip'
         with zipfile.ZipFile(p, 'a') as archive:
             archive.writestr('SuperLink.app/../../evil', b'payload')
         for filename in ['assets-darwin-arm64.json', 'downloads-darwin-arm64.json']:
@@ -117,7 +117,7 @@ class ReleaseContracts(unittest.TestCase):
             verify(self.root, VERSION)
 
     def test_bundled_driver_tampering_rejected(self):
-        p = self.root / f'superlink_{VERSION}_linux_arm64.zip'
+        p = self.root / f'SuperLink_{VERSION}_linux_arm64.zip'
         with zipfile.ZipFile(p) as z:
             entries = [(i, z.read(i)) for i in z.infolist()]
         with zipfile.ZipFile(p, 'w') as z:
@@ -138,6 +138,72 @@ class ReleaseContracts(unittest.TestCase):
         pages[0][0]['digest'] = 'sha256:' + '0' * 64
         with self.assertRaisesRegex(ValueError, 'SHA256'):
             verify_uploaded([p], pages)
+
+    def test_separate_release_inventories_and_checksums(self):
+        (self.root / 'RELEASE_NOTES.md').write_text('release notes')
+        (self.root / 'manifest.json').write_text('signed manifest fixture')
+        (self.root / 'manifest.json.sig').write_text('signature fixture')
+        write_checksums(self.root)
+        with tempfile.TemporaryDirectory() as work:
+            for repo, count in ((APP_REPO, 18), (DRIVER_REPO, 134)):
+                folder = Path(work) / ('app' if repo == APP_REPO else 'driver')
+                files = stage_release(self.root, VERSION, repo, folder)
+                self.assertEqual(len(files), count)
+                names = {p.name for p in files}
+                self.assertIn('manifest.json.sig', names)
+                self.assertFalse(any(name.startswith(('assets-', 'downloads-', 'build-info-')) for name in names))
+                self.assertEqual('RELEASE_NOTES.md' in names, repo == APP_REPO)
+                self.assertEqual(any('-agent_' in name for name in names), repo == DRIVER_REPO)
+                checks = (folder / 'SHA256SUMS.txt').read_text().splitlines()
+                self.assertEqual({line.split('  ')[1] for line in checks}, names - {'SHA256SUMS.txt'})
+                pages = [[{'name': p.name, 'size': p.stat().st_size,
+                           'digest': 'sha256:' + hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]]
+                verify_uploaded(files, pages)
+        records = json.loads((self.root / 'assets-linux-amd64.json').read_text())
+        driver = next(record for record in records if record['kind'] == 'driver')
+        driver['url'] = BASE_URL + 'v' + VERSION + '/' + driver['filename']
+        write_json(self.root / 'assets-linux-amd64.json', records)
+        with self.assertRaisesRegex(ValueError, 'URL/version'):
+            verify(self.root, VERSION)
+
+    def test_both_drafts_verified_before_publication(self):
+        import os
+        from unittest.mock import call
+        (self.root / 'RELEASE_NOTES.md').write_text('release')
+        (self.root / 'manifest.json').write_text('manifest fixture')
+        (self.root / 'manifest.json.sig').write_text('signature fixture')
+        write_checksums(self.root)
+        argv = ['publish_release.py', '--version', VERSION, '--source', 'a' * 40, '--dist', str(self.root)]
+        for failure in (None, 'driver', 'app'):
+            with self.subTest(failure=failure), patch('sys.argv', argv), patch.dict(os.environ, {
+                    'CI': 'true', 'SUPERLINK_DRIVER_RELEASE_TOKEN': 'test-placeholder', 'SUPERLINK_PUBLISH': 'true'}), \
+                    patch('publish_release.driver_tag_source', return_value='b' * 40), \
+                    patch('publish_release.create_draft') as create, patch('publish_release.publish_draft') as publish:
+                create.side_effect = [ValueError('driver failed')] if failure == 'driver' else \
+                    [{'id': 1}, ValueError('app failed')] if failure == 'app' else [{'id': 1}, {'id': 2}]
+                if failure:
+                    with self.assertRaises(ValueError): publish_main()
+                    publish.assert_not_called()
+                    self.assertEqual(create.call_count, 1 if failure == 'driver' else 2)
+                else:
+                    publish_main()
+                    self.assertEqual(publish.call_args_list, [call(DRIVER_REPO, 'v' + VERSION, {'id': 1}),
+                                                             call(APP_REPO, 'v' + VERSION, {'id': 2})])
+
+    def test_driver_tags_are_created_once_and_never_overwritten(self):
+        import subprocess
+        sha = 'b' * 40
+        with patch('publish_release.gh', side_effect=['existing ref', sha]) as api:
+            self.assertEqual(driver_tag_source('v0.1.0'), sha)
+            self.assertFalse(any('POST' in call.args for call in api.call_args_list))
+        missing = subprocess.CalledProcessError(1, ['gh'], stderr='gh: Not Found (HTTP 404)')
+        with patch('publish_release.gh', side_effect=[missing, sha, '{}']) as api:
+            self.assertEqual(driver_tag_source('v0.1.0'), sha)
+            self.assertIn('ref=refs/tags/v0.1.0', api.call_args.args)
+        denied = subprocess.CalledProcessError(1, ['gh'], stderr='gh: Forbidden (HTTP 403)')
+        with patch('publish_release.gh', side_effect=denied) as api:
+            with self.assertRaises(subprocess.CalledProcessError): driver_tag_source('v0.1.0')
+            self.assertEqual(api.call_count, 1)
 
     def test_new_draft_lookup_uses_recent_releases(self):
         draft = {'id': 42, 'tag_name': 'v0.1.1', 'draft': True}

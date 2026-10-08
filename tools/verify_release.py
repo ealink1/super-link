@@ -6,7 +6,7 @@ from pathlib import Path, PurePosixPath
 import re
 import zipfile
 
-from release_platforms import BASE_URL, PLATFORMS, digest, platform_drivers, version_text
+from release_platforms import BASE_URL, DRIVER_BASE_URL, PLATFORMS, digest, platform_drivers, version_text
 
 
 def read_json(path):
@@ -22,7 +22,8 @@ def verify_file(dist, record, version, goos, arch, names):
     names.add(name)
     if (record['os'], record['arch']) != (goos, arch):
         raise ValueError('artifact platform mismatch')
-    if record['url'] != BASE_URL + 'v' + version + '/' + name:
+    base = DRIVER_BASE_URL if record.get('kind') == 'driver' else BASE_URL
+    if record['url'] != base + 'v' + version + '/' + name:
         raise ValueError('artifact download URL/version mismatch')
     path = dist / name
     if path.is_symlink() or not path.is_file():

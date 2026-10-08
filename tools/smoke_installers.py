@@ -41,7 +41,7 @@ def wait_for_removal(directory, timeout=30):
 
 
 def smoke(dist, version, goos, arch):
-    zip_path = dist / f'superlink_{version}_{goos}_{arch}.zip'
+    zip_path = dist / f'SuperLink_{version}_{goos}_{arch}.zip'
     with tempfile.TemporaryDirectory(prefix='superlink-installer-smoke-') as name:
         temp = Path(name)
         if goos == 'darwin':
