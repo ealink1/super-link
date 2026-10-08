@@ -2,7 +2,7 @@
 
 > 名称与命令已于 2026-10-03 统一为 SuperLink；历史截图、产物哈希和验收结论仍对应记录当日版本，本次更名验证见 [完整更名记录](superlink-namespace-2026-10-03.md)。
 
-当前验证版本为 v0.1.2 Alpha，应用与驱动分仓，两个 GitHub Release 均保留为草稿。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
+当前验证版本为 v0.1.3 Alpha，应用与驱动分仓，两个 GitHub Release 均保留为草稿。macOS arm64 的原生应用包及本地 Helper 升级已完成自检。
 2026-10-07 已完成六个平台的原生构建、数据库测试、驱动握手及安装包验证，并配置
 正式更新签名公钥和私钥。平台代码签名证书及 Apple 公证尚未配置；原生安装验证
 不能替代各平台图形界面全流程验收。自动流程和验证记录见后文。
@@ -17,7 +17,7 @@
 
 构建流程现在写入 `NSLocalNetworkUsageDescription`，并在未配置证书时对整个应用包进行 ad-hoc 签名，绑定 Info.plist 与资源、更新已签名 SQLite Agent 的校验和。
 ad-hoc 签名不能保证更新后隐私身份的连续性；可靠分发仍需 `SUPERLINK_MAC_SIGN_IDENTITY` 对应的 Apple 签发证书。构建不会修改用户的网络权限。
-本次已通过 UI 测试、静态检查、原生 Mac 构建、DMG 解包与签名检查；安装版真实局域网连接仍需用户授权后验证，既有 GitHub 草稿尚未替换。
+本次已通过 UI 测试、静态检查、原生 Mac 构建、DMG 解包与签名检查；安装版真实局域网连接仍需用户授权后验证。修复产物另行生成 v0.1.3，保留既有版本记录。
 
 在目标平台运行：
 
@@ -303,3 +303,15 @@ GitHub 上传验证、操作系统首次安装和线上更新结果必须以真�
 已有 v0.1.0 / v0.1.1 发布及标签保持原样；本次未公开发布。分仓清单需要 v0.1.2
 及后续客户端的仓库白名单支持，请分发最新应用包。Apple 公证、Windows Authenticode
 及各系统完整图形交互验收仍未完成。
+
+## 11. v0.1.3 安装包修复验证（2026-10-08）
+
+- 修复源码：`dedef0581aa89a47a24bebc38faa47888ca651b4`，不可变标签 `v0.1.3`。
+- [完整 CI 检查](https://github.com/ealink1/super-link/actions/runs/37717650522)通过。
+- [六平台构建与两仓上传](https://github.com/ealink1/super-link/actions/runs/37717651175)通过，包含原生测试、驱动握手、安装与解包检查、版本探测及产物校验。
+- [应用草稿](https://github.com/ealink1/super-link/releases/tag/untagged-ae1bd5007cf49cc09d15)：18 个上传文件，其中 14 个应用安装或更新包。
+- [驱动草稿](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/untagged-9b87803795c524874e07)：134 个上传文件，其中 131 个驱动。
+- 上传后独立核对全部 152 个文件的清单及 GitHub SHA-256；下载两仓元数据并验证 Ed25519 签名、137 条更新清单记录和 14 个安装包下载链接，两仓使用相同的签名清单。
+- 实际下载云端 Mac ARM64 更新 ZIP，检查归档完整性、v0.1.3 版本、网络用途声明、已签名 SQLite 校验和，并通过 `codesign --verify --deep --strict`。
+- 本次保持草稿状态；正文中的正式版本下载地址在公开发布后生效，草稿下载请使用 Assets。历史 v0.1.2 及更早版本均保留。
+- 图形界面中的真实数据库连接仍需用户允许 macOS 本地网络权限后验证；上述构建验证不代表已完成真实 MySQL 认证。
