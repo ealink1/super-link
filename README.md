@@ -1,31 +1,52 @@
+<div align="center">
+
 # SuperLink
 
-独立的 **Go + Fyne 原生数据工作台**，目标仓库是
-[ealink1/super-link](https://github.com/ealink1/super-link)。
-选择性复用 GoNavi 的 Go 驱动与协议实现，重新实现应用服务和桌面界面。
+### 数据、终端与笔记，一个原生工作台。
 
-当前版本：**v0.1.0 Alpha，正在按 GoNavi 的完整功能与界面重新对齐**。
-完整复刻尚未完成；下表只记录已有实现，缺口见文末和逐项对照。
-**不包含 JVM 管理连接器，
-应用构建与运行不需要 Java / JDK，也没有 Wails、React 或 WebView 运行依赖。**
+在 SQL、Shell 与 Note 之间轻松切换，把查询、远程连接和工作记录留在同一处。
 
-- [实施计划及高级功能路线](docs/plans/2026-10-01-superlink-implementation-plan.md)
-- [完整功能与界面对齐设计（当前范围）](docs/plans/2026-10-01-gonavi-parity-design.md)
-- [GoNavi 实际页面、操作流程与功能对齐清单](docs/gonavi-ui-observation-2026-10-01.md)
-- [最新代码自检与未验证范围](docs/selfcheck-2026-10-02.md)
-- [内存问题定位、修复与原生对照数据](docs/memory-analysis-2026-10-02.md)
-- [第二轮内存精简与页面释放复查](docs/memory-refinement-2026-10-02.md)
-- [记住密码与免钥匙串授权自检](docs/remember-password-2026-10-02.md)
-- [SQL / Shell 独立工作区与 iShell Pro 全功能分阶段计划](docs/plans/2026-10-02-sql-shell-workspaces-design.md)
-- [Shell 首阶段功能、操作和自检边界](docs/shell-workspace-2026-10-02.md)
-- [iShell Pro 原生观察、Shell 界面重做与最新产物](docs/shell-ui-ishellpro-2026-10-02.md)
-- [SQL / Shell 共用日夜主题、标题栏切换与原生自检](docs/shared-appearance-2026-10-02.md)
-- [SuperLink 完整命名与自检](docs/superlink-namespace-2026-10-03.md)
-- [连接状态圆点与原生自检](docs/connection-status-2026-10-02.md)
-- [AI 右侧普通问答、配置方法与自检](docs/ai-chat-2026-10-03.md)
-- [界面对照验收与剩余差距](design-qa.md)
-- [构建、签名、跨平台安装包与自动 Release](docs/releases.md)
-- [上游来源与改动](UPSTREAM.md)
+[![Release](https://img.shields.io/github/v/release/ealink1/super-link?label=release&color=16803d)](https://github.com/ealink1/super-link/releases/latest)
+[![Native checks](https://github.com/ealink1/super-link/actions/workflows/ci.yml/badge.svg)](https://github.com/ealink1/super-link/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-475569)](LICENSE)
+
+**[下载 SuperLink](https://github.com/ealink1/super-link/releases/latest)** ·
+[版本记录](https://github.com/ealink1/super-link/releases) ·
+[使用与构建](#运行与构建) ·
+[开发文档](#开发文档)
+
+macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
+
+</div>
+
+---
+
+## 一个工作台，三种工作方式
+
+| SQL · 数据工作区 | Shell · 终端工作区 | Note · 笔记工作区 |
+| --- | --- | --- |
+| 管理连接、浏览数据库、编写查询 | 管理主机、连接 SSH、打开本地终端 | 编写 Markdown、预览与分屏 |
+| 筛选表目录、分页读取、暂存数据编辑 | 多标签 PTY、基础 SFTP 与 Linux 监控 | 分组、标签、全文搜索与回收站 |
+| 结构查看、导入导出、受保护提交 | 密码 / 私钥认证、隐私模式 | 本机加密自动保存、导入导出 |
+
+**原生桌面。** 使用 Go + Fyne，不依赖 Java / JDK、Wails、React 或 WebView。
+**本地工作区。** 连接、草稿和笔记保存在本机；凭据加密保存，查询结果不进入历史。
+**多源接入。** 36 类固定数据源与自定义 Driver / DSN，应用包自带离线 SQLite。
+**可验证更新。** 启动检查稳定版本，下载进度可见；校验签名与哈希后替换应用，健康确认失败时回滚。
+
+## v0.1.6 · 当前稳定发布
+
+- **数据库表目录**：单击数据库打开独立标签，支持表名 / Schema 筛选、刷新及双击打开表。
+  MySQL / MariaDB 显示行数、数据长度、引擎、日期、排序规则和注释。
+- **更清晰的更新流程**：启动发现新版本时询问是否更新，下载展示进度与大小，支持取消。
+- **更简洁的界面**：绿色标签选中点、无格子线的表目录、统一左对齐，启动不再显示欢迎页。
+- **Shell 体验改进**：默认进入主机管理，调整卡片空间与文字对齐。
+
+[下载 v0.1.6](https://github.com/ealink1/super-link/releases/tag/v0.1.6) ·
+[发布与验证记录](docs/releases.md)
+
+六个平台的原生构建、测试与安装包校验已通过。构建通过不等于所有真实服务和桌面环境均已验收。
+完整功能与界面对齐仍在推进，**JVM 管理连接器不在范围内**；已实现能力与剩余工作见下文。
 
 ## 运行与构建
 
@@ -68,7 +89,7 @@ python3 tools/build.py --driver sqlite --driver duckdb --skip-app
 | 范围 | 当前行为 |
 | --- | --- |
 | 连接管理 | 类型搜索 / 分类、基本 / 网络 / 外观 / 高级表单、URI、环境、分组、库范围过滤、细粒度保护、测试、保存后连接、断开 |
-| 主工作区 | 上游绿色主题和图标、单行工作标签与悬停连接 / 库提示；连接和库节点右侧显示红 / 绿 / 黄状态圆点；连接 → 数据库 → schema → 表 / 视图的惰性树；加载失败可重试；双击表打开独立数据页 |
+| 主工作区 | 上游绿色主题和图标、单行工作标签与悬停连接 / 库提示；连接节点显示连接状态圆点，未连接时隐藏，数据库节点不显示圆点；单击库打开表目录；连接 → 数据库 → schema → 表 / 视图的惰性树；加载失败可重试；双击表打开独立数据页 |
 | SQL | 原生文本编辑和显示层语法高亮、行号、查找、换行、撤销 / 重做、选中执行、Cmd/Ctrl+R、停止；连接 / 库 / schema 选择，日志 / 参数 / 结果页 |
 | 参数 | 命名参数及类型、列表绑定；传入驱动参数而非拼接 SQL；缺参数、非法数值和超限内容在执行前拒绝 |
 | 查询文档 | 自动草稿、命名已存查询、版本冲突检测；重新打开不执行；SQL 文件打开和原子导出；保留标题、库和 schema |
@@ -85,15 +106,15 @@ python3 tools/build.py --driver sqlite --driver duckdb --skip-app
 | Nacos | Namespace、配置列表 / 内容、服务 / 实例；显式发布和删除 |
 | 本地状态 | SQLite WAL（schema v2）、连接及已存查询版本冲突检查、自动草稿、脱敏历史、独立实例锁 |
 | 凭据 | “记住密码”在本机加密保存，重启自动读取；可选择仅本次运行保存 |
-| 驱动与更新 | 本机可信包导入、签名 Release 驱动安装、完整应用包更新、启动健康检查和失败回滚 |
+| 驱动与更新 | 本机可信包导入、签名 Release 驱动安装、启动检查新版、可取消的下载进度、完整应用替换、启动健康检查和失败回滚 |
 | 界面 | Fyne 原生窗口、中文字体、明暗主题；网络和存储任务在后台执行 |
-| Note | Shell 右侧独立笔记工作区；Markdown 编辑 / 预览 / 分屏、格式按钮与撤销重做，分组 / 标签 / 全文搜索、回收站与恢复、本机加密自动保存、Markdown 导入和原子导出 |
+| Note | 独立笔记工作区；Markdown 编辑 / 预览 / 分屏、格式按钮与撤销重做，分组 / 标签 / 全文搜索、回收站与恢复、本机加密自动保存、Markdown 导入和原子导出 |
 | Shell | 独立 iShell 风格工作区，与 SQL 共用日间 / 夜间主题；分组 / 标签 / 搜索 / 网格主机管理、密码 / 私钥、真实本地与 SSH PTY、多标签、基础 SFTP / Linux 监控；高级页面按阶段实施 |
 
-窗口控制按钮右侧、SQL / Shell / Note 左侧的太阳 / 月亮按钮切换整个应用的日夜模式。
+窗口右上角的主题按钮切换整个应用的日夜模式。
 三个工作区的颜色同步，设置随当前工作区保存，重启自动恢复；切换保留查询、弹窗输入和终端会话。
 
-SQL 侧边栏的绿色圆点表示应用存在已建立的数据库会话，红色表示未连接或会话已丢弃，黄色表示正在连接。保存配置或恢复草稿不会自动变绿；连接、查询、断开及重试会同步更新状态。圆点反映应用已知会话，不额外轮询服务器。
+SQL 侧边栏的绿色圆点表示应用存在已建立的数据库会话，红色表示连接失败或会话异常丢弃；尚未连接或主动断开时隐藏圆点，黄色表示正在连接。保存配置或恢复草稿不会自动变绿；连接、查询、断开及重试会同步更新状态。圆点反映应用已知会话，不额外轮询服务器。
 
 语法高亮由原生显示层实现；元数据补全、SQL 格式化和执行计划尚未完成。
 任意 SQL 查询结果保持只读；独立表数据页支持受保护编辑。结构设计目前只对
@@ -190,10 +211,17 @@ manifest.json**、对应签名、平台应用 ZIP 和原生 Agent。应用依次
 平台 / 版本、长度、SHA256、包路径，再由 Helper 等待退出后替换完整包。
 新版本健康确认失败会恢复旧应用和更新前的 SQLite 状态快照；成功后保留备份。
 
-当前开发产物 **未配置正式签名公钥，也未发布正式 Release**，在线安装功能会明确
-报告未配置或发布缺失。开发裸二进制可下载校验包但只提示手动安装；原位更新用于
-有 package marker 的应用包。Windows / Linux 安装与 macOS 签名 / 公证仍需平台实测。
-流程和维护者命令见 [发布文档](docs/releases.md)。
+**v0.1.6 已公开发布**，发行包内置更新验证公钥，可通过设置中心手动检查更新，
+也会在启动完成后自动检查。仅发现可用的新版本时弹出更新确认；自动检查无更新或失败时不弹窗。
+确认后显示下载进度与大小，下载及校验完成后询问是否替换当前应用并重启。
+
+签名应用更新清单与操作系统代码签名承担不同职责。当前 macOS 包采用 ad-hoc 代码签名，
+尚未配置 Developer ID 签名及 Apple 公证。连接局域网数据库或 SSH 主机时，需允许
+SuperLink 访问本地网络；升级后的权限延续仍需稳定的 Apple 签名身份。
+
+开发裸二进制可下载校验包但提示手动安装；原位更新用于包含 package marker 的应用包。
+六平台安装包已通过云端构建与校验，真实桌面及生产环境验收边界见
+[发布文档](docs/releases.md)。
 
 ## 自检
 
@@ -222,7 +250,8 @@ python3 tools/native-smoke.py --upgrade
 ```
 
 `make selfcheck` 提供核心检查和全部 Agent 构建、应用打包。GitHub Actions 已配置默认测试和
-三个系统的原生构建；本次没有推送代码或触发云端 Actions，因此不把 CI 配置等同于已通过。
+macOS / Windows / Linux 的 ARM64 / x64 六平台原生构建；v0.1.6 的 CI、发布构建与资产校验已通过，
+记录见 [发布文档](docs/releases.md)。
 按用户要求，自检不使用浏览器。
 
 ## 后续功能
@@ -239,6 +268,34 @@ python3 tools/native-smoke.py --upgrade
 - 更完整的协议工作台、分页、运维信息和权限适配。
 - GoNavi 配置预览式导入；完整设置中心、字体 / 快捷键持久化、插件、国际化、AI 自动执行 / MCP / Skills 与云备份。
 - Windows / Linux / macOS 两种 CPU 的真实平台验收、签名公证和生产更新验证。
+
+## 开发文档
+
+功能设计、验证记录和上游归属在此集中维护。日期文档记录当时的验收结果，
+最新发布状态以 [发布记录](docs/releases.md) 为准。
+
+<details>
+<summary>展开设计与验证资料</summary>
+
+- [实施计划及高级功能路线](docs/plans/2026-10-01-superlink-implementation-plan.md)
+- [完整功能与界面对齐设计（当前范围）](docs/plans/2026-10-01-gonavi-parity-design.md)
+- [GoNavi 实际页面、操作流程与功能对齐清单](docs/gonavi-ui-observation-2026-10-01.md)
+- [最新代码自检与未验证范围](docs/selfcheck-2026-10-02.md)
+- [内存问题定位、修复与原生对照数据](docs/memory-analysis-2026-10-02.md)
+- [第二轮内存精简与页面释放复查](docs/memory-refinement-2026-10-02.md)
+- [记住密码与免钥匙串授权自检](docs/remember-password-2026-10-02.md)
+- [SQL / Shell 独立工作区与 iShell Pro 全功能分阶段计划](docs/plans/2026-10-02-sql-shell-workspaces-design.md)
+- [Shell 首阶段功能、操作和自检边界](docs/shell-workspace-2026-10-02.md)
+- [iShell Pro 原生观察、Shell 界面重做与最新产物](docs/shell-ui-ishellpro-2026-10-02.md)
+- [SQL / Shell 共用日夜主题、标题栏切换与原生自检](docs/shared-appearance-2026-10-02.md)
+- [SuperLink 完整命名与自检](docs/superlink-namespace-2026-10-03.md)
+- [连接状态圆点与原生自检](docs/connection-status-2026-10-02.md)
+- [AI 右侧普通问答、配置方法与自检](docs/ai-chat-2026-10-03.md)
+- [界面对照验收与剩余差距](design-qa.md)
+- [构建、签名、跨平台安装包与自动 Release](docs/releases.md)
+- [上游来源与改动](UPSTREAM.md)
+
+</details>
 
 ## 许可
 

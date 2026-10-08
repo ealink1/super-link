@@ -123,7 +123,7 @@ func (w *Window) installUpdate(path, version string) {
 		dialog.ShowInformation("更新包已校验", err.Error()+"\n下载位置：\n"+path, w.Window)
 		return
 	}
-	dialog.ShowConfirm("安装并重启", "完整应用包已校验。保存草稿后退出并替换应用；旧版本会保留为备份。是否继续？", func(ok bool) {
+	dialog.ShowConfirm("安装并重启", "完整应用包已校验。保存草稿后，更新将替换当前版本并重启；失败时自动恢复旧版本。是否继续？", func(ok bool) {
 		if !ok {
 			return
 		}
