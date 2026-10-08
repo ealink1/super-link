@@ -112,7 +112,7 @@ func New(app fyne.App, deps Dependencies) *Window {
 func (w *Window) Show() {
 	w.Window.Show()
 	if w.stopInputMethods == nil {
-		w.stopInputMethods = startInputMethods(w.App)
+		w.stopInputMethods = startInputMethods(w.App, w.jobs.dispatch)
 	}
 	fyne.Do(w.switcher.installNative)
 }

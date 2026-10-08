@@ -14,7 +14,7 @@ type inputMethodCaret interface {
 
 // Track the focused control rather than maintaining a separate integration in
 // every form. Only geometry is read; password and other input values stay private.
-func startInputMethods(app fyne.App) func() {
+func startInputMethods(app fyne.App, dispatch func(func())) func() {
 	if !nativeInputMethodsEnabled() {
 		return func() {}
 	}
@@ -33,7 +33,7 @@ func startInputMethods(app fyne.App) func() {
 				if !pending.CompareAndSwap(false, true) {
 					continue
 				}
-				fyne.Do(func() {
+				dispatch(func() {
 					defer pending.Store(false)
 					if closed.Load() {
 						return
