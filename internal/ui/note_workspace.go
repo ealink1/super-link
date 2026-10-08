@@ -31,7 +31,7 @@ type noteWorkspace struct {
 	sidebarHeading, sidebarCount            *widget.Label
 	preview                                 *widget.RichText
 	status, count                           *widget.Label
-	saveButton, newButton                   *widget.Button
+	saveButton, newButton                   *shellAlignedButton
 	visible                                 []string
 	selected                                string
 	trash, loading, loaded, binding, saving bool

@@ -139,6 +139,11 @@ func (n *navigator) selectNode(id string) {
 	} else {
 		n.contextLabel.Show()
 	}
+	if node.kind == "database" {
+		if p, ok := n.nodeProfile(node); ok {
+			n.owner.openDatabaseTables(p, node.scope)
+		}
+	}
 }
 
 func (n *navigator) expand(id string) {

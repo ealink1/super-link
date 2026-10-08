@@ -27,7 +27,7 @@ func newShellHostCollection(s *shellWorkspace) *shellHostCollection {
 		cards := []fyne.CanvasObject{newShellHostCard(s), newShellHostCard(s), newShellHostCard(s)}
 		height := float32(260)
 		if s.listMode {
-			height = 90
+			height = 140
 		}
 		grid := shellColumns(16, cards...)
 		return shellFixed(shellRowInset(grid), 0, height)
@@ -37,7 +37,7 @@ func newShellHostCollection(s *shellWorkspace) *shellHostCollection {
 		grid.Layout.(*shellColumnsLayout).slots = h.columns
 		frame.Layout.(*shellFixedLayout).height = 260
 		if s.listMode {
-			frame.Layout.(*shellFixedLayout).height = 90
+			frame.Layout.(*shellFixedLayout).height = 140
 		}
 		for i, child := range grid.Objects {
 			card := child.(*shellHostCard)
@@ -98,7 +98,7 @@ type shellHostCard struct {
 	workspace                  *shellWorkspace
 	host                       domain.ShellHost
 	name, address, notes, tags *widget.Label
-	connect, menu              *widget.Button
+	connect, menu              *shellAlignedButton
 	content                    fyne.CanvasObject
 	bound, listMode            bool
 }

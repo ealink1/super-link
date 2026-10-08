@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 import subprocess
 
+from driver_reuse import load as load_reuse
+
 from release_platforms import LABELS, PLATFORMS, version_text
 from verify_release import verify
 
@@ -33,7 +35,7 @@ def changes(revision, previous=None):
     return groups
 
 
-def render(version, downloads, groups, previous=None, signed=False):
+def render(version, downloads, groups, previous=None, signed=False, driver_version=None):
     text = [f'# SuperLink v{version}', '', '原生数据库、SSH 与笔记工作区。请选择与你的操作系统及 CPU 对应的安装包。', '',
             '## 📦 下载', '', '| 系统 | CPU | 安装包 | 便携版 / 更新包 |', '|---|---|---|---|']
     for goos, arch in PLATFORMS:
@@ -60,7 +62,7 @@ def render(version, downloads, groups, previous=None, signed=False):
              '- **SQLite**：基础包已包含离线驱动。其他数据库驱动在驱动管理中按需安装；Windows ARM64 暂不提供 DuckDB 驱动。', '',
              '## 🔐 校验与更新', '',
              '下载后可使用 `SHA256SUMS.txt` 校验文件完整性。',
-             '[数据库驱动独立发布](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v' + version + ')，通过应用中的驱动管理按需下载。',
+             '[数据库驱动独立发布](https://github.com/ealink1/SuperLink-DriverAgents/releases/tag/v' + (driver_version or version) + ')，通过应用中的驱动管理按需下载。',
              '本次附带 Ed25519 签名更新清单，应用可验证更新与驱动下载。' if signed else
              '本次未配置正式更新签名，在线更新与驱动安装不可用；请使用本页安装包手动安装。', '']
     if previous:
@@ -81,8 +83,9 @@ def main():
     version = version_text(args.version)
     platforms = [tuple(p.split('/')) for p in args.platform] if args.platform else PLATFORMS
     downloads = verify(args.dist, version, platforms)
+    reuse = load_reuse(args.dist, version)
     args.output.write_text(render(version, downloads, changes(args.revision, args.previous), args.previous,
-                                 (args.dist / 'manifest.json.sig').is_file()))
+                                 (args.dist / 'manifest.json.sig').is_file(), reuse[0]['driver_version'] if reuse else None))
     print('Generated release notes:', args.output)
 
 

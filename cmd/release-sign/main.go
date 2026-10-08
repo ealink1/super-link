@@ -71,6 +71,14 @@ func sign(directory, version, channel, keyPath string) error {
 		return errors.New("provide a base64 64-byte Ed25519 private key")
 	}
 	defer clear(key)
+	public := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Public().(ed25519.PublicKey))
+	if expected := strings.TrimSpace(os.Getenv("SUPERLINK_RELEASE_PUBLIC_KEY")); expected != "" && public != expected {
+		return errors.New("signing key does not match the application release public key")
+	}
+	base, err := readDriverBase(directory, public, strings.TrimPrefix(version, "v"))
+	if err != nil {
+		return err
+	}
 	files, err := filepath.Glob(filepath.Join(directory, "assets-*.json"))
 	if err != nil {
 		return err
@@ -90,7 +98,16 @@ func sign(directory, version, channel, keyPath string) error {
 	if err = manifest.Validate(); err != nil {
 		return err
 	}
+	reused := 0
 	for _, asset := range manifest.Artifacts {
+		if base != nil && asset.Kind == "driver" {
+			original, err := base.Artifact("driver", asset.ID, asset.OS, asset.Arch)
+			if err != nil || original != asset {
+				return errors.New("reused driver differs from the previous signed manifest")
+			}
+			reused++
+			continue
+		}
 		input, err := os.Open(filepath.Join(directory, asset.Filename))
 		if err != nil {
 			return err
@@ -107,16 +124,23 @@ func sign(directory, version, channel, keyPath string) error {
 			return errors.New("asset version differs from manifest")
 		}
 	}
+	if base != nil {
+		expected := 0
+		for _, artifact := range base.Artifacts {
+			if artifact.Kind == "driver" {
+				expected++
+			}
+		}
+		if reused != expected {
+			return errors.New("reused driver inventory incomplete")
+		}
+	}
 	raw, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return err
 	}
 	raw = append(raw, '\n')
 	sig := base64.StdEncoding.EncodeToString(ed25519.Sign(ed25519.PrivateKey(key), raw)) + "\n"
-	public := base64.StdEncoding.EncodeToString(ed25519.PrivateKey(key).Public().(ed25519.PublicKey))
-	if expected := strings.TrimSpace(os.Getenv("SUPERLINK_RELEASE_PUBLIC_KEY")); expected != "" && public != expected {
-		return errors.New("signing key does not match the application release public key")
-	}
 	if _, err = release.Verify(raw, []byte(sig), public); err != nil {
 		return err
 	}

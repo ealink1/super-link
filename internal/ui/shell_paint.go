@@ -13,6 +13,7 @@ type shellPrimitive struct {
 	widget.BaseWidget
 	object       fyne.CanvasObject
 	fill, stroke color.Color
+	textOffset   float32
 }
 
 func shellRectangle(fill color.Color, radius float32, stroke color.Color) *shellPrimitive {
@@ -30,7 +31,7 @@ func shellRectangle(fill color.Color, radius float32, stroke color.Color) *shell
 func shellText(text string, size float32, bold bool, shade color.Color) fyne.CanvasObject {
 	label := canvas.NewText(text, resolveShellColor(shade))
 	label.TextSize, label.TextStyle.Bold = size, bold
-	p := &shellPrimitive{object: label, fill: shade}
+	p := &shellPrimitive{object: label, fill: shade, textOffset: 2}
 	p.ExtendBaseWidget(p)
 	return p
 }
@@ -41,8 +42,13 @@ func (p *shellPrimitive) CreateRenderer() fyne.WidgetRenderer {
 
 type shellPrimitiveRenderer struct{ primitive *shellPrimitive }
 
-func (r *shellPrimitiveRenderer) MinSize() fyne.Size    { return r.primitive.object.MinSize() }
-func (r *shellPrimitiveRenderer) Layout(size fyne.Size) { r.primitive.object.Resize(size) }
+func (r *shellPrimitiveRenderer) MinSize() fyne.Size { return r.primitive.object.MinSize() }
+func (r *shellPrimitiveRenderer) Layout(size fyne.Size) {
+	r.primitive.object.Resize(size)
+	if _, ok := r.primitive.object.(*canvas.Text); ok {
+		r.primitive.object.Move(fyne.NewPos(0, -r.primitive.textOffset))
+	}
+}
 func (r *shellPrimitiveRenderer) Objects() []fyne.CanvasObject {
 	return []fyne.CanvasObject{r.primitive.object}
 }

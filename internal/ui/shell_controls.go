@@ -12,8 +12,11 @@ import (
 )
 
 // Standard Fyne buttons retain focus, keyboard activation and disabled semantics.
-func shellButton(text, iconName string, primary bool, run func()) *widget.Button {
-	button := widget.NewButton(text, run)
+func shellButton(text, iconName string, primary bool, run func()) *shellAlignedButton {
+	aligned := &shellAlignedButton{}
+	aligned.ExtendBaseWidget(aligned)
+	button := &aligned.Button
+	button.Text, button.OnTapped = text, run
 	if iconName != "" {
 		resource := shellIcon(iconName, false)
 		if outline, ok := resource.(*shellOutlineIcon); ok && primary {
@@ -26,10 +29,10 @@ func shellButton(text, iconName string, primary bool, run func()) *widget.Button
 	} else {
 		button.Importance = widget.LowImportance
 	}
-	return button
+	return aligned
 }
 
-func shellOutlined(button *widget.Button) fyne.CanvasObject {
+func shellOutlined(button *shellAlignedButton) fyne.CanvasObject {
 	if button.Importance == widget.LowImportance {
 		button.Importance = widget.MediumImportance
 	}
@@ -49,11 +52,11 @@ func (t shellButtonTheme) Size(name fyne.ThemeSizeName) float32 {
 	return t.shellTheme.Size(name)
 }
 
-func shellButtonView(button *widget.Button) fyne.CanvasObject {
+func shellButtonView(button *shellAlignedButton) fyne.CanvasObject {
 	return container.NewThemeOverride(button, shellButtonTheme{shellTheme: newShellTheme()})
 }
 
-func shellTinted(button *widget.Button) fyne.CanvasObject {
+func shellTinted(button *shellAlignedButton) fyne.CanvasObject {
 	button.Importance = widget.LowImportance
 	panel := shellPanel(shellButtonView(button), shellColor(theme.ColorNameSelection), 4, 0)
 	panel.Objects[0].(*shellPrimitive).stroke = shellAccentColor
@@ -102,6 +105,7 @@ func (*shellNavRenderer) MinSize() fyne.Size { return fyne.NewSize(40, 40) }
 func (r *shellNavRenderer) Layout(size fyne.Size) {
 	r.button.background.Resize(size)
 	r.content.Layout(size)
+	alignShellButtonText(r.content, size)
 }
 func (r *shellNavRenderer) Objects() []fyne.CanvasObject {
 	return append([]fyne.CanvasObject{r.button.background}, r.content.Objects()...)
@@ -116,6 +120,7 @@ func (r *shellNavRenderer) Refresh() {
 	r.button.background.Refresh()
 	r.button.Icon = shellIcon(r.button.name, r.button.selected)
 	r.content.Refresh()
+	r.Layout(r.button.Size())
 }
 
 func shellBadge(text string) fyne.CanvasObject {

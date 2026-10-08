@@ -14,7 +14,7 @@ import (
 
 type shellMonitor struct {
 	content *fyne.Container
-	refresh *widget.Button
+	refresh *shellAlignedButton
 	status  *widget.Label
 	values  [4]*widget.Label
 	details [4]*widget.Label

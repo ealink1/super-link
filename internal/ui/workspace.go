@@ -452,6 +452,10 @@ func (s *workspace) history() {
 	})
 }
 func (w *Window) closeTab(item *container.TabItem) {
+	if page := w.databases[item]; page != nil {
+		w.closeDatabaseTables(page)
+		return
+	}
 	if designer := w.designers[item]; designer != nil {
 		w.closeDesigner(designer)
 		return

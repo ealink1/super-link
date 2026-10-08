@@ -25,8 +25,8 @@ type shellConnectDialog struct {
 	title  *widget.Label
 	hint   *widget.Label
 	busy   *widget.Activity
-	action *widget.Button
-	retry  *widget.Button
+	action *shellAlignedButton
+	retry  *shellAlignedButton
 	ended  bool
 	hidden bool
 }

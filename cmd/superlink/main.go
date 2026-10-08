@@ -38,6 +38,7 @@ func main() {
 	application.SetIcon(branding.Icon())
 	window := ui.New(application, ui.Dependencies{Profiles: services.Profiles, Engine: services.Engine, Drivers: services.Drivers, Releases: services.Releases, Root: services.Root, Version: version, Close: services.Close})
 	window.Show()
+	window.CheckUpdatesOnStartup()
 	go func() {
 		<-window.Ready()
 		if err := update.MarkHealthy(*healthFile, *healthToken, version); err != nil {

@@ -6,6 +6,8 @@ from pathlib import Path, PurePosixPath
 import re
 import zipfile
 
+from driver_reuse import load as load_reuse
+
 from release_platforms import BASE_URL, DRIVER_BASE_URL, PLATFORMS, digest, platform_drivers, version_text
 
 
@@ -75,6 +77,7 @@ def verify_zip(path, version, goos, arch):
 
 def verify(dist, version, platforms=PLATFORMS, public_key=None):
     version = version_text(version)
+    reuse = load_reuse(dist, version, public_key)
     downloads = []
     all_names = set()
     for goos, arch in platforms:
@@ -83,6 +86,8 @@ def verify(dist, version, platforms=PLATFORMS, public_key=None):
             raise ValueError('stale build metadata')
         if public_key is not None and info['releasePublicKey'] != public_key:
             raise ValueError('compiled release key mismatch')
+        if reuse and (info.get('source') != reuse[0]['source'] or info['releasePublicKey'] != reuse[0]['public_key']):
+            raise ValueError('driver reuse build source or key mismatch')
         assets = read_json(dist / f'assets-{goos}-{arch}.json')
         ids = set()
         for a in assets:
@@ -90,7 +95,14 @@ def verify(dist, version, platforms=PLATFORMS, public_key=None):
             if identity in ids:
                 raise ValueError('duplicate artifact identity')
             ids.add(identity)
-            verify_file(dist, a, version, goos, arch, all_names)
+            if reuse and a['kind'] == 'driver':
+                if a != reuse[1].get((a['id'], goos, arch)) or (a['os'], a['arch']) != (goos, arch):
+                    raise ValueError('reused driver differs from signed base')
+                if a['filename'] in all_names:
+                    raise ValueError('duplicate artifact filename')
+                all_names.add(a['filename'])
+            else:
+                verify_file(dist, a, version, goos, arch, all_names)
             if a['kind'] == 'driver' and (not a.get('revision') or a.get('protocol') != 'json-lines-v2'):
                 raise ValueError('driver metadata missing')
         expected = {('app', 'superlink')} | {('driver', d) for d in platform_drivers(goos, arch)}

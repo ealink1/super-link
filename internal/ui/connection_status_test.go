@@ -42,8 +42,8 @@ func TestConnectionIndicatorFollowsQueriesAndDisconnectWithoutExpandingTree(t *t
 	row := newTreeRow(n)
 	root := n.nodes[n.roots[0]]
 	row.bind(root)
-	if !row.status.Visible() || row.status.status != application.ConnectionDisconnected {
-		t.Fatal("saved connection is falsely shown as connected")
+	if row.status.Visible() || row.status.status != application.ConnectionDisconnected {
+		t.Fatal("unconnected saved connection displays a status dot")
 	}
 	w.jobs.run(func(ctx context.Context) (any, error) {
 		return w.Engine.Execute(ctx, p.ID, domain.Execution{Text: "SELECT 1"})
@@ -106,8 +106,8 @@ func TestConnectionIndicatorRowReuseAndThemeLayout(t *testing.T) {
 		window.Close()
 	}
 	row.bind(&navNode{kind: "database", profileID: p.ID, label: "main"})
-	if !row.status.Visible() || row.status.status != application.ConnectionConnected {
-		t.Fatal("database row does not inherit its connection status")
+	if row.status.Visible() {
+		t.Fatal("database row displays a connection status dot")
 	}
 	for _, kind := range []string{"object", "category", "schema", "message"} {
 		row.bind(&navNode{kind: kind, profileID: p.ID, label: "item"})

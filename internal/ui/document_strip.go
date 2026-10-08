@@ -63,6 +63,9 @@ func (w *Window) syncDocuments() {
 
 func (w *Window) documentLabel(item *container.TabItem) (title, subtitle string) {
 	title = item.Text
+	if page := w.databases[item]; page != nil {
+		subtitle = documentContext(page.profile, page.scope)
+	}
 	if space := w.workspaces[item]; space != nil {
 		title = "新建查询"
 		if space.title != "" && space.title != space.profile.Name {

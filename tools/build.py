@@ -24,15 +24,20 @@ def run(args, **kwargs):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--all-drivers', action='store_true')
+    parser.add_argument('--application-only', action='store_true')
     parser.add_argument('--driver', action='append', choices=DRIVERS)
     parser.add_argument('--version', default='0.1.0')
     parser.add_argument('--package', action='store_true')
+    parser.add_argument('--dist', type=Path, default=ROOT / 'dist')
+    parser.add_argument('--binary-dir', type=Path, default=ROOT / 'bin')
     parser.add_argument('--skip-app', action='store_true')
     args = parser.parse_args()
+    if args.application_only and (args.all_drivers or args.driver or args.skip_app or not args.package):
+        parser.error('--application-only requires --package and the default bundled SQLite')
     goos = subprocess.check_output(['go','env','GOOS'], cwd=ROOT, text=True).strip()
     arch = subprocess.check_output(['go','env','GOARCH'], cwd=ROOT, text=True).strip()
     suffix = '.exe' if goos == 'windows' else ''
-    binary = ROOT / 'bin'
+    binary = args.binary_dir.resolve()
     agents = binary / 'drivers'
     agents.mkdir(parents=True, exist_ok=True)
     artifacts, records = [], []
@@ -49,8 +54,8 @@ def main():
     if public_key and len(base64.b64decode(public_key,validate=True)) != 32:
         raise SystemExit('release public key must be a base64 Ed25519 32-byte key')
     release_url = f'https://github.com/ealink1/super-link/releases/download/v{version}/'
-    dist = ROOT / 'dist'
-    dist.mkdir(exist_ok=True)
+    dist = args.dist.resolve()
+    dist.mkdir(parents=True, exist_ok=True)
     for driver in chosen:
         print(f'Building {driver} agent ({goos}/{arch})', flush=True)
         output = agents / f'{driver}-driver-agent{suffix}'
@@ -67,11 +72,12 @@ def main():
         record = {'type':driver,'sha256':digest,'revision':metadata['agentRevision'],
                   'protocol':metadata['protocolSchema'],'source':'application-bundle'}
         records.append(record)
-        filename = f'{driver}-agent_{version}_{goos}_{arch}{suffix}'
-        shutil.copy2(output, dist / filename)
-        artifacts.append({'id':driver,'kind':'driver','os':goos,'arch':arch,'filename':filename,
-                          'url':DRIVER_BASE_URL+'v'+version+'/'+filename,'size':output.stat().st_size,'sha256':digest,
-                          'revision':record['revision'],'protocol':record['protocol']})
+        if not args.application_only:
+            filename = f'{driver}-agent_{version}_{goos}_{arch}{suffix}'
+            shutil.copy2(output, dist / filename)
+            artifacts.append({'id':driver,'kind':'driver','os':goos,'arch':arch,'filename':filename,
+                              'url':DRIVER_BASE_URL+'v'+version+'/'+filename,'size':output.stat().st_size,'sha256':digest,
+                              'revision':record['revision'],'protocol':record['protocol']})
     (agents / 'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':records},indent=2)+'\n')
     if not args.skip_app:
         flags = f'-s -w -X main.version={version}'
@@ -160,7 +166,7 @@ def main():
         artifacts.append({'id':'superlink','kind':'app','os':goos,'arch':arch,'filename':filename,
                           'url':release_url+filename,'size':output.stat().st_size,
                           'sha256':hashlib.sha256(output.read_bytes()).hexdigest()})
-    (dist/f'build-info-{goos}-{arch}.json').write_text(json.dumps({'version': version, 'os': goos, 'arch': arch, 'releasePublicKey': public_key}, indent=2)+'\n')
+    (dist/f'build-info-{goos}-{arch}.json').write_text(json.dumps({'version': version, 'os': goos, 'arch': arch, 'releasePublicKey': public_key, 'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()}, indent=2)+'\n')
     (dist/f'assets-{goos}-{arch}.json').write_text(json.dumps(artifacts,indent=2)+'\n')
     print(f'Built {len(chosen)} driver(s). Artifacts: {dist}',flush=True)
 

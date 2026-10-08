@@ -138,6 +138,12 @@ func (c *Client) checkManifest(ctx context.Context, tag, manifestURL, signatureU
 // Download writes a private temporary file and only returns after exact size and
 // SHA256 verification. Interrupted or invalid downloads are removed.
 func (c *Client) Download(ctx context.Context, artifact Artifact, directory string) (string, error) {
+	return c.DownloadWithProgress(ctx, artifact, directory, nil)
+}
+
+// DownloadWithProgress reports bytes written synchronously on the download worker.
+// Callbacks must return promptly; total comes from the signed manifest.
+func (c *Client) DownloadWithProgress(ctx context.Context, artifact Artifact, directory string, progress func(downloaded, total int64)) (string, error) {
 	if _, err := TrustedURL(artifact.URL); err != nil {
 		return "", err
 	}
@@ -179,7 +185,12 @@ func (c *Client) Download(ctx context.Context, artifact Artifact, directory stri
 		return "", errors.New("download exceeds declared size")
 	}
 	hash := sha256.New()
-	count, err := io.Copy(io.MultiWriter(file, hash), io.LimitReader(response.Body, artifact.Size+1))
+	writer := io.Writer(io.MultiWriter(file, hash))
+	if progress != nil {
+		progress(0, artifact.Size)
+		writer = &progressWriter{writer: writer, total: artifact.Size, report: progress}
+	}
+	count, err := io.Copy(writer, io.LimitReader(response.Body, artifact.Size+1))
 	if err != nil {
 		return "", err
 	}
@@ -198,4 +209,18 @@ func (c *Client) Download(ctx context.Context, artifact Artifact, directory stri
 	}
 	complete = true
 	return target, nil
+}
+
+// progressWriter reports successful writes without buffering the package in memory.
+type progressWriter struct {
+	writer            io.Writer
+	downloaded, total int64
+	report            func(int64, int64)
+}
+
+func (w *progressWriter) Write(data []byte) (int, error) {
+	n, err := w.writer.Write(data)
+	w.downloaded += int64(n)
+	w.report(min(w.downloaded, w.total), w.total)
+	return n, err
 }

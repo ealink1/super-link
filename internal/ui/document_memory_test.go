@@ -48,7 +48,7 @@ func TestDocumentStripReusesHeadersAndDetachesRemovedCallbacks(t *testing.T) {
 	w.tabs.Items = []*container.TabItem{second, first}
 	w.syncDocuments()
 	test.Tap(a)
-	if w.tabs.Selected() != first || a.title != "renamed" || !test.WidgetRenderer(a).(*documentTabRenderer).top.Visible() || test.WidgetRenderer(b).(*documentTabRenderer).top.Visible() {
+	if w.tabs.Selected() != first || a.title != "renamed" || !test.WidgetRenderer(a).(*documentTabRenderer).indicator.Visible() || test.WidgetRenderer(b).(*documentTabRenderer).indicator.Visible() {
 		t.Fatal("renaming, reordering or selection highlight regressed")
 	}
 	w.tabs.Remove(first)

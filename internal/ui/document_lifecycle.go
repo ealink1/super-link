@@ -49,6 +49,11 @@ func (w *Window) closeImport(i *importWorkbench) {
 }
 
 func (w *Window) removeProfileDocuments(id string) {
+	for _, page := range w.databases {
+		if page.profile.ID == id {
+			w.closeDatabaseTables(page)
+		}
+	}
 	for item, s := range w.workspaces {
 		if s.profile.ID == id {
 			s.closed = true

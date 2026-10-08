@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/ealink1/super-link/internal/application"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -31,9 +32,14 @@ func (r *treeRow) bind(node *navNode) {
 		r.status.Hide()
 		return
 	}
-	if node.kind == "connection" || node.kind == "database" {
-		r.status.setStatus(r.navigator.connectionStatuses[node.profileID])
-		r.status.Show()
+	if node.kind == "connection" {
+		status := r.navigator.connectionStatuses[node.profileID]
+		r.status.setStatus(status)
+		if status == application.ConnectionDisconnected {
+			r.status.Hide()
+		} else {
+			r.status.Show()
+		}
 	} else {
 		r.status.Hide()
 	}

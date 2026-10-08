@@ -15,13 +15,45 @@ import (
 	"github.com/ealink1/super-link/internal/infra/update"
 )
 
-func (w *Window) checkUpdates() {
-	w.status.SetText("正在检查 GitHub Release…")
+// CheckUpdatesOnStartup schedules one quiet check after workspace restoration.
+func (w *Window) CheckUpdatesOnStartup() {
+	if w.startupUpdateScheduled {
+		return
+	}
+	w.startupUpdateScheduled = true
+	w.jobs.run(func(ctx context.Context) (any, error) {
+		select {
+		case <-w.ready:
+			return nil, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}, func(_ any, err error) {
+		if err == nil {
+			w.checkUpdatesWithMode(true)
+		}
+	})
+}
+
+func (w *Window) checkUpdates() { w.checkUpdatesWithMode(false) }
+
+func (w *Window) checkUpdatesWithMode(quiet bool) {
+	if w.Releases == nil || w.updateChecking {
+		return
+	}
+	w.updateChecking = true
+	if !quiet {
+		w.status.SetText("正在检查 GitHub Release…")
+	}
 	w.jobs.run(func(ctx context.Context) (any, error) {
 		ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
 		return w.Releases.Check(ctx)
 	}, func(value any, err error) {
+		w.updateChecking = false
+		if quiet && err != nil {
+			return
+		}
 		if errors.Is(err, release.ErrNoRelease) {
 			w.status.SetText("目标仓库尚未发布公开稳定版本（草稿和预发布不参与更新）")
 			dialog.ShowInformation("检查更新", "暂无可用的公开稳定版本。Release 草稿和预发布不会用于应用更新。", w.Window)
@@ -34,12 +66,18 @@ func (w *Window) checkUpdates() {
 		}
 		manifest := value.(release.Manifest)
 		if !release.Newer(manifest.Version, w.Version) {
+			if quiet {
+				return
+			}
 			w.status.SetText("当前已是最新稳定版本")
 			dialog.ShowInformation("检查更新", "当前已是最新稳定版本。", w.Window)
 			return
 		}
 		artifact, err := manifest.Artifact("app", "superlink", runtime.GOOS, runtime.GOARCH)
 		if err != nil {
+			if quiet {
+				return
+			}
 			w.showError(err)
 			w.status.SetText("更新检查失败")
 			return
@@ -49,18 +87,7 @@ func (w *Window) checkUpdates() {
 			if !ok {
 				return
 			}
-			w.status.SetText("正在下载并校验完整应用包…")
-			w.jobs.run(func(ctx context.Context) (any, error) {
-				ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-				defer cancel()
-				return w.Releases.Download(ctx, artifact, filepath.Join(w.Root, "updates", manifest.Version))
-			}, func(value any, err error) {
-				if err != nil {
-					w.showError(err)
-					return
-				}
-				w.installUpdate(value.(string), manifest.Version)
-			})
+			w.downloadUpdate(artifact, manifest.Version)
 		}, w.Window)
 	})
 }

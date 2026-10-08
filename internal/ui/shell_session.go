@@ -26,7 +26,7 @@ type shellPane struct {
 	aux           *fyne.Container
 	filePane      *shellFiles
 	monitorPane   *shellMonitor
-	remoteActions [2]*widget.Button
+	remoteActions [2]*shellAlignedButton
 	executable    string
 	host          *domain.ShellHost
 	connection    *shellConnectDialog

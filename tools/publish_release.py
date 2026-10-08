@@ -8,6 +8,8 @@ import re
 import subprocess
 import tempfile
 
+from driver_reuse import FILES as REUSE_FILES, load as load_reuse, verify_remote
+
 from release_platforms import APP_REPO, DRIVER_REPO, PLATFORMS, digest, version_text
 from verify_release import verify
 
@@ -46,12 +48,16 @@ def upload_files(dist, version):
     if any(p.is_symlink() or not p.is_file() for p in dist.iterdir()):
         raise ValueError('linked or non-file release input')
     downloads = verify(dist, version)
+    reuse = load_reuse(dist, version)
     allowed = {d['filename'] for d in downloads}
     for goos, arch in PLATFORMS:
         metadata = [f'assets-{goos}-{arch}.json', f'downloads-{goos}-{arch}.json', f'build-info-{goos}-{arch}.json']
         allowed.update(metadata)
         for record in json.loads((dist / metadata[0]).read_text()):
-            allowed.add(record['filename'])
+            if not reuse or record['kind'] != 'driver':
+                allowed.add(record['filename'])
+    if reuse:
+        allowed.update(REUSE_FILES)
     allowed.update(['RELEASE_NOTES.md', 'SHA256SUMS.txt'])
     manifest = ['manifest.json', 'manifest.json.sig']
     if any((dist / p).exists() for p in manifest):
@@ -137,30 +143,37 @@ def main():
     if not re.fullmatch(r'[0-9a-f]{40}', args.source):
         parser.error('source must be the resolved immutable commit SHA')
     verify(args.dist, version)
+    reuse = load_reuse(args.dist, version)
+    if reuse:
+        if reuse[0]['source'] != args.source:
+            raise ValueError('reuse proof source differs from release source')
+        verify_remote(reuse)
     publish = os.environ.get('SUPERLINK_PUBLISH') == 'true'
     if publish and not (args.dist / 'manifest.json.sig').is_file():
         raise ValueError('public release requires a signed update manifest')
     # Fail before creating drafts if cross-repository authentication is absent.
-    if os.environ.get('CI') == 'true' and not os.environ.get('SUPERLINK_DRIVER_RELEASE_TOKEN'):
+    if not reuse and os.environ.get('CI') == 'true' and not os.environ.get('SUPERLINK_DRIVER_RELEASE_TOKEN'):
         raise ValueError('configure SUPERLINK_DRIVER_RELEASE_TOKEN for the driver repository')
     tag = 'v' + version
     with tempfile.TemporaryDirectory(prefix='superlink-release-', dir=args.dist.parent) as directory:
         root = Path(directory)
         app_files = stage_release(args.dist, version, APP_REPO, root / 'app')
-        driver_files = stage_release(args.dist, version, DRIVER_REPO, root / 'drivers')
-        notes = root / 'driver-notes.md'
-        notes.write_text(f'# SuperLink Driver Agents {tag}\n\n'
-                         f'供 SuperLink 按需下载的数据库驱动。\n\n'
-                         f'应用源码： https://github.com/{APP_REPO}/commit/{args.source}\n'
-                         f'版本：`{tag}`。请通过应用中的驱动管理安装。\n')
-        driver_source = driver_tag_source(tag)
-        driver_info = create_draft(DRIVER_REPO, tag, driver_source, driver_files,
-                                   notes, 'SuperLink Driver Agents ' + tag)
+        if not reuse:
+            driver_files = stage_release(args.dist, version, DRIVER_REPO, root / 'drivers')
+            notes = root / 'driver-notes.md'
+            notes.write_text(f'# SuperLink Driver Agents {tag}\n\n'
+                             f'供 SuperLink 按需下载的数据库驱动。\n\n'
+                             f'应用源码： https://github.com/{APP_REPO}/commit/{args.source}\n'
+                             f'版本：`{tag}`。请通过应用中的驱动管理安装。\n')
+            driver_source = driver_tag_source(tag)
+            driver_info = create_draft(DRIVER_REPO, tag, driver_source, driver_files,
+                                       notes, 'SuperLink Driver Agents ' + tag)
         app_info = create_draft(APP_REPO, tag, args.source, app_files,
                                 args.dist / 'RELEASE_NOTES.md', 'SuperLink ' + tag)
         # Verify both drafts first; make drivers available before exposing the app.
         if publish:
-            publish_draft(DRIVER_REPO, tag, driver_info)
+            if not reuse:
+                publish_draft(DRIVER_REPO, tag, driver_info)
             publish_draft(APP_REPO, tag, app_info)
 
 

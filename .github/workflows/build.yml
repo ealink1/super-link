@@ -12,6 +12,9 @@ on:
       version:
         required: true
         type: string
+      reuse_drivers:
+        default: false
+        type: boolean
       source_ref:
         required: true
         type: string
@@ -61,7 +64,27 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.3'
-          cache: true
+          cache: false
+      - name: Configure isolated Go cache paths
+        shell: bash
+        run: |
+          echo "GOCACHE=$RUNNER_TEMP/superlink-go-build" >> "$GITHUB_ENV"
+          echo "GOMODCACHE=$RUNNER_TEMP/superlink-go-mod" >> "$GITHUB_ENV"
+      - name: Cache Go dependencies and native compilation
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/superlink-go-build
+            ${{ runner.temp }}/superlink-go-mod
+          key: native-v1-${{ runner.os }}-${{ runner.arch }}-go1.26.3-${{ inputs.reuse_drivers && 'app' || 'full' }}-${{ hashFiles('go.mod', 'go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            native-v1-${{ runner.os }}-${{ runner.arch }}-go1.26.3-${{ inputs.reuse_drivers && 'app' || 'full' }}-${{ hashFiles('go.mod', 'go.sum') }}-
+      - name: Download signed driver base
+        if: inputs.reuse_drivers
+        uses: actions/download-artifact@v4
+        with:
+          name: driver-base
+          path: driver-base
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -84,6 +107,12 @@ jobs:
         with:
           msystem: ${{ matrix.msystem }}
           install: ${{ matrix.compiler_package }}
+      - name: Cache pinned Windows x64 compiler archive
+        if: runner.os == 'Windows' && matrix.goarch == 'amd64'
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gcc15.zip
+          key: windows-gcc15-cb2fbad6162540cdf5e1facdce08d4dac359e8cf64f7f696a99274291763b815
       - name: Configure Windows compiler and installer
         if: runner.os == 'Windows'
         shell: pwsh
@@ -99,7 +128,9 @@ jobs:
             $archive = Join-Path $env:RUNNER_TEMP "gcc15.zip"
             $destination = Join-Path $env:RUNNER_TEMP "gcc15"
             $url = "https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-14.0.0-ucrt-r7/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-14.0.0-r7.zip"
-            Invoke-WebRequest $url -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 5
+            if (-not (Test-Path $archive)) {
+              Invoke-WebRequest $url -OutFile $archive -MaximumRetryCount 3 -RetryIntervalSec 5
+            }
             $expected = "cb2fbad6162540cdf5e1facdce08d4dac359e8cf64f7f696a99274291763b815"
             if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
               throw "Pinned GCC 15 toolchain checksum mismatch"
@@ -126,9 +157,17 @@ jobs:
           python -m unittest discover -s tools -p 'test_release_*.py' -v
           go test -tags ci ./internal/ui ./internal/infra/state ./internal/infra/release ./internal/infra/drivers
           go test -tags ci,gonavi_sqlite_driver ./internal/upstream/db ./cmd/driver-agent
-      - name: Build and probe every supported driver
+      - name: Build application and required drivers
         shell: bash
-        run: python tools/build.py --all-drivers --package --version "$SUPERLINK_BUILD_VERSION"
+        env:
+          SUPERLINK_REUSE_DRIVERS: ${{ inputs.reuse_drivers || false }}
+        run: |
+          if [[ "$SUPERLINK_REUSE_DRIVERS" == 'true' ]]; then
+            python tools/build.py --application-only --package --version "$SUPERLINK_BUILD_VERSION"
+            python tools/driver_reuse.py --base driver-base --version "$SUPERLINK_BUILD_VERSION" --public-key "$SUPERLINK_RELEASE_PUBLIC_KEY"
+          else
+            python tools/build.py --all-drivers --package --version "$SUPERLINK_BUILD_VERSION"
+          fi
       - name: Verify application version
         shell: bash
         run: python tools/probe_application.py --version "$SUPERLINK_BUILD_VERSION"

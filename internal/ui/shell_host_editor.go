@@ -21,9 +21,9 @@ type shellHostEditor struct {
 	system                                                                   *widget.Select
 	keyMode                                                                  bool
 	credentials                                                              *fyne.Container
-	passwordMode, keyButton                                                  *widget.Button
+	passwordMode, keyButton                                                  *shellAlignedButton
 	hint                                                                     *widget.Label
-	save                                                                     *widget.Button
+	save                                                                     *shellAlignedButton
 	modal                                                                    *shellModal
 }
 

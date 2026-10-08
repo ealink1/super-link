@@ -4,6 +4,7 @@
 
 - Implement the accepted full feature and visual parity design in `docs/plans/2026-10-01-gonavi-parity-design.md`; this supersedes the original Alpha scope. JVM management remains excluded.
 - Do not use a browser for testing unless the user explicitly requests browser tests.
+- 每次修改完成并通过相关验证后，自动重新构建并重启项目，运行最新代码，无需用户再次要求重启。
 - Native Go/Fyne implementation; application and domain packages must not import Fyne or Wails.
 - New authored production files: target 400 lines, maximum 800. Keep functions small and scoped.
 - `internal/upstream` preserves reviewed upstream code and tests; record changes in `UPSTREAM.md`.

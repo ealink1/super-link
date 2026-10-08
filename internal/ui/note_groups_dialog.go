@@ -18,7 +18,7 @@ type noteGroupsDialog struct {
 	createName, editName *widget.Entry
 	selected             *widget.Select
 	count, feedback      *widget.Label
-	add, rename, remove  *widget.Button
+	add, rename, remove  *shellAlignedButton
 }
 
 func newNoteGroupsDialog(n *noteWorkspace) *noteGroupsDialog {

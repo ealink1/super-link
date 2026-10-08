@@ -29,7 +29,7 @@ type aiPanel struct {
 	scroll                                *container.Scroll
 	input                                 *aiInput
 	status, model                         *widget.Label
-	sendButton, settingsButton, newButton *widget.Button
+	sendButton, settingsButton, newButton *shellAlignedButton
 	answer                                *widget.RichText
 	history                               []chat.Message
 	visibleText                           []string

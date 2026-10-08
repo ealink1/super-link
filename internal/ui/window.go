@@ -52,6 +52,8 @@ type Window struct {
 	shuttingDown                bool
 	onClose                     func() error
 	ready                       chan struct{}
+	startupUpdateScheduled      bool
+	updateChecking              bool
 	pendingUpdate               *update.Request
 	sidebar                     *navigator
 	docHeader, docBody, docHost *fyne.Container
@@ -60,6 +62,7 @@ type Window struct {
 	docTooltip                  *documentTooltip
 	switcher                    *workspaceSwitcher
 	tables                      map[*container.TabItem]*tableWorkspace
+	databases                   map[*container.TabItem]*databaseTables
 	imports                     map[*container.TabItem]*importWorkbench
 	designers                   map[*container.TabItem]*tableDesigner
 	dispatch                    func(func())
@@ -81,10 +84,7 @@ func New(app fyne.App, deps Dependencies) *Window {
 	w.search.SetPlaceHolder("搜索连接 / 类型 / 分组")
 	w.search.OnChanged = func(string) { w.filter() }
 	w.list = w.connectionList()
-	welcome := widget.NewRichTextFromMarkdown("# SuperLink\n\n独立的原生 Go 数据工作台。\n\n从“新建连接”开始；双击左侧连接展开数据库和对象，双击表打开数据页。选择连接后使用“新建查询”编写 SQL。\n\n支持 36 类固定数据源与自定义 Driver / DSN。可选驱动需要先安装。\n\n表格修改先暂存，提交前确认 SQL；只读连接不会开放写入。")
-	welcome.Wrapping = fyne.TextWrapWord
-	item := container.NewTabItem("欢迎", container.NewVScroll(welcome))
-	w.tabs.Append(item)
+
 	w.buildShell()
 	w.Window.Resize(fyne.NewSize(1320, 860))
 	w.Window.SetMaster()
@@ -263,6 +263,11 @@ func (w *Window) deleteSelected() {
 	}, w.Window)
 }
 func (w *Window) cancelProfile(id string) {
+	for _, page := range w.databases {
+		if page.profile.ID == id && page.cancel != nil {
+			page.cancel()
+		}
+	}
 	for _, space := range w.workspaces {
 		if space.profile.ID == id && space.cancel != nil {
 			space.cancel()

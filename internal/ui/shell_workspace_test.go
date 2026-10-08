@@ -77,7 +77,7 @@ func TestSQLShellSwitchPreservesSeparateState(t *testing.T) {
 			t.Fatal("Shell state replaced")
 		}
 	}
-	if len(w.tabs.Items) != 1 || len(w.workspaces) != 0 || len(shell.tabs.Items) != 0 {
+	if len(w.tabs.Items) != 0 || len(w.workspaces) != 0 || len(shell.tabs.Items) != 0 {
 		t.Fatal("switching started sessions or SQL")
 	}
 }

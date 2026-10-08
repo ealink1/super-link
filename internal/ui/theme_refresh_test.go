@@ -28,7 +28,7 @@ func TestCustomTabsAndGridHeadersRefreshThemeColors(t *testing.T) {
 	app.Settings().SetTheme(Theme{})
 	renderer.Refresh()
 	test.WidgetRenderer(header).Refresh()
-	if header.name.Color != theme.ForegroundColor() || renderer.top.FillColor != (Theme{}).Color(theme.ColorNamePrimary, theme.VariantLight) {
+	if header.name.Color != theme.ForegroundColor() || renderer.indicator.FillColor != documentSelectedGreen {
 		t.Fatal("switching back did not restore light theme")
 	}
 }

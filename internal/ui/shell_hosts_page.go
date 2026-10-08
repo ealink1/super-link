@@ -16,7 +16,9 @@ func (s *shellWorkspace) buildHostsPage() fyne.CanvasObject {
 	privacy := shellButton("隐私模式", "eye-off", false, func() { s.privacy = !s.privacy; s.hostList.Refresh() })
 	privacy.Importance = widget.LowImportance
 	tools := shellHBox(shellOutlined(privacy), shellFixed(layout.NewSpacer(), 12, 0), shellButtonView(newHost))
-	heading := shellHBox(shellImage("server", true, 24), shellFixed(layout.NewSpacer(), 8, 0), shellText("主机管理", 14, true, shellTextColor))
+	title := shellText("主机管理", 14, true, shellTextColor).(*shellPrimitive)
+	title.textOffset = 6
+	heading := shellHBox(shellImage("server", true, 24), shellFixed(layout.NewSpacer(), 8, 0), title)
 	header := shellPanel(shellFixed(shellBorder(nil, nil, heading, tools, layout.NewSpacer()), 0, 32), shellPanelColor, 0, 12)
 	grid := shellButton("", "layout-grid", false, func() { s.listMode = false; s.hostList.Refresh() })
 	list := shellButton("", "list", false, func() { s.listMode = true; s.hostList.Refresh() })

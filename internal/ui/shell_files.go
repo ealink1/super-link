@@ -28,7 +28,7 @@ type shellFiles struct {
 	status       *widget.Label
 	content      *fyne.Container
 	cancel       context.CancelFunc
-	cancelButton *widget.Button
+	cancelButton *shellAlignedButton
 }
 
 func (p *shellPane) showFiles() {

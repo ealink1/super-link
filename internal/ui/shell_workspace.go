@@ -57,7 +57,7 @@ func newShellWorkspace(w *Window) *shellWorkspace {
 	s.hostList = newShellHostCollection(s)
 	s.loadSettings()
 	s.content = container.NewThemeOverride(container.NewStack(shellRectangle(shellBackground, 0, nil), shellBorder(nil, nil, s.buildNavigation(), nil, s.body)), newShellTheme())
-	s.showTerminals()
+	s.showHosts()
 	s.reloadHosts()
 	return s
 }

@@ -44,7 +44,7 @@ func (s *shellWorkspace) showSettings() {
 	fontSize := widget.NewSelect([]string{"12", "13", "14", "15", "16", "18", "20"}, nil)
 	fontSize.SetSelected(strconv.Itoa(s.settings.FontSize))
 	hint := widget.NewLabel("")
-	var save *widget.Button
+	var save *shellAlignedButton
 	save = shellButton("保存设置", "check", true, func() {
 		font, _ := strconv.Atoi(fontSize.Selected)
 		next := shellSettings{DefaultShell: defaultShell.Selected, FontSize: font}

@@ -4,14 +4,13 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
-	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 )
 
 func (p *shellPane) buildSessionContent() fyne.CanvasObject {
 	p.indicator = newConnectionDot()
 	p.indicator.status = application.ConnectionConnecting
-	p.remoteActions = [2]*widget.Button{
+	p.remoteActions = [2]*shellAlignedButton{
 		shellButton("SFTP", "folder", false, p.showFiles),
 		shellButton("监控", "monitor", false, p.showMonitor),
 	}
