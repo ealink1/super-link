@@ -39,10 +39,13 @@ func shellOutlined(button *shellAlignedButton) fyne.CanvasObject {
 	return shellPanel(shellButtonView(button), color.Transparent, 4, 0)
 }
 
-type shellButtonTheme struct{ shellTheme }
+type shellButtonTheme struct {
+	shellTheme
+	bold bool
+}
 
 func (t shellButtonTheme) Font(style fyne.TextStyle) fyne.Resource {
-	style.Bold = false
+	style.Bold = t.bold
 	return t.shellTheme.Font(style)
 }
 func (t shellButtonTheme) Size(name fyne.ThemeSizeName) float32 {
@@ -53,7 +56,7 @@ func (t shellButtonTheme) Size(name fyne.ThemeSizeName) float32 {
 }
 
 func shellButtonView(button *shellAlignedButton) fyne.CanvasObject {
-	return container.NewThemeOverride(button, shellButtonTheme{shellTheme: newShellTheme()})
+	return container.NewThemeOverride(button, shellButtonTheme{shellTheme: newShellTheme(), bold: button.bold})
 }
 
 func shellTinted(button *shellAlignedButton) fyne.CanvasObject {

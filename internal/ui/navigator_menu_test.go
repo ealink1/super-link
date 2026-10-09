@@ -64,3 +64,57 @@ func TestCreateDatabaseMenuUsesClickedProfileAndReadOnlyPolicy(t *testing.T) {
 		}
 	}
 }
+
+func TestTableGroupTransferActionsOpenTablePicker(t *testing.T) {
+	w, p := parityWindow(t)
+	node := &navNode{id: p.ID + "/main/table", kind: "category", profileID: p.ID, scope: "main"}
+	menu := w.sidebar.nodeMenu(node)
+	for _, item := range menu.Items {
+		if item.Label == "导出数据" {
+			t.Fatal("table group still exposes export")
+		}
+	}
+	for _, label := range []string{"导入数据"} {
+		var action func()
+		for _, item := range menu.Items {
+			if item.Label == label {
+				action = item.Action
+			}
+		}
+		if action == nil {
+			t.Fatal("missing group transfer action", label)
+		}
+		before := len(w.Window.Canvas().Overlays().List())
+		action()
+		waitUI(t, w)
+		if len(w.Window.Canvas().Overlays().List()) <= before {
+			t.Fatal("transfer action did not open table picker", label)
+		}
+	}
+}
+
+func TestConnectionMenuDoesNotOfferCreateTable(t *testing.T) {
+	w, p := parityWindow(t)
+	menu := w.sidebar.nodeMenu(&navNode{id: p.ID, kind: "connection", profileID: p.ID})
+	for _, item := range menu.Items {
+		if item.Label == "新建表" {
+			t.Fatal("connection menu exposes table creation without a database target")
+		}
+	}
+}
+
+func TestDatabaseNodeExportEntry(t *testing.T) {
+	w, p := parityWindow(t)
+	for _, kind := range []string{"database", "connection", "category"} {
+		menu := w.sidebar.nodeMenu(&navNode{id: p.ID + "/table", kind: kind, profileID: p.ID, scope: "main"})
+		found := false
+		for _, item := range menu.Items {
+			if item.Label == "导出全部表结构 · SQL" || item.Label == "备份全部表 · 结构 + 数据 SQL" {
+				found = item.Action != nil && !item.Disabled
+			}
+		}
+		if found != (kind == "database") {
+			t.Fatal("database export placed on wrong node", kind)
+		}
+	}
+}

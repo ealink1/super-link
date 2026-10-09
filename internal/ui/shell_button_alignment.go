@@ -7,7 +7,10 @@ import (
 
 // Keep Fyne button interaction while compensating for the desktop font's
 // line-box whitespace relative to the adjacent icon.
-type shellAlignedButton struct{ widget.Button }
+type shellAlignedButton struct {
+	widget.Button
+	bold bool
+}
 
 func (b *shellAlignedButton) CreateRenderer() fyne.WidgetRenderer {
 	return &shellAlignedButtonRenderer{button: b, content: b.Button.CreateRenderer()}

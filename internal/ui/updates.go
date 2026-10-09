@@ -83,12 +83,9 @@ func (w *Window) checkUpdatesWithMode(quiet bool) {
 			return
 		}
 		w.status.SetText("发现新版本 " + manifest.Version)
-		dialog.ShowConfirm("发现新版本", fmt.Sprintf("%s → %s\n签名清单验证通过。下载完整应用包（含配套驱动），大小 %.1f MiB？", w.Version, manifest.Version, float64(artifact.Size)/(1<<20)), func(ok bool) {
-			if !ok {
-				return
-			}
+		w.showUpdateConfirm(fmt.Sprintf("%s → %s\n签名清单验证通过。下载完整应用包（含配套驱动），大小 %.1f MiB？", w.Version, manifest.Version, float64(artifact.Size)/(1<<20)), func() {
 			w.downloadUpdate(artifact, manifest.Version)
-		}, w.Window)
+		})
 	})
 }
 

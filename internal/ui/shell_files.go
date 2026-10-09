@@ -20,6 +20,7 @@ type shellFiles struct {
 	pane           *shellPane
 	remote         *transport.Remote
 	directory      *widget.Entry
+	absolutePath   *widget.Label
 	list           *widget.List
 	search         *widget.Entry
 	shown          []int
@@ -65,7 +66,12 @@ func (f *shellFiles) refresh() {
 	f.pane.workspace.owner.jobs.run(func(context.Context) (any, error) {
 		ctx, cancel := context.WithTimeout(f.pane.ctx, 30*time.Second)
 		defer cancel()
-		return f.remote.Files(ctx, directory)
+		absolute, err := f.remote.AbsolutePath(ctx, directory)
+		if err != nil {
+			return nil, err
+		}
+		files, err := f.remote.Files(ctx, absolute)
+		return shellDirectoryResult{path: absolute, files: files}, err
 	}, func(value any, err error) {
 		f.busy = false
 		if f.pane.closed {
@@ -75,7 +81,10 @@ func (f *shellFiles) refresh() {
 			f.status.SetText(err.Error())
 			return
 		}
-		f.files = value.([]transport.File)
+		result := value.(shellDirectoryResult)
+		f.files = result.files
+		f.directory.SetText(result.path)
+		f.absolutePath.SetText(result.path)
 		sort.Slice(f.files, func(i, j int) bool {
 			a, b := f.files[i], f.files[j]
 			if a.Directory != b.Directory {
@@ -85,11 +94,17 @@ func (f *shellFiles) refresh() {
 		})
 		f.filterFiles()
 		if f.pane.monitorPane != nil {
-			f.pane.monitorPane.setDirectorySummary(directory, f.files)
+			f.pane.monitorPane.setDirectorySummary(result.path, f.files)
 		}
 		f.status.SetText(fmt.Sprintf("%d 项", len(f.files)))
 	})
 }
+
+type shellDirectoryResult struct {
+	path  string
+	files []transport.File
+}
+
 func (f *shellFiles) enter() {
 	if f.selected >= 0 && f.selected < len(f.files) && f.files[f.selected].Directory {
 		f.directory.SetText(path.Join(f.directory.Text, f.files[f.selected].Name))

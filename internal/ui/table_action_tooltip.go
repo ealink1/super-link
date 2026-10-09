@@ -6,6 +6,8 @@ import (
 )
 
 var tableActionHints = map[string]string{
+	"sort-asc":     "正序排序\n选择字段，按升序读取整张表并返回第一页。保留当前筛选条件。",
+	"sort-desc":    "倒序排序\n选择字段，按降序读取整张表并返回第一页。保留当前筛选条件。",
 	"refresh":      "刷新数据\n重新读取当前页及表信息；有未提交修改时先确认处理方式。",
 	"filter":       "筛选与排序\n展开或收起条件面板，可按字段、手动只读条件和排序限制读取范围。",
 	"add-row":      "新增行\n添加一行待提交数据，填写后通过保存按钮提交。",
@@ -29,6 +31,12 @@ type tableActionButton struct {
 func (w *Window) tableAction(name string, run func()) *tableActionButton {
 	button := &tableActionButton{hint: tableActionHints[name], tooltip: w.docTooltip}
 	button.Text, button.Icon, button.OnTapped, button.Importance = "", icon(name), run, widget.LowImportance
+	switch name {
+	case "sort-asc":
+		button.Icon = headerOutlineIcon(name, `<path d="M6 20V4m-4 4 4-4 4 4M14 6h6M14 12h4M14 18h2"/>`)
+	case "sort-desc":
+		button.Icon = headerOutlineIcon(name, `<path d="M6 4v16m-4-4 4 4 4-4M14 6h2M14 12h4M14 18h6"/>`)
+	}
 	button.ExtendBaseWidget(button)
 	return button
 }

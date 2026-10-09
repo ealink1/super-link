@@ -23,6 +23,8 @@ func (t *tableWorkspace) tableGrid() fyne.CanvasObject {
 		}
 		return t.edits[row].Kind
 	}}
+	model.sortColumn = t.applyQuickSort
+	model.sorts = t.request.Sorts
 	model.copyValue = t.owner.Window.Clipboard().SetContent
 	model.current = func() bool { return t.grid == grid && !t.closed && !t.busy }
 	model.pending = t.updateEditStatus

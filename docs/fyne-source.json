@@ -2150,7 +2150,7 @@
     "window.go": "bf35fb7a73b35ff3a5e81c2f7e76e18d35203a31e182d1ad92e9b5dc66da6688"
   },
   "reviewed_files": {
-    "internal/painter/font.go": "99527a871771e28450c45dd90aff165b716c5cd257acc01291cdf65fa13e17f7",
+    "internal/painter/font.go": "ee8e6b48f460af4eacf5ce2d476486122f914190d195a1205f6b3d634d466114",
     "internal/painter/parsed_font.go": "96a0bfc4740c74c8736de430ff7f5a919043828a09cb6eb12b57b477affd5de1",
     "internal/painter/parsed_font_test.go": "eab0b074bf262afaa1fac220f89a3ae6c880e6b788b03f4c431b2d5d44a6ac79",
     "container/theme.go": "d19e8cf6eb0c299e5b66fc88790a533911699d69117e6b9add95360dffdde90e",
@@ -2158,7 +2158,9 @@
     "internal/cache/theme.go": "4f2a0f90a0f96064df6c91c0dccca59c83282adc81f125ef44d8a2a793dee332",
     "internal/painter/fallback_memory_test.go": "05881efe8481055debaca9729b467a5328540472f7f2518ff45443eeaec21c20",
     "widget/entry_ime.go": "8b0ab6973b97e0d7ababc170dbdec65955a46eee39ec15a466bbdec12011af03",
-    "widget/list.go": "1f4afd75fbe6f696200295d0bc031bcf9445fa3cfcf2d4e72b6c584411be4bd3"
+    "widget/list.go": "1f4afd75fbe6f696200295d0bc031bcf9445fa3cfcf2d4e72b6c584411be4bd3",
+    "internal/painter/synthetic_italic.go": "db6a25255b5c078e83245ab933d4e2844d02ff06d6a361fdf72a69534416f21d",
+    "internal/painter/synthetic_italic_test.go": "9e2e87b2b82bc76dc25a49de5b027ad0cbc134105e89d557e660f44a23107435"
   },
-  "patch_sha256": "2d43980965859cde8aa3f8c9e9d7798c9f39c6900e7332ce1f8cacc51f414e87"
+  "patch_sha256": "686f4e950b903699144d62071c42dcb537f31a974e921935f23980ee8fb04ed5"
 }

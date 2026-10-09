@@ -48,6 +48,13 @@ func newShellFilesView(f *shellFiles) *fyne.Container {
 	f.directory.OnSubmitted = func(string) { f.refresh() }
 	up := shellButtonView(shellButton("上级", "", false, func() { f.directory.SetText(path.Join(f.directory.Text, "..")); f.refresh() }))
 	directory := shellFixed(shellBorder(nil, nil, up, shellButtonView(shellButton("进入", "folder", false, f.enter)), f.directory), 0, 30)
+	f.absolutePath = widget.NewLabel("—")
+	if path.IsAbs(f.directory.Text) {
+		f.absolutePath.SetText(path.Clean(f.directory.Text))
+	}
+	f.absolutePath.Wrapping = fyne.TextWrapBreak
+	f.absolutePath.TextStyle.Monospace = true
+	currentPath := shellBorder(nil, nil, shellText("当前绝对路径", 11, false, shellMutedColor), nil, shellLabel(f.absolutePath, 11))
 	actions := shellHBox(shellButtonView(shellButton("刷新", "refresh-cw", false, f.refresh)), shellFixed(layout.NewSpacer(), 8, 0), shellButtonView(shellButton("上传", "", false, f.upload)), shellFixed(layout.NewSpacer(), 8, 0), shellButtonView(shellButton("下载", "", false, f.download)))
 	f.cancelButton = shellButton("", "x", false, func() {
 		if f.cancel != nil {
@@ -62,7 +69,7 @@ func newShellFilesView(f *shellFiles) *fyne.Container {
 	headings.size.SetText("大小")
 	headings.modified.SetText("时间")
 	headings.icon.Hide()
-	header := shellVBox(directory, shellFixed(layout.NewSpacer(), 0, 8), actions, shellFixed(layout.NewSpacer(), 0, 8), f.search, shellFixed(layout.NewSpacer(), 0, 8), headings, shellLine())
+	header := shellVBox(directory, currentPath, shellFixed(layout.NewSpacer(), 0, 8), actions, shellFixed(layout.NewSpacer(), 0, 8), f.search, shellFixed(layout.NewSpacer(), 0, 8), headings, shellLine())
 	f.progress = widget.NewProgressBar()
 	f.progress.TextFormatter = func() string { return "" }
 	f.transferLabel = widget.NewLabel("")

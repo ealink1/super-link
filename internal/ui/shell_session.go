@@ -13,25 +13,28 @@ import (
 )
 
 type shellPane struct {
-	workspace     *shellWorkspace
-	item          *container.TabItem
-	terminal      *terminalSurface
-	status        *widget.Label
-	ctx           context.Context
-	cancel        context.CancelFunc
-	input         chan []byte
-	sizes         chan [2]int
-	session       transport.Session
-	closed, ended bool
-	aux           *fyne.Container
-	filePane      *shellFiles
-	monitorPane   *shellMonitor
-	remoteActions [2]*shellAlignedButton
-	executable    string
-	host          *domain.ShellHost
-	connection    *shellConnectDialog
-	indicator     *connectionDot
-	auxKind       string
+	workspace        *shellWorkspace
+	item             *container.TabItem
+	terminal         *terminalSurface
+	status           *widget.Label
+	ctx              context.Context
+	cancel           context.CancelFunc
+	input            chan []byte
+	sizes            chan [2]int
+	session          transport.Session
+	closed, ended    bool
+	aux              *fyne.Container
+	filePane         *shellFiles
+	monitorPane      *shellMonitor
+	remoteActions    [1]*shellAlignedButton
+	executable       string
+	host             *domain.ShellHost
+	connection       *shellConnectDialog
+	indicator        *connectionDot
+	auxKind          string
+	collapsedAuxKind string
+	auxHandle        *fyne.Container
+	auxExpand        *shellAlignedButton
 }
 
 func (s *shellWorkspace) newPane(name string) *shellPane {

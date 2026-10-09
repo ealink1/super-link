@@ -146,3 +146,7 @@ The integration now covers all focused inputs, including inherited Entry control
 ### Host collection row theme scope (2026-10-09)
 
 The reviewed Fyne List adaptation applies the list theme scope to virtual row wrappers, including pooled rows. Previously only row content inherited that scope, leaving the wrapper selection and hover background in the application theme. This permits the host grid to suppress row-wide highlights while retaining independent card and button feedback. The application regression test checks card hover, row selection/focus, empty slots and recycled card state. The pinned manifest and exact patch include `widget/list.go`.
+
+### Synthetic italic fallback rendering (2026-10-09)
+
+The reviewed Fyne painter now shears rasterized upright fallback faces when italic text is requested, including CJK normal and bold fonts. Real italic faces retain their original outlines. The temporary surface is scoped to one draw and bounded by the destination image; shaping advances and caret geometry remain unchanged. Pixel regressions cover Chinese regular/bold fallback, unchanged advances, and avoiding double slant on real italic faces. The manifest and exact patch include the painter changes and tests.

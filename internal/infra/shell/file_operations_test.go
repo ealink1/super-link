@@ -60,3 +60,29 @@ func TestSFTPFileOperationsProtectTargets(t *testing.T) {
 		t.Fatal(files, err)
 	}
 }
+
+func TestSFTPAbsolutePath(t *testing.T) {
+	fixture := newSSHFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	remote, err := OpenSSH(ctx, fixture.host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer remote.Close()
+	for input, want := range map[string]string{".": "/", "ott": "/ott", "/ott/../client": "/client"} {
+		got, err := remote.AbsolutePath(ctx, input)
+		if err != nil || got != want {
+			t.Fatalf("resolve %q: got %q, want %q, err %v", input, got, want, err)
+		}
+	}
+	for _, input := range []string{"", "bad\x00path"} {
+		if _, err := remote.AbsolutePath(ctx, input); err == nil {
+			t.Fatalf("accepted invalid path %q", input)
+		}
+	}
+	cancel()
+	if _, err := remote.AbsolutePath(ctx, "."); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancellation ignored: %v", err)
+	}
+}

@@ -31,16 +31,26 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 		if node.kind == "connection" {
 			menu.Items = append(menu.Items[:1], append([]*fyne.MenuItem{n.createDatabaseItem(node)}, menu.Items[1:]...)...)
 		}
-		if node.kind == "database" || node.kind == "schema" || node.kind == "category" && strings.HasSuffix(node.id, "/table") || node.kind == "connection" {
+		if node.kind == "database" || node.kind == "schema" || node.kind == "category" && strings.HasSuffix(node.id, "/table") {
 			index := 1
-			if node.kind == "connection" {
-				index = 2
-			}
 			menu.Items = append(menu.Items[:index], append([]*fyne.MenuItem{n.createTableItem(node)}, menu.Items[index:]...)...)
+		}
+		if node.kind == "category" && strings.HasSuffix(node.id, "/table") {
+			menu.Items = append(menu.Items, fyne.NewMenuItem("导入数据", func() { n.tableTransfer(node, true) }))
+		}
+		if node.kind == "database" {
+			menu.Items = append(menu.Items, fyne.NewMenuItem("导出全部表结构 · SQL", func() { n.exportDatabase(node, false) }), fyne.NewMenuItem("备份全部表 · 结构 + 数据 SQL", func() { n.exportDatabase(node, true) }))
 		}
 		return menu
 	}
-	menu := fyne.NewMenu("对象", fyne.NewMenuItem("查看数据", func() { n.openObject(node) }), query, fyne.NewMenuItem("复制名称", func() { n.owner.Window.Clipboard().SetContent(node.object.Name) }), refresh)
+	return n.objectMenu(node, func() { n.selected = node.id; n.refresh() })
+}
+
+// objectMenu is shared by the navigator tree and database table list.
+func (n *navigator) objectMenu(node *navNode, refreshAction func()) *fyne.Menu {
+	query := fyne.NewMenuItem("新建查询", func() { n.queryForNode(node) })
+	refresh := fyne.NewMenuItem("刷新", refreshAction)
+	menu := fyne.NewMenu("对象", fyne.NewMenuItem("查看数据", func() { n.openObject(node) }), query, fyne.NewMenuItem("复制名称", func() { fyne.CurrentApp().Clipboard().SetContent(node.object.Name) }), refresh)
 	p, ok := n.nodeProfile(node)
 	if !ok {
 		return menu
@@ -60,7 +70,7 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 	})}, menu.Items[1:]...)...)
 	menu.Items = append(menu.Items, fyne.NewMenuItem("复制结构", func() {
 		n.withObjectInfo(node, func(_ domain.Profile, _ domain.Object, info domain.TableInfo) {
-			n.owner.Window.Clipboard().SetContent(info.DDL)
+			fyne.CurrentApp().Clipboard().SetContent(info.DDL)
 		})
 	}), fyne.NewMenuItem("复制 INSERT 模板", func() {
 		n.withObjectInfo(node, func(p domain.Profile, object domain.Object, info domain.TableInfo) {
@@ -69,7 +79,7 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 				n.owner.showError(err)
 				return
 			}
-			n.owner.Window.Clipboard().SetContent(text)
+			fyne.CurrentApp().Clipboard().SetContent(text)
 		})
 	}), fyne.NewMenuItem("导出数据", func() {
 		n.withObjectInfo(node, n.exportObject)

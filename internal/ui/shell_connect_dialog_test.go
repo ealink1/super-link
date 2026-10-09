@@ -9,6 +9,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 	transport "github.com/ealink1/super-link/internal/infra/shell"
 )
@@ -96,6 +97,28 @@ func TestShellConnectionCompletionAndSidePanelGeometry(t *testing.T) {
 	p.showAuxiliary("monitor", "服务器监控", m.content)
 	if p.aux.Visible() {
 		t.Fatal("second monitor click did not collapse panel")
+	}
+	if !p.auxHandle.Visible() || p.auxKind != "" {
+		t.Fatal("collapsed panel lost its expand handle or stayed active")
+	}
+	for _, size := range []fyne.Size{fyne.NewSize(960, 640), fyne.NewSize(1320, 890)} {
+		w.Window.Resize(size)
+		body := p.item.Content.(*fyne.Container).Objects[0].(*fyne.Container)
+		handle := p.auxHandle
+		if handle.Position().X+handle.Size().Width != body.Size().Width || handle.Position().Y+handle.Size().Height/2 != body.Size().Height/2 {
+			t.Fatalf("expand handle is not centered at the right edge: %v %v, body %v", handle.Position(), handle.Size(), body.Size())
+		}
+	}
+	panel := p.aux.Objects[0]
+	test.Tap(p.auxExpand)
+	if !p.aux.Visible() || p.auxHandle.Visible() || p.auxKind != "monitor" || p.aux.Objects[0] != panel {
+		t.Fatal("expand did not restore the existing monitor panel")
+	}
+	p.showAuxiliary("files", "文件管理 · SFTP", widget.NewLabel("fixture files"))
+	p.hideAuxiliary()
+	test.Tap(p.auxExpand)
+	if p.auxKind != "files" || !p.aux.Visible() || p.auxHandle.Visible() {
+		t.Fatal("expand restored a previous panel instead of the last collapsed panel")
 	}
 	p.terminal.feed([]byte("keep / 你好"))
 	before, font := p.terminal.emulator, p.terminal.textSize

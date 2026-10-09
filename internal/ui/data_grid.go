@@ -14,6 +14,8 @@ import (
 )
 
 type gridModel struct {
+	sortColumn   func(string, bool)
+	sorts        []domain.Sort
 	editorDrafts map[widget.TableCellID]gridEditorDraft
 	canEditCell  func(int, int) bool
 	columns      []domain.Column

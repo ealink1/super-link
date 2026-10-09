@@ -28,7 +28,9 @@ func showContextMenu(menu *fyne.Menu, c fyne.Canvas, position fyne.Position) {
 			item.Icon = icon("table")
 		case "复制名称", "复制结构", "复制 INSERT 模板":
 			item.Icon = theme.ContentCopyIcon()
-		case "导出数据":
+		case "导入数据":
+			item.Icon = icon("import")
+		case "导出数据", "导出数据库", "导出全部表结构 · SQL", "备份全部表 · 结构 + 数据 SQL":
 			item.Icon = icon("export")
 		case "DDL":
 			item.Icon = icon("sql-doc")

@@ -1,6 +1,7 @@
 package painter
 
 import (
+	"image"
 	"image/color"
 	"image/draw"
 	"math"
@@ -205,6 +206,7 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
 	}
 
 	advance := float32(0)
+	var italicSurface *image.RGBA
 	walkString(f, s, float32ToFixed266(fontSize), style, &advance, scale, func(run shaping.Output, x, y float32) {
 		yPix := int(math.Ceil(float64(y)))
 		if len(run.Glyphs) == 1 && run.Glyphs[0].GlyphID == 0 {
@@ -212,6 +214,16 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
 			return
 		}
 
+		if style.Italic && needsSyntheticItalic(run) {
+			if italicSurface == nil {
+				italicSurface = image.NewRGBA(dst.Bounds())
+			} else {
+				clear(italicSurface.Pix)
+			}
+			r.DrawShapedRunAt(run, italicSurface, int(x)-offset, yPix)
+			compositeSyntheticItalic(dst, italicSurface, yPix)
+			return
+		}
 		r.DrawShapedRunAt(run, dst, int(x)-offset, yPix)
 	})
 }

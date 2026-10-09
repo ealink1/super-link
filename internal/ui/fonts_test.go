@@ -35,11 +35,13 @@ func TestDesktopFontSkipsMissingAndInvalidFiles(t *testing.T) {
 }
 
 func TestDesktopFontStyles(t *testing.T) {
-	f := desktopFontSet{theme.DefaultTextFont(), theme.DefaultTextBoldFont(), theme.DefaultTextMonospaceFont(), theme.DefaultTextBoldItalicFont()}
+	f := desktopFontSet{regular: theme.DefaultTextFont(), bold: theme.DefaultTextBoldFont(), mono: theme.DefaultTextMonospaceFont(), monoBold: theme.DefaultTextBoldFont(), italic: theme.DefaultTextItalicFont(), boldItalic: theme.DefaultTextBoldItalicFont(), monoItalic: theme.DefaultTextItalicFont(), monoBoldItalic: theme.DefaultTextBoldItalicFont()}
 	for _, c := range []struct {
 		style fyne.TextStyle
 		want  fyne.Resource
 	}{
+		{fyne.TextStyle{Italic: true}, f.italic}, {fyne.TextStyle{Bold: true, Italic: true}, f.boldItalic},
+		{fyne.TextStyle{Monospace: true, Italic: true}, f.monoItalic}, {fyne.TextStyle{Monospace: true, Bold: true, Italic: true}, f.monoBoldItalic},
 		{fyne.TextStyle{}, f.regular}, {fyne.TextStyle{Bold: true}, f.bold},
 		{fyne.TextStyle{Monospace: true}, f.mono}, {fyne.TextStyle{Monospace: true, Bold: true}, f.monoBold},
 	} {
@@ -51,7 +53,7 @@ func TestDesktopFontStyles(t *testing.T) {
 
 func TestHostDesktopFontsDecodeAndMonospaceAdvances(t *testing.T) {
 	f := desktopFonts
-	for _, resource := range []fyne.Resource{f.regular, f.bold, f.mono, f.monoBold} {
+	for _, resource := range []fyne.Resource{f.regular, f.bold, f.mono, f.monoBold, f.italic, f.boldItalic, f.monoItalic, f.monoBoldItalic} {
 		if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
 			if !filepath.IsAbs(resource.Name()) {
 				t.Fatalf("system font not found: %s", resource.Name())
@@ -95,6 +97,18 @@ func TestHostChineseSystemFallback(t *testing.T) {
 		}
 		if _, ok := face.NominalGlyph(r); !ok {
 			t.Fatalf("system fallback lacks %c", r)
+		}
+	}
+}
+
+func TestDesktopItalicFacesHaveItalicOutlines(t *testing.T) {
+	for _, resource := range []fyne.Resource{desktopFonts.italic, desktopFonts.boldItalic, desktopFonts.monoItalic, desktopFonts.monoBoldItalic} {
+		face, err := font.ParseTTF(bytes.NewReader(resource.Content()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if face.Font.Describe().Aspect.Style != font.StyleItalic {
+			t.Fatalf("italic text resolves to an upright face: %s", resource.Name())
 		}
 	}
 }

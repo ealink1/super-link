@@ -220,18 +220,10 @@
 +}
 --- a/internal/painter/font.go
 +++ b/internal/painter/font.go
-@@ -1,7 +1,6 @@
- package painter
- 
- import (
+@@ -4 +4 @@
 -	"bytes"
- 	"image/color"
- 	"image/draw"
- 	"math"
-@@ -91,11 +90,9 @@
- 
- func lookupFaces(theme, fallback fyne.Resource, additional []fyne.Resource, family string, style fyne.TextStyle) (faces *dynamicFontMap) {
- 	f1 := loadMeasureFont(theme)
++	"image"
+@@ -94,5 +94,3 @@
 -	if theme == fallback {
 -		faces = &dynamicFontMap{family: family, faces: []*font.Face{f1}}
 -	} else {
@@ -240,73 +232,52 @@
 +	faces = &dynamicFontMap{family: family, faces: []*font.Face{f1}}
 +	if theme != fallback && fallback != nil {
 +		faces.pendingFonts = append(faces.pendingFonts, fallback)
- 	}
- 
- 	aspect := font.Aspect{Style: font.StyleNormal}
-@@ -107,13 +104,14 @@
- 	}
- 
- 	for _, added := range additional {
+@@ -110,7 +108,8 @@
 -		faces.addFace(loadMeasureFont(added))
-+		if added != nil {
-+			faces.pendingFonts = append(faces.pendingFonts, added)
-+		}
- 	}
- 
+-	}
+-
 -	local := lookupLangFont(family, aspect)
 -	if local != nil {
 -		faces.addFace(local)
 -	}
++		if added != nil {
++			faces.pendingFonts = append(faces.pendingFonts, added)
++		}
++	}
++
 +	// A complete bundled face usually covers the whole UI. Load the system
 +	// locale font only when an actual rune is missing from the bundled faces.
 +	faces.pendingLocale = &aspect
- 
- 	return faces
- }
-@@ -181,7 +179,7 @@
- 		}
- 
- 		val = &FontCacheItem{Fonts: faces}
+@@ -184 +183 @@
 -		fontCache.Store(cacheID{style: style, scope: scope}, val)
 +		storeFontFace(cacheID{style: style, scope: scope}, val)
- 	}
- 
- 	return val
-@@ -189,7 +187,7 @@
- 
- // ClearFontCache is used to remove cached fonts in the case that we wish to re-load Font faces
- func ClearFontCache() {
+@@ -192 +191 @@
 -	fontCache.Clear()
 +	clearFontFaces()
- 	fontCustomCache.Clear()
- }
- 
-@@ -219,7 +217,7 @@
- }
- 
- func loadMeasureFont(data fyne.Resource) *font.Face {
+@@ -209,0 +209 @@
++	var italicSurface *image.RGBA
+@@ -216,0 +217,10 @@
++		if style.Italic && needsSyntheticItalic(run) {
++			if italicSurface == nil {
++				italicSurface = image.NewRGBA(dst.Bounds())
++			} else {
++				clear(italicSurface.Pix)
++			}
++			r.DrawShapedRunAt(run, italicSurface, int(x)-offset, yPix)
++			compositeSyntheticItalic(dst, italicSurface, yPix)
++			return
++		}
+@@ -222 +232 @@
 -	loaded, err := font.ParseTTF(bytes.NewReader(data.Content()))
 +	loaded, err := parsedFont(data.Content())
- 	if err != nil {
- 		fyne.LogError("font load error", err)
- 		return nil
-@@ -513,8 +511,10 @@
- func (n noopLogger) Printf(string, ...any) {}
- 
- type dynamicFontMap struct {
+@@ -516,2 +526,4 @@
 -	faces  []*font.Face
 -	family string
 +	faces         []*font.Face
 +	family        string
 +	pendingFonts  []fyne.Resource
 +	pendingLocale *font.Aspect
- }
- 
- func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
-@@ -523,6 +523,32 @@
- 			return f
- 		}
- 	}
+@@ -525,0 +538,26 @@
 +	// Preserve fallback priority, but avoid parsing fonts that are never used.
 +	// Resolve all pending faces once so subsequent runs use a stable font map.
 +	if len(d.pendingFonts) != 0 {
@@ -333,9 +304,6 @@
 +			}
 +		}
 +	}
- 
- 	toAdd := lookupRuneFont(r, d.family, font.Aspect{})
- 	if toAdd != nil {
 --- a/internal/painter/parsed_font.go
 +++ b/internal/painter/parsed_font.go
 @@ -0,0 +1,67 @@
@@ -563,3 +531,95 @@ index 4bc6f14e..b75cc2bd 100644
 +	li := item.(*listItem)
 +	cache.OverrideThemeMatchingScope(li, l.list)
 +	return li
+--- /dev/null
++++ b/internal/painter/synthetic_italic.go
+@@ -0,0 +1,27 @@
++package painter
++
++import (
++	"image"
++	"image/draw"
++	"math"
++
++	"github.com/go-text/typesetting/font"
++	"github.com/go-text/typesetting/shaping"
++)
++
++// Use real italic outlines when available. CJK fallback faces are frequently
++// upright only, so shear their rasterized glyphs around the shared baseline.
++// Advances and caret positions are unchanged; scratch memory is bounded by
++// the destination surface rather than the length of the source text.
++func needsSyntheticItalic(run shaping.Output) bool {
++	return run.Face != nil && run.Face.Font.Describe().Aspect.Style != font.StyleItalic
++}
++
++func compositeSyntheticItalic(dst draw.Image, source *image.RGBA, baseline int) {
++	bounds := source.Bounds()
++	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
++		shift := int(math.Round(float64(baseline-y) * 0.2))
++		row := image.Rect(bounds.Min.X+shift, y, bounds.Max.X+shift, y+1)
++		draw.Draw(dst, row, source, image.Pt(bounds.Min.X, y), draw.Over)
++	}
++}
+--- /dev/null
++++ b/internal/painter/synthetic_italic_test.go
+@@ -0,0 +1,59 @@
++package painter
++
++import (
++	"bytes"
++	"image"
++	"image/color"
++	"os"
++	"testing"
++
++	"fyne.io/fyne/v2"
++	"fyne.io/fyne/v2/theme"
++	"github.com/go-text/typesetting/font"
++	"github.com/go-text/typesetting/shaping"
++)
++
++type italicTestMap struct{ face *font.Face }
++
++func (m italicTestMap) ResolveFace(rune) *font.Face { return m.face }
++
++func TestSyntheticItalicChineseFallbackAndBold(t *testing.T) {
++	for _, name := range []string{"NaviUI-Regular.otf", "NaviUI-Bold.otf"} {
++		data, err := os.ReadFile("../../../../internal/ui/assets/" + name)
++		if err != nil {
++			t.Fatal(err)
++		}
++		face, err := font.ParseTTF(bytes.NewReader(data))
++		if err != nil {
++			t.Fatal(err)
++		}
++		for _, ch := range "中文倾斜" {
++			if _, ok := face.NominalGlyph(ch); !ok {
++				t.Fatalf("missing CJK fixture glyph %c", ch)
++			}
++		}
++		plain := image.NewRGBA(image.Rect(0, 0, 200, 80))
++		italic := image.NewRGBA(plain.Bounds())
++		fm := italicTestMap{face}
++		bold := name == "NaviUI-Bold.otf"
++		DrawString(plain, "中文倾斜", color.Black, fm, 32, 1, fyne.TextStyle{Bold: bold})
++		DrawString(italic, "中文倾斜", color.Black, fm, 32, 1, fyne.TextStyle{Bold: bold, Italic: true})
++		if bytes.Equal(plain.Pix, italic.Pix) {
++			t.Fatal("Chinese fallback remained upright")
++		}
++		uprightSize, _ := MeasureString(fm, "中文倾斜", 32, fyne.TextStyle{Bold: bold})
++		italicSize, _ := MeasureString(fm, "中文倾斜", 32, fyne.TextStyle{Bold: bold, Italic: true})
++		if uprightSize != italicSize {
++			t.Fatal("synthetic italic moved layout/caret advances")
++		}
++	}
++}
++func TestRealItalicFacesAreNotShearedAgain(t *testing.T) {
++	face, err := font.ParseTTF(bytes.NewReader(theme.DefaultTextItalicFont().Content()))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if needsSyntheticItalic(shaping.Output{Face: face}) {
++		t.Fatal("real italic gets double slant")
++	}
++}

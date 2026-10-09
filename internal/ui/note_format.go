@@ -87,6 +87,11 @@ func (n *noteWorkspace) applyNoteFormat(prefix, suffix string) {
 			end++
 		}
 	}
+	if strings.Contains(string(source[start:end]), "\n") {
+		replacement, selectedStart, selectedEnd := noteMultilineFormat(e.Text, start, end, prefix)
+		e.replaceFormatRange(0, len(source), replacement, selectedStart, selectedEnd)
+		return
+	}
 	value := string(source[start:end])
 	active := noteRangeHasStyle(e.Text, start, end, prefix)
 	mark := []rune(prefix)
@@ -124,6 +129,9 @@ func noteRangeHasStyle(source string, start, end int, mark string) bool {
 	found := false
 	for _, line := range notePresentation(source) {
 		for _, run := range line.runs {
+			if strings.TrimSpace(run.text) == "" {
+				continue
+			}
 			if run.start >= end || run.start+len([]rune(run.text)) <= start {
 				continue
 			}

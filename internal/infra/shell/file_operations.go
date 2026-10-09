@@ -15,6 +15,26 @@ func validRemoteFilePath(filename string) error {
 	return nil
 }
 
+// AbsolutePath resolves relative paths and symbolic links on the SFTP server.
+func (r *Remote) AbsolutePath(ctx context.Context, directory string) (string, error) {
+	if directory == "" || len(directory) > 4096 || strings.ContainsRune(directory, 0) {
+		return "", errors.New("远程目录路径无效")
+	}
+	client, closeClient, err := r.fileClient(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer closeClient()
+	absolute, err := client.RealPath(directory)
+	if err != nil {
+		return "", err
+	}
+	if !path.IsAbs(absolute) || len(absolute) > 4096 || strings.ContainsRune(absolute, 0) {
+		return "", errors.New("SFTP 返回的绝对路径无效")
+	}
+	return path.Clean(absolute), nil
+}
+
 // RenameFile uses the SFTP v3 rename operation, which refuses existing targets.
 func (r *Remote) RenameFile(ctx context.Context, source, destination string) error {
 	if err := validRemoteFilePath(source); err != nil {
