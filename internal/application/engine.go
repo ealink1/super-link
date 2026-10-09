@@ -204,14 +204,16 @@ func (e *Engine) Execute(ctx context.Context, id string, request domain.Executio
 		return nil, domain.ErrConflict
 	}
 	start := time.Now()
-	results, runError := s.client.Execute(ctx, request)
+	results, runError := e.executeOnSession(ctx, current, s, request)
 	elapsed := time.Since(start)
 	for i := range results {
 		results[i].Duration = elapsed
 	}
 	// Broken/cancelled transports are discarded; writes are never retried.
 	if runError != nil {
-		_ = s.client.Close()
+		if s.client != nil {
+			_ = s.client.Close()
+		}
 		s.client = nil
 		s.setConnectionStatus(ConnectionFailed)
 	}

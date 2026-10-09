@@ -32,7 +32,7 @@ func showContextMenu(menu *fyne.Menu, c fyne.Canvas, position fyne.Position) {
 			item.Icon = icon("import")
 		case "导出数据", "导出数据库", "导出全部表结构 · SQL", "备份全部表 · 结构 + 数据 SQL":
 			item.Icon = icon("export")
-		case "DDL":
+		case "DDL", "执行 SQL 文件":
 			item.Icon = icon("sql-doc")
 		}
 	}

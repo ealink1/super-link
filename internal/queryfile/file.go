@@ -4,6 +4,7 @@ package queryfile
 import (
 	"context"
 	"errors"
+	"github.com/ealink1/super-link/internal/infra/filevisibility"
 	"io"
 	"os"
 	"path/filepath"
@@ -70,6 +71,9 @@ func Save(ctx context.Context, path, text string, overwrite bool) error {
 	}
 	err = errors.Join(err, file.Close(), ctx.Err())
 	if err != nil {
+		return err
+	}
+	if err = filevisibility.Prepare(file.Name()); err != nil {
 		return err
 	}
 	if overwrite {

@@ -14,5 +14,8 @@ func (p *databaseTables) tableMenu(object domain.Object) *fyne.Menu {
 }
 
 func (p *databaseTables) showTableMenu(object domain.Object, position fyne.Position) {
+	if !p.selectedTables[object] {
+		p.selectTableRow(object, 0)
+	}
 	showContextMenu(p.tableMenu(object), p.owner.Window.Canvas(), position)
 }

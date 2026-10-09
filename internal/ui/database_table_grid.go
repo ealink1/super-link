@@ -17,8 +17,9 @@ import (
 var tableCatalogHeaders = []string{"名称", "行", "数据长度", "引擎", "创建日期", "修改日期", "排序规则", "注释"}
 
 func (p *databaseTables) buildTableGrid() *widget.Table {
+	p.catalogCells = make(map[*canvas.Rectangle]domain.Object)
 	grid := widget.NewTable(func() (int, int) { return len(p.shown), len(tableCatalogHeaders) }, func() fyne.CanvasObject {
-		row := &databaseTableRow{contextMenu: p.showTableMenu, hoverRow: p.hoverTableRow, open: func(object domain.Object) { p.owner.openTable(p.profile, object) }}
+		row := &databaseTableRow{contextMenu: p.showTableMenu, selectRow: p.selectTableRow, beginSelection: p.beginCatalogSelection, dragSelection: p.dragCatalogSelection, endSelection: p.endCatalogSelection, hoverRow: p.hoverTableRow, open: func(object domain.Object) { p.owner.openTable(p.profile, object) }}
 		row.ExtendBaseWidget(row)
 		row.Wrapping = fyne.TextTruncate
 		image := widget.NewIcon(icon("table"))
@@ -30,8 +31,12 @@ func (p *databaseTables) buildTableGrid() *widget.Table {
 		row := box.Objects[0].(*databaseTableRow)
 		image := box.Objects[1].(*widget.Icon)
 		row.object = p.shown[id.Row]
+		row.rowIndex = id.Row
+		p.catalogCells[background] = row.object
 		background.FillColor = color.Transparent
-		if p.hoveredTable == row.object.Schema+"."+row.object.Name {
+		if p.selectedTables[row.object] {
+			background.FillColor = theme.SelectionColor()
+		} else if p.hoveredTable == row.object.Schema+"."+row.object.Name {
 			background.FillColor = catalogHoverColor()
 		}
 		background.Refresh()
@@ -52,7 +57,12 @@ func (p *databaseTables) buildTableGrid() *widget.Table {
 		}
 		row.SetText(value)
 	})
-	grid.OnSelected = func(widget.TableCellID) { grid.UnselectAll() }
+	grid.OnSelected = func(id widget.TableCellID) {
+		grid.UnselectAll()
+		if id.Row >= 0 && id.Row < len(p.shown) {
+			p.selectTableRow(p.shown[id.Row], terminalDesktopModifiers())
+		}
+	}
 	grid.HideSeparators = true
 	grid.ShowHeaderRow = true
 	grid.CreateHeader = func() fyne.CanvasObject { return widget.NewLabel("") }
@@ -97,13 +107,17 @@ func catalogBytes(value any) string {
 }
 
 func (p *databaseTables) hoverTableRow(object domain.Object, inside bool) {
+	previous := p.hoveredTable
 	key := object.Schema + "." + object.Name
 	if inside {
 		p.hoveredTable = key
 	} else if p.hoveredTable == key {
 		p.hoveredTable = ""
 	}
-	p.list.Refresh()
+	if previous == p.hoveredTable {
+		return
+	}
+	p.refreshCatalogHighlights()
 }
 
 // Zero column spacing keeps the row highlight continuous between cells.

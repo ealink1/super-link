@@ -39,7 +39,7 @@ func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
 			menu.Items = append(menu.Items, fyne.NewMenuItem("导入数据", func() { n.tableTransfer(node, true) }))
 		}
 		if node.kind == "database" {
-			menu.Items = append(menu.Items, fyne.NewMenuItem("导出全部表结构 · SQL", func() { n.exportDatabase(node, false) }), fyne.NewMenuItem("备份全部表 · 结构 + 数据 SQL", func() { n.exportDatabase(node, true) }))
+			menu.Items = append(menu.Items, fyne.NewMenuItem("执行 SQL 文件", func() { n.executeSQLFile(node) }), fyne.NewMenuItem("导出全部表结构 · SQL", func() { n.exportDatabase(node, false) }), fyne.NewMenuItem("备份全部表 · 结构 + 数据 SQL", func() { n.exportDatabase(node, true) }))
 		}
 		return menu
 	}
@@ -84,6 +84,7 @@ func (n *navigator) objectMenu(node *navNode, refreshAction func()) *fyne.Menu {
 	}), fyne.NewMenuItem("导出数据", func() {
 		n.withObjectInfo(node, n.exportObject)
 	}))
+	menu.Items = append(menu.Items, n.tableMutationItems(node, p)...)
 	return menu
 }
 

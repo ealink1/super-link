@@ -20,7 +20,7 @@ func (c *databaseClient) executeArgs(ctx context.Context, e domain.Execution, bu
 		}
 		rows, err := writer.ExecContextWithArgs(ctx, e.Text, e.Args)
 		if err != nil {
-			return nil, err
+			return nil, connectionExecutionError(err)
 		}
 		return []domain.Result{{RowsAffected: rows}}, nil
 	}

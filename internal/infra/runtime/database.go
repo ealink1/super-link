@@ -194,7 +194,7 @@ func (c *databaseClient) Execute(ctx context.Context, e domain.Execution) ([]dom
 			return nil, errors.New("driver does not support cancellable writes")
 		}
 		if err != nil {
-			return nil, err
+			return nil, connectionExecutionError(err)
 		}
 		return []domain.Result{{RowsAffected: count, Messages: []string{"Statement completed. Writes are not retried automatically."}}}, nil
 	}

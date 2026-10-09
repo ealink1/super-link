@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/ealink1/super-link/internal/datafile"
 	"github.com/ealink1/super-link/internal/domain"
+	"github.com/ealink1/super-link/internal/infra/filevisibility"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
 	"io"
 	"os"
@@ -185,6 +186,9 @@ func SaveWithProgress(ctx context.Context, source Source, profile domain.Profile
 		return result, err
 	}
 	if err = file.Close(); err != nil {
+		return result, err
+	}
+	if err = filevisibility.Prepare(file.Name()); err != nil {
 		return result, err
 	}
 	// Publish only complete exports and never replace an existing destination.

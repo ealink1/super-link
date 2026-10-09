@@ -39,7 +39,7 @@ func TestDatabaseTableGridDisplaysStatistics(t *testing.T) {
 				selectedCell := page.list.CreateCell()
 				page.list.UpdateCell(widget.TableCellID{Row: 0, Col: col}, selectedCell)
 				background := selectedCell.(*fyne.Container).Objects[0].(*canvas.Rectangle)
-				if !reflect.DeepEqual(background.FillColor, catalogHoverColor()) {
+				if !reflect.DeepEqual(background.FillColor, theme.SelectionColor()) {
 					t.Fatalf("column %d missing row selection", col)
 				}
 			}

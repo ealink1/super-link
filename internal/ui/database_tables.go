@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/widget"
@@ -24,6 +25,12 @@ type databaseTables struct {
 	list           *widget.Table
 	statistics     map[string][]any
 	metadataNotice string
+	selectedTables map[domain.Object]bool
+	dragSelection  *catalogSelectionDrag
+	catalogCells   map[*canvas.Rectangle]domain.Object
+	deleteButton   *widget.Button
+	deleting       bool
+	deleteCancel   context.CancelFunc
 	hoveredTable   string
 	search         *widget.Entry
 	status         *widget.Label
@@ -47,7 +54,9 @@ func (w *Window) openDatabaseTables(p domain.Profile, scope string) *databaseTab
 	page.search.SetPlaceHolder("筛选表名 / Schema")
 	page.search.OnChanged = func(string) { page.filter() }
 	page.list = page.buildTableGrid()
-	page.item = container.NewTabItem(scope, container.NewBorder(container.NewBorder(nil, nil, container.NewHBox(widget.NewLabel(scope+" · 所有表"), action("刷新", "refresh", page.refresh)), shellFixed(page.search, 240, 32), nil), page.status, nil, nil, container.NewBorder(widget.NewSeparator(), nil, nil, nil, container.NewThemeOverride(page.list, catalogGridTheme{fyne.CurrentApp().Settings().Theme()}))))
+	page.deleteButton = page.buildDeleteButton()
+	page.updateDeleteButton()
+	page.item = container.NewTabItem(scope, container.NewBorder(container.NewBorder(nil, nil, container.NewHBox(widget.NewLabel(scope+" · 所有表"), action("刷新", "refresh", page.refresh), page.deleteButton), shellFixed(page.search, 240, 32), nil), page.status, nil, nil, container.NewBorder(widget.NewSeparator(), nil, nil, nil, container.NewThemeOverride(page.list, catalogGridTheme{fyne.CurrentApp().Settings().Theme()}))))
 	w.databases[page.item] = page
 	w.tabs.Append(page.item)
 	w.tabs.Select(page.item)
@@ -109,6 +118,7 @@ func (p *databaseTables) refresh() {
 }
 
 func (p *databaseTables) filter() {
+	p.endCatalogSelection()
 	p.shown = nil
 	query := strings.ToLower(strings.TrimSpace(p.search.Text))
 	for _, object := range p.objects {
@@ -118,12 +128,21 @@ func (p *databaseTables) filter() {
 	}
 	p.hoveredTable = ""
 	p.list.UnselectAll()
+	p.pruneTableSelection()
 	p.list.Refresh()
-	p.status.SetText(fmt.Sprintf("显示 %d / 共 %d 张表 · 双击打开表数据", len(p.shown), len(p.objects)) + p.metadataNotice)
+	p.updateTableSelectionStatus()
+}
+
+func (p *databaseTables) updateTableSelectionStatus() {
+	p.updateDeleteButton()
+	p.status.SetText(fmt.Sprintf("显示 %d / 共 %d 张表 · 双击打开表数据", len(p.shown), len(p.objects)) + p.metadataNotice + p.tableSelectionNotice())
 }
 
 func (w *Window) closeDatabaseTables(p *databaseTables) {
 	p.closed = true
+	if p.deleteCancel != nil {
+		p.deleteCancel()
+	}
 	if p.cancel != nil {
 		p.cancel()
 	}
@@ -134,15 +153,50 @@ func (w *Window) closeDatabaseTables(p *databaseTables) {
 
 type databaseTableRow struct {
 	widget.Label
-	object      domain.Object
-	open        func(domain.Object)
-	hoverRow    func(domain.Object, bool)
-	contextMenu func(domain.Object, fyne.Position)
+	object               domain.Object
+	open                 func(domain.Object)
+	hoverRow             func(domain.Object, bool)
+	contextMenu          func(domain.Object, fyne.Position)
+	selectRow            func(domain.Object, fyne.KeyModifier)
+	beginSelection       func(domain.Object, fyne.KeyModifier)
+	dragSelection        func(int)
+	endSelection         func()
+	rowIndex             int
+	pressRowIndex        int
+	pressY, pressOffsetY float32
+	modifier             fyne.KeyModifier
+	mousePressed         bool
 }
 
 func (r *databaseTableRow) DoubleTapped(*fyne.PointEvent) { r.open(r.object) }
 
-func (r *databaseTableRow) Tapped(*fyne.PointEvent)        {}
+func (r *databaseTableRow) Tapped(*fyne.PointEvent) {
+	if r.mousePressed {
+		r.mousePressed = false
+		return
+	}
+	if r.selectRow != nil {
+		r.selectRow(r.object, terminalDesktopModifiers())
+	}
+}
+func (r *databaseTableRow) MouseDown(event *desktop.MouseEvent) {
+	if event.Button == desktop.MouseButtonPrimary {
+		r.modifier = event.Modifier
+		r.mousePressed = true
+		r.pressRowIndex = r.rowIndex
+		r.pressY, r.pressOffsetY = event.AbsolutePosition.Y, event.Position.Y
+		if r.beginSelection != nil {
+			r.beginSelection(r.object, event.Modifier)
+		} else if r.selectRow != nil {
+			r.selectRow(r.object, event.Modifier)
+		}
+	}
+}
+func (r *databaseTableRow) MouseUp(*desktop.MouseEvent) {
+	if r.endSelection != nil {
+		r.endSelection()
+	}
+}
 func (r *databaseTableRow) MouseIn(*desktop.MouseEvent)    { r.hoverRow(r.object, true) }
 func (r *databaseTableRow) MouseMoved(*desktop.MouseEvent) {}
 func (r *databaseTableRow) MouseOut()                      { r.hoverRow(r.object, false) }

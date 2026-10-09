@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ealink1/super-link/internal/infra/filevisibility"
 	"os"
 	"path/filepath"
 	"strings"
@@ -52,6 +53,9 @@ func SaveAtomic(ctx context.Context, path string, overwrite bool, options Option
 	}
 	if err != nil {
 		return encoder.Count, fmt.Errorf("export failed; destination preserved: %w", err)
+	}
+	if err = filevisibility.Prepare(file.Name()); err != nil {
+		return encoder.Count, err
 	}
 	if overwrite {
 		err = os.Rename(file.Name(), path)

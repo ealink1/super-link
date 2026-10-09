@@ -97,7 +97,7 @@ func validateStructureScript(request domain.Execution, dialect string) error {
 			start = true
 			continue
 		}
-		if start && word != "CREATE" && word != "ALTER" && word != "DROP" && word != "COMMENT" && word != "RENAME" {
+		if start && word != "CREATE" && word != "ALTER" && word != "DROP" && word != "COMMENT" && word != "RENAME" && word != "TRUNCATE" {
 			return errors.New("structure action accepts DDL statements only")
 		}
 		start = false
