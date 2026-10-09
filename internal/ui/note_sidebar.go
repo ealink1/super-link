@@ -164,6 +164,15 @@ func (n *noteWorkspace) filter() {
 	}
 	n.treeRefreshing = false
 	n.sidebarHeading.SetText("笔记分组")
+	if n.trashButton != nil {
+		if n.trash {
+			n.trashButton.SetText("返回笔记")
+			n.trashButton.SetIcon(shellIcon("arrow-left", false))
+		} else {
+			n.trashButton.SetText("回收站")
+			n.trashButton.SetIcon(shellIcon("trash-2", false))
+		}
+	}
 	if n.trash {
 		n.sidebarHeading.SetText("回收站")
 	}

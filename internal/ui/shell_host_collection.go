@@ -2,11 +2,14 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -16,6 +19,7 @@ type shellHostCollection struct {
 	widget.BaseWidget
 	workspace *shellWorkspace
 	list      *widget.List
+	view      fyne.CanvasObject
 	empty     fyne.CanvasObject
 	columns   int
 }
@@ -30,9 +34,9 @@ func newShellHostCollection(s *shellWorkspace) *shellHostCollection {
 			height = 140
 		}
 		grid := shellColumns(16, cards...)
-		return shellFixed(shellRowInset(grid), 0, height)
+		return container.NewThemeOverride(shellFixed(shellRowInset(grid), 0, height), newShellTheme())
 	}, func(row widget.ListItemID, object fyne.CanvasObject) {
-		frame := object.(*fyne.Container)
+		frame := object.(*container.ThemeOverride).Content.(*fyne.Container)
 		grid := frame.Objects[0].(*fyne.Container).Objects[0].(*fyne.Container)
 		grid.Layout.(*shellColumnsLayout).slots = h.columns
 		frame.Layout.(*shellFixedLayout).height = 260
@@ -51,6 +55,7 @@ func newShellHostCollection(s *shellWorkspace) *shellHostCollection {
 		}
 	})
 	h.list.HideSeparators = true
+	h.view = container.NewThemeOverride(h.list, shellHostListTheme{newShellTheme()})
 	h.empty = container.NewCenter(shellVBox(shellImage("server", false, 48), shellFixed(layout.NewSpacer(), 0, 18), shellText("暂无主机", 15, true, shellTextColor), shellText("新建主机，或调整搜索与筛选条件", 12, false, shellMutedColor)))
 	return h
 }
@@ -63,7 +68,7 @@ type shellHostCollectionRenderer struct{ hosts *shellHostCollection }
 
 func (*shellHostCollectionRenderer) MinSize() fyne.Size { return fyne.NewSize(300, 260) }
 func (r *shellHostCollectionRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.hosts.list, r.hosts.empty}
+	return []fyne.CanvasObject{r.hosts.view, r.hosts.empty}
 }
 func (*shellHostCollectionRenderer) Destroy() {}
 func (r *shellHostCollectionRenderer) Layout(size fyne.Size) {
@@ -74,7 +79,7 @@ func (r *shellHostCollectionRenderer) Layout(size fyne.Size) {
 	}
 	changed := h.columns != columns
 	h.columns = columns
-	h.list.Resize(size)
+	h.view.Resize(size)
 	h.empty.Resize(size)
 	if changed {
 		h.list.Refresh()
@@ -100,7 +105,8 @@ type shellHostCard struct {
 	name, address, notes, tags *widget.Label
 	connect, menu              *shellAlignedButton
 	content                    fyne.CanvasObject
-	bound, listMode            bool
+	bound, listMode, hovered   bool
+	background                 *shellPrimitive
 }
 
 func newShellHostCard(s *shellWorkspace) *shellHostCard {
@@ -116,6 +122,9 @@ func newShellHostCard(s *shellWorkspace) *shellHostCard {
 }
 
 func (c *shellHostCard) bind(host domain.ShellHost, list bool) {
+	if c.bound && c.host.ID != host.ID {
+		c.hovered = false
+	}
 	c.host = host
 	c.name.SetText(host.Name)
 	address := fmt.Sprintf("%s@%s:%d", host.User, host.Host, host.Port)
@@ -147,6 +156,7 @@ func (c *shellHostCard) bind(host domain.ShellHost, list bool) {
 		footer := shellVBox(shellLabel(c.tags, 11), shellFixed(layout.NewSpacer(), 0, 16), shellFixed(shellOutlined(c.connect), 0, 30))
 		c.content = shellPanel(shellBorder(top, footer, nil, nil, shellVBox(shellFixed(layout.NewSpacer(), 0, 12), details)), shellPanelColor, 12, 16)
 	}
+	c.background = c.content.(*fyne.Container).Objects[0].(*shellPrimitive)
 	c.Refresh()
 }
 
@@ -164,5 +174,33 @@ func (r *shellHostCardRenderer) Layout(size fyne.Size) { r.card.content.Resize(s
 func (r *shellHostCardRenderer) Objects() []fyne.CanvasObject {
 	return []fyne.CanvasObject{r.card.content}
 }
-func (r *shellHostCardRenderer) Refresh() { r.card.content.Refresh(); r.Layout(r.card.Size()) }
-func (*shellHostCardRenderer) Destroy()   {}
+func (r *shellHostCardRenderer) Refresh() {
+	c := r.card
+	if c.background != nil {
+		c.background.fill, c.background.stroke = shellPanelColor, shellBorderColor
+		if c.hovered {
+			c.background.fill, c.background.stroke = shellHostHoverFill, shellAccentColor
+		}
+	}
+	c.content.Refresh()
+	r.Layout(c.Size())
+}
+func (*shellHostCardRenderer) Destroy() {}
+
+// Virtual rows include several hosts and unused slots; their list-level hover
+// and selection must not paint those unrelated regions. Child cards retain the
+// normal Shell theme and their own pointer feedback.
+type shellHostListTheme struct{ shellTheme }
+
+func (t shellHostListTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameHover || name == theme.ColorNameSelection || name == theme.ColorNameFocus {
+		return color.Transparent
+	}
+	return t.shellTheme.Color(name, variant)
+}
+
+var shellHostHoverFill = shellTone{day: color.NRGBA{246, 249, 252, 255}, night: color.NRGBA{40, 47, 59, 255}}
+
+func (c *shellHostCard) MouseIn(*desktop.MouseEvent)  { c.hovered = true; c.Refresh() }
+func (*shellHostCard) MouseMoved(*desktop.MouseEvent) {}
+func (c *shellHostCard) MouseOut()                    { c.hovered = false; c.Refresh() }

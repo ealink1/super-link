@@ -87,6 +87,20 @@ def main():
             flags += f' -X main.releasePublicKey={public_key}'
         run(['go','build','-trimpath','-ldflags',flags,'-o',str(binary/f'superlink{suffix}'),'./cmd/superlink'])
         run(['go','build','-trimpath','-ldflags','-s -w','-o',str(binary/f'update-helper{suffix}'),'./cmd/update-helper'])
+        if goos == 'darwin':
+            import plistlib
+            picker = binary/'SuperLinkFilePicker.app'/'Contents'
+            (picker/'MacOS').mkdir(parents=True, exist_ok=True)
+            (picker/'Info.plist').write_bytes(plistlib.dumps({
+                'CFBundleIdentifier':'io.github.ealink1.superlink.filepicker',
+                'CFBundleName':'SuperLinkFilePicker','CFBundleExecutable':'file-picker',
+                'CFBundlePackageType':'APPL','LSUIElement':True,
+                'CFBundleAllowMixedLocalizations':True,
+                'CFBundleLocalizations':['en','zh-Hans','zh-Hant','ja','ko','fr','de','es','it','pt','ru','ar','nl','sv','tr']}))
+            run(['clang','-fobjc-arc','-framework','AppKit','-framework','UniformTypeIdentifiers',
+                 str(ROOT/'tools/native/file_picker.m'),'-o',str(picker/'MacOS/file-picker')])
+            run(['codesign','--force','--sign',os.environ.get('SUPERLINK_MAC_SIGN_IDENTITY') or '-',str(picker.parent)])
+
     if args.package:
         if args.skip_app:
             raise RuntimeError('--package requires the application build')
@@ -99,6 +113,8 @@ def main():
         resources.mkdir(parents=True, exist_ok=True)
         for name in [f'superlink{suffix}',f'update-helper{suffix}']:
             shutil.copy2(binary/name,executable_dir/name)
+        if goos == 'darwin':
+            shutil.copytree(binary/'SuperLinkFilePicker.app', executable_dir/'SuperLinkFilePicker.app')
         # SQLite is offline in every application package; optional agents remain
         # separate release assets so the base app does not grow with all SDKs.
         bundled = [record for record in records if record['type']=='sqlite']

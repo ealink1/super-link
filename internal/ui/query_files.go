@@ -7,9 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/dialog"
-	"fyne.io/fyne/v2/storage"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/queryfile"
 	"github.com/google/uuid"
@@ -17,19 +15,7 @@ import (
 
 func (s *workspace) openSQLFile() {
 	profile, scope, schema := s.profile, s.scope.Text, s.schemaName
-	modal := dialog.NewFileOpen(func(reader fyne.URIReadCloser, err error) {
-		if err != nil {
-			s.owner.showError(err)
-			return
-		}
-		if reader == nil {
-			return
-		}
-		path := reader.URI().Path()
-		if err = reader.Close(); err != nil {
-			s.owner.showError(err)
-			return
-		}
+	s.owner.chooseLocalPath("打开 SQL 文件", false, []string{"sql"}, func(path string) {
 		s.owner.jobs.run(func(ctx context.Context) (any, error) { return queryfile.Read(ctx, path) }, func(value any, err error) {
 			if s.closed {
 				return
@@ -43,9 +29,7 @@ func (s *workspace) openSQLFile() {
 				opened.refreshObjects()
 			}
 		})
-	}, s.owner.Window)
-	modal.SetFilter(storage.NewExtensionFileFilter([]string{".sql"}))
-	modal.Show()
+	})
 }
 
 func (s *workspace) exportSQLFile() {
@@ -53,17 +37,11 @@ func (s *workspace) exportSQLFile() {
 		return
 	}
 	text := s.editor.Text
-	modal := dialog.NewFolderOpen(func(uri fyne.ListableURI, err error) {
-		if err != nil {
-			s.owner.showError(err)
-			return
+	s.owner.chooseLocalPath("选择 SQL 导出目录", true, nil, func(directory string) {
+		if !s.closed {
+			s.chooseSQLName(directory, text)
 		}
-		if uri == nil || s.closed {
-			return
-		}
-		s.chooseSQLName(uri.Path(), text)
-	}, s.owner.Window)
-	modal.Show()
+	})
 }
 
 func (s *workspace) saveSQLFile(path, text string, overwrite bool) {

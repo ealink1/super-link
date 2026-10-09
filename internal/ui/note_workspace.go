@@ -33,6 +33,7 @@ type noteWorkspace struct {
 	preview                                 *widget.RichText
 	status, count                           *widget.Label
 	saveButton, newButton                   *shellAlignedButton
+	trashButton                             *shellAlignedButton
 	visible                                 []string
 	selected                                string
 	trash, loading, loaded, binding, saving bool

@@ -554,3 +554,12 @@
 +	}
 +	return e.content, renderer.cursor.Position(), renderer.cursor.Size()
 +}
+diff --git a/widget/list.go b/widget/list.go
+index 4bc6f14e..b75cc2bd 100644
+--- a/widget/list.go
++++ b/widget/list.go
+@@ -758 +758,3 @@ func (l *listLayout) getItem() *listItem {
+-	return item.(*listItem)
++	li := item.(*listItem)
++	cache.OverrideThemeMatchingScope(li, l.list)
++	return li

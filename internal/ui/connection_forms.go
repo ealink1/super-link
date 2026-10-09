@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -100,16 +99,7 @@ func (e *connectionEditor) basicForm() fyne.CanvasObject {
 	address := fyne.CanvasObject(container.NewHBox(container.NewGridWrap(fyne.NewSize(260, 32), e.host), container.NewGridWrap(fyne.NewSize(90, 32), e.port), container.NewGridWrap(fyne.NewSize(150, 32), e.database)))
 	if d.Key == "sqlite" || d.Key == "duckdb" {
 		browse := action("选择文件", "folder-open", func() {
-			dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
-				if err != nil {
-					e.owner.showError(err)
-					return
-				}
-				if reader != nil {
-					e.host.SetText(reader.URI().Path())
-					_ = reader.Close()
-				}
-			}, e.owner.Window)
+			e.owner.chooseLocalPath("选择数据库文件", false, nil, func(path string) { e.host.SetText(path) })
 		})
 		address = container.NewBorder(nil, nil, nil, browse, e.host)
 		uri.Hide()

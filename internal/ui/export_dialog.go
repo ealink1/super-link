@@ -59,18 +59,11 @@ func (w *Window) exportDialog(source exportSource) {
 	f.save = widget.NewButton("导出", f.submit)
 	f.save.Importance = widget.HighImportance
 	browse := action("选择目录", "folder-open", func() {
-		dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
-			if f.closed {
-				return
+		w.chooseLocalPath("选择导出目录", true, nil, func(path string) {
+			if !f.closed {
+				f.path.SetText(filepath.Join(path, filepath.Base(f.path.Text)))
 			}
-			if err != nil {
-				w.showError(err)
-				return
-			}
-			if uri != nil {
-				f.path.SetText(filepath.Join(uri.Path(), filepath.Base(f.path.Text)))
-			}
-		}, w.Window)
+		})
 	})
 	form := widget.NewForm(widget.NewFormItem("格式", f.format), widget.NewFormItem("数据范围", f.mode), widget.NewFormItem("目标表", f.table), widget.NewFormItem("输出文件", container.NewBorder(nil, nil, nil, browse, f.path)))
 	content := container.NewBorder(form, container.NewVBox(f.bom, f.status, container.NewHBox(layout.NewSpacer(), f.save)), nil, nil, f.columnPanel())

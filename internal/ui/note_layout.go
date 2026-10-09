@@ -26,12 +26,13 @@ func (n *noteWorkspace) build() {
 	n.saveButton.Disable()
 	n.buildSidebarTree()
 	top := shellInset(shellVBox(shellFixed(n.search, 0, 40), shellFixed(layout.NewSpacer(), 0, 12), shellFixed(shellBorder(nil, nil, nil, shellButtonView(shellButton("", "folder", false, n.editGroups)), container.NewThemeOverride(n.newButton, noteSidebarTheme{newShellTheme()})), 0, 36), shellFixed(layout.NewSpacer(), 0, 16), shellFixed(shellBorder(nil, nil, shellLabel(n.sidebarHeading, 12), shellLabel(n.sidebarCount, 11), layout.NewSpacer()), 0, 28)), 16)
-	footer := shellInset(shellHBox(shellButtonView(shellButton("回收站", "trash-2", false, func() { n.trash = !n.trash; n.selected = ""; n.filter(); n.showEmpty() })), layout.NewSpacer(), shellButtonView(shellButton("导入", "upload", false, n.importMarkdown))), 10)
+	n.trashButton = shellButton("回收站", "trash-2", false, func() { n.trash = !n.trash; n.selected = ""; n.filter(); n.showEmpty() })
+	footer := shellInset(shellHBox(shellButtonView(n.trashButton), layout.NewSpacer(), shellButtonView(shellButton("导入", "upload", false, n.importMarkdown))), 10)
 	sidebar := container.NewThemeOverride(container.NewStack(shellRectangle(noteSidebarSurface, 0, nil), shellBorder(top, footer, nil, nil, container.NewThemeOverride(n.list, noteTreeTheme{noteSidebarTheme{newShellTheme()}}))), noteSidebarTheme{newShellTheme()})
 	n.body = container.NewStack()
 	n.buildEditor()
 	n.showEmpty()
-	n.content = container.NewThemeOverride(container.NewStack(shellRectangle(noteSidebarSurface, 0, nil), container.New(&noteWorkspaceLayout{}, sidebar, n.body)), noteSidebarTheme{newShellTheme()})
+	n.content = container.NewThemeOverride(container.NewStack(shellRectangle(noteSidebarSurface, 0, nil), container.New(&noteWorkspaceLayout{}, sidebar, n.body, shellRectangle(shellBorderColor, 0, nil))), noteSidebarTheme{newShellTheme()})
 }
 
 type noteWorkspaceLayout struct{}
@@ -43,6 +44,10 @@ func (*noteWorkspaceLayout) Layout(o []fyne.CanvasObject, s fyne.Size) {
 	o[0].Resize(fyne.NewSize(width, s.Height))
 	o[1].Move(fyne.NewPos(width+1, 0))
 	o[1].Resize(fyne.NewSize(max(0, s.Width-width-1), s.Height))
+	if len(o) > 2 {
+		o[2].Move(fyne.NewPos(width, 0))
+		o[2].Resize(fyne.NewSize(1, s.Height))
+	}
 }
 
 type noteEntryTheme struct {
@@ -109,8 +114,7 @@ func (n *noteWorkspace) buildEditor() {
 	format := container.NewHScroll(n.formatToolbar())
 	format.SetMinSize(fyne.NewSize(280, 36))
 	toolbar := shellFixed(shellInset(shellBorder(nil, nil, nil, shellFixed(n.viewPicker, 92, 28), format), 12), 0, 56)
-	bottom := shellFixed(shellInset(shellBorder(nil, nil, shellLabel(n.count, 11), noteButtonView(n.saveButton), shellFixed(n.tags, 0, 28)), 12), 0, 52)
-	n.editorHost = shellBorder(shellVBox(header, shellLine(), title, noteHorizontalInset(shellVBox(toolbar, shellLine()), 48)), shellVBox(shellLine(), bottom), nil, nil, n.editorArea())
+	n.editorHost = shellBorder(shellVBox(header, shellLine(), title, noteHorizontalInset(shellVBox(toolbar, shellLine()), 48)), nil, nil, nil, n.editorArea())
 }
 func (n *noteWorkspace) editorArea() fyne.CanvasObject {
 	return container.NewVScroll(shellBorder(shellFixed(layout.NewSpacer(), 0, 24), shellFixed(layout.NewSpacer(), 0, 24), shellFixed(layout.NewSpacer(), 48, 0), shellFixed(layout.NewSpacer(), 48, 0), container.NewThemeOverride(n.editor, noteEntryTheme{shellTheme: newShellTheme(), size: 16})))

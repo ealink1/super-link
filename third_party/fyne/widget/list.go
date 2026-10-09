@@ -755,7 +755,9 @@ func (l *listLayout) getItem() *listItem {
 			item = newListItem(item2, nil)
 		}
 	}
-	return item.(*listItem)
+	li := item.(*listItem)
+	cache.OverrideThemeMatchingScope(li, l.list)
+	return li
 }
 
 func (l *listLayout) offsetUpdated(pos fyne.Position) {

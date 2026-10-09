@@ -11,13 +11,28 @@ import (
 )
 
 func Select(ctx context.Context, title string, directory bool) (string, error) {
-	return selectPath(ctx, title, directory, zenity.SelectFile)
+	return SelectFiltered(ctx, title, directory, nil)
 }
-func selectPath(ctx context.Context, title string, directory bool, picker func(...zenity.Option) (string, error)) (string, error) {
+func SelectMarkdown(ctx context.Context) (string, error) {
+	return SelectFiltered(ctx, "导入 Markdown", false, []string{"md", "markdown", "txt"})
+}
+func SelectFiltered(ctx context.Context, title string, directory bool, extensions []string) (string, error) {
+	var filters []zenity.Option
+	if len(extensions) > 0 {
+		patterns := make([]string, 0, len(extensions))
+		for _, extension := range extensions {
+			patterns = append(patterns, "*."+extension)
+		}
+		filters = append(filters, zenity.FileFilter{Name: title, Patterns: patterns, CaseFold: true})
+	}
+	return selectPath(ctx, title, directory, platformPicker(ctx, title, directory, extensions), filters...)
+}
+func selectPath(ctx context.Context, title string, directory bool, picker func(...zenity.Option) (string, error), filters ...zenity.Option) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
 	options := []zenity.Option{zenity.Title(title), zenity.Context(ctx)}
+	options = append(options, filters...)
 	if directory {
 		options = append(options, zenity.Directory())
 	}

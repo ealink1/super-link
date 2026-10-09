@@ -44,17 +44,13 @@ func (w *Window) importTable(p domain.Profile, object domain.Object, info domain
 	i.batch.SetSelected("500")
 	i.sheet.SetPlaceHolder("XLSX 工作表名称，留空使用第一个")
 	browse := action("选择文件", "folder-open", func() {
-		dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
-			if err != nil {
-				w.showError(err)
+		w.chooseLocalPath("选择导入数据文件", false, nil, func(path string) {
+			if i.closed {
 				return
 			}
-			if reader != nil {
-				i.file.SetText(reader.URI().Path())
-				_ = reader.Close()
-				i.loadFile()
-			}
-		}, w.Window)
+			i.file.SetText(path)
+			i.loadFile()
+		})
 	})
 	i.runButton = widget.NewButton("开始导入", func() { i.run("") })
 	i.runButton.Importance = widget.HighImportance

@@ -88,15 +88,7 @@ func (w *Window) driverManager() {
 	})
 	view.Add(install)
 	view.Add(widget.NewButton("导入本机可信驱动包", func() {
-		dialog.ShowFolderOpen(func(uri fyne.ListableURI, err error) {
-			if err != nil {
-				w.showError(err)
-				return
-			}
-			if uri == nil {
-				return
-			}
-			directory := uri.Path()
+		w.chooseLocalPath("导入本机可信驱动包", true, nil, func(directory string) {
 			dialog.ShowConfirm("导入本机驱动", "将执行此目录中的原生驱动程序。请确认来源可信：\n"+directory, func(ok bool) {
 				if !ok {
 					return
@@ -126,7 +118,7 @@ func (w *Window) driverManager() {
 					label.SetText("本机驱动包安装完成。重新打开驱动管理可查看最新状态。")
 				})
 			}, w.Window)
-		}, w.Window)
+		})
 	}))
 	view.Add(widget.NewLabel("应用包自带 SQLite。其他驱动可从本机 bundle.json 目录或签名 Release 安装。"))
 }
