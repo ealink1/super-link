@@ -29,30 +29,7 @@ func noteMultilineFormat(source string, start, end int, mark string) (string, in
 			// Preserve unsupported Markdown syntax, including link destinations.
 			// Only the inline styles understood by the editor are canonicalized.
 			if noteInlineSourceSupported(body, runs) {
-				var parts []noteStyledPart
-				var partText strings.Builder
-				for _, run := range runs {
-					for i, ch := range []rune(run.text) {
-						selected := run.start+i >= start && run.start+i < end
-						style := run.style
-						if selected {
-							noteSetInlineStyle(&style, mark, !active)
-						}
-						if len(parts) > 0 && parts[len(parts)-1].style == style && parts[len(parts)-1].selected == selected {
-							partText.WriteRune(ch)
-						} else {
-							if len(parts) > 0 {
-								parts[len(parts)-1].text = partText.String()
-								partText.Reset()
-							}
-							parts = append(parts, noteStyledPart{"", style, selected})
-							partText.WriteRune(ch)
-						}
-					}
-				}
-				if len(parts) > 0 {
-					parts[len(parts)-1].text = partText.String()
-				}
+				parts := noteStyledParts(runs, start, end, mark, active)
 				var rendered strings.Builder
 				renderedLength := len([]rune(prefix))
 				rendered.WriteString(prefix)
@@ -185,4 +162,33 @@ func noteInlineMarkers(style fyne.TextStyle) (string, string) {
 		code = "`"
 	}
 	return outer + inner + code, code + inner + outer
+}
+
+func noteStyledParts(runs []noteRun, start, end int, mark string, active bool) []noteStyledPart {
+	var parts []noteStyledPart
+	var partText strings.Builder
+	for _, run := range runs {
+		for i, ch := range []rune(run.text) {
+			selected := run.start+i >= start && run.start+i < end
+			style := run.style
+			if selected {
+				noteSetInlineStyle(&style, mark, !active)
+			}
+			if len(parts) > 0 && parts[len(parts)-1].style == style && parts[len(parts)-1].selected == selected {
+				partText.WriteRune(ch)
+			} else {
+				if len(parts) > 0 {
+					parts[len(parts)-1].text = partText.String()
+					partText.Reset()
+				}
+				parts = append(parts, noteStyledPart{"", style, selected})
+				partText.WriteRune(ch)
+			}
+		}
+	}
+	if len(parts) > 0 {
+		parts[len(parts)-1].text = partText.String()
+	}
+
+	return parts
 }

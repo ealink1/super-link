@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ealink1/super-link/internal/datafile"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/filevisibility"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
@@ -123,53 +122,12 @@ func SaveWithProgress(ctx context.Context, source Source, profile domain.Profile
 	}
 	if includeData {
 		for _, object := range tables {
-			state.Phase, state.Table, state.TableRows = "导出表数据", object.Name, 0
-			report()
-			name, err := sqlworkbench.ObjectName(profile.SQLDialect(), object)
-			if err != nil {
-				return result, err
+			rows, exportErr := exportTableData(ctx, source, profile, scope, object, output, &state, report)
+			if exportErr != nil {
+				return result, exportErr
 			}
-			lookup := object.Name
-			if object.Schema != "" {
-				lookup = name
-			}
-			info, err := source.TableInfo(ctx, profile.ID, scope, lookup)
-			if err != nil {
-				return result, err
-			}
-			columns := []string{}
-			for _, column := range info.Columns {
-				if !domain.WritableColumn(column) {
-					continue
-				}
-				q, err := sqlworkbench.Quote(profile.SQLDialect(), column.Name)
-				if err != nil {
-					return result, err
-				}
-				columns = append(columns, q)
-			}
-			if len(columns) == 0 {
-				return result, fmt.Errorf("表 %s 无可导出的写入列", object.Name)
-			}
-			encoder, err := datafile.NewEncoder(ctx, output, datafile.Options{Format: "INSERT SQL", Dialect: profile.SQLDialect(), Table: name})
-			if err != nil {
-				return result, err
-			}
-			err = source.StreamQuery(ctx, profile.ID, domain.Execution{Revision: profile.Revision, Scope: scope, Text: "SELECT " + strings.Join(columns, ", ") + " FROM " + name}, &progressConsumer{RowConsumer: encoder, update: func() {
-				state.TableRows++
-				state.Rows++
-			}, report: report})
-			if err == nil {
-				err = encoder.Finish()
-			}
-			encoder.Close()
-			if err != nil {
-				return result, err
-			}
-			result.Rows += encoder.Count
-			state.CompletedSteps++
-			state.CompletedTables++
-			report()
+			result.Rows += rows
+
 		}
 	}
 	if mysql {
@@ -182,17 +140,7 @@ func SaveWithProgress(ctx context.Context, source Source, profile domain.Profile
 	}
 	state.Phase, state.Table = "写入文件并校验", ""
 	report()
-	if err = file.Sync(); err != nil {
-		return result, err
-	}
-	if err = file.Close(); err != nil {
-		return result, err
-	}
-	if err = filevisibility.Prepare(file.Name()); err != nil {
-		return result, err
-	}
-	// Publish only complete exports and never replace an existing destination.
-	err = os.Link(file.Name(), path)
+	err = publishExportFile(file, path)
 	if err == nil {
 		state.Phase = "完成"
 		state.Done = true
@@ -213,4 +161,18 @@ func (w *limitedWriter) Write(p []byte) (int, error) {
 	n, err := w.Writer.Write(p)
 	w.remaining -= int64(n)
 	return n, err
+}
+
+func publishExportFile(file *os.File, path string) error {
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	if err := file.Close(); err != nil {
+		return err
+	}
+	if err := filevisibility.Prepare(file.Name()); err != nil {
+		return err
+	}
+	// Publish only complete exports and never replace an existing destination.
+	return os.Link(file.Name(), path)
 }
