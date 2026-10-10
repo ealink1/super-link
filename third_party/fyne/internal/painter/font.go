@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -188,8 +189,73 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
 
 // ClearFontCache is used to remove cached fonts in the case that we wish to re-load Font faces
 func ClearFontCache() {
+	clearFontCache()
+
+	// Any caller can empty the face caches, so forget which theme they hold.
+	themeCaches.Lock()
+	themeCaches.fontGeometry = ""
+	themeCaches.Unlock()
+}
+
+func clearFontCache() {
 	clearFontFaces()
 	fontCustomCache.Clear()
+}
+
+// fontGeometryStyles are the text styles whose resolved face is retained by the
+// caches below. Tab width, underline and strikethrough never select a face.
+var fontGeometryStyles = []fyne.TextStyle{
+	{},
+	{Bold: true},
+	{Italic: true},
+	{Bold: true, Italic: true},
+	{Monospace: true},
+	{Monospace: true, Bold: true},
+	{Monospace: true, Italic: true},
+	{Monospace: true, Bold: true, Italic: true},
+	{Symbol: true},
+}
+
+var themeCaches struct {
+	sync.Mutex
+	fontGeometry string
+}
+
+// ApplyThemeCaches invalidates the caches that a settings change can affect.
+// Resolved faces depend only on the selected font resources, so a theme switch
+// that changes colours alone keeps them warm and avoids re-running the system
+// font lookup. Measured metrics and rasterised SVGs are keyed without the
+// resolved colour or font, so both are still dropped on every change.
+func ApplyThemeCaches(set fyne.Settings) {
+	geometry := fontGeometryKey(set)
+
+	themeCaches.Lock()
+	changed := geometry != themeCaches.fontGeometry
+	themeCaches.fontGeometry = geometry
+	themeCaches.Unlock()
+
+	if changed {
+		clearFontCache()
+	}
+	cache.ResetThemeCaches()
+}
+
+func fontGeometryKey(set fyne.Settings) string {
+	var key strings.Builder
+	key.WriteString(strconv.FormatFloat(float64(set.Scale()), 'f', -1, 32))
+	th := set.Theme()
+	if th == nil {
+		return key.String()
+	}
+	for _, style := range fontGeometryStyles {
+		font := th.Font(style)
+		if font == nil {
+			key.WriteString("|")
+			continue
+		}
+		key.WriteString("|" + font.Name() + "#" + strconv.Itoa(len(font.Content())))
+	}
+	return key.String()
 }
 
 // DrawString draws a string into an image.

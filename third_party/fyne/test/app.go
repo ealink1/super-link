@@ -285,8 +285,7 @@ func (s *testSettings) apply() {
 	}
 
 	s.app.propertyLock.Lock()
-	painter.ClearFontCache()
-	cache.ResetThemeCaches()
+	painter.ApplyThemeCaches(s)
 	intapp.ApplySettings(s, s.app)
 	s.app.propertyLock.Unlock()
 

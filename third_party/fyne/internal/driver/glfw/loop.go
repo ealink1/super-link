@@ -112,8 +112,7 @@ func (d *gLDriver) runGL() {
 	}
 
 	fyne.CurrentApp().Settings().AddListener(func(set fyne.Settings) {
-		painter.ClearFontCache()
-		cache.ResetThemeCaches()
+		painter.ApplyThemeCaches(set)
 		app.ApplySettingsWithCallback(set, fyne.CurrentApp(), func(w fyne.Window) {
 			d.applyThemeToWindow(w)
 			c, ok := w.Canvas().(*glCanvas)

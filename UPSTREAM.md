@@ -104,14 +104,14 @@ verified every pre/post compression outline and horizontal advance. Regeneration
 uses `tools/font-requirements.txt`; these Python tools are build-time only.
 
 Fyne v2.8.1 is preserved in `third_party/fyne` with its BSD-3-Clause license.
-`docs/fyne-source.json` records all 2,145 original file hashes plus the reviewed
-seven reviewed production/test files, and `docs/fyne-memory.patch` is its exact diff. The patch
+`docs/fyne-source.json` records all 2,145 original file hashes plus the 15 reviewed
+files, and `docs/fyne-memory.patch` is their exact diff. The memory work
 shares parsed fonts by content (a 32-entry bounded cache), bounds ephemeral font
 scope maps to 4,096 stores, and loads backup/locale fonts only for missing glyphs.
 Theme scopes share small display state instead of retaining their container.
 Destroying a theme renderer removes its retired child scopes while preserving
-independent nested themes. These changes cover four production files and three
-regression test files; the complete pinned copy contains 2,149 files.
+independent nested themes. Those memory changes cover four production files and three
+regression test files; the complete pinned copy contains 2,153 files.
 Fonts and fallback behavior remain available. `tools/verify-fyne.py` validates
 the copy and module replacement; the painter/cache suites and affected container
 tests run in selfcheck/CI. See `docs/memory-analysis-2026-10-02.md` and
@@ -150,3 +150,7 @@ The reviewed Fyne List adaptation applies the list theme scope to virtual row wr
 ### Synthetic italic fallback rendering (2026-10-09)
 
 The reviewed Fyne painter now shears rasterized upright fallback faces when italic text is requested, including CJK normal and bold fonts. Real italic faces retain their original outlines. The temporary surface is scoped to one draw and bounded by the destination image; shaping advances and caret geometry remain unchanged. Pixel regressions cover Chinese regular/bold fallback, unchanged advances, and avoiding double slant on real italic faces. The manifest and exact patch include the painter changes and tests.
+
+### Day/night switch cache retention (2026-10-10)
+
+A day/night switch rebuilt every font and icon because the settings listener emptied the painter caches unconditionally, and each `ThemeOverride` refresh repeated that wipe once per contained widget. The reviewed painter now records the active theme's font resources and scale, so a switch that changes colours alone reuses the resolved faces; `ClearFontCache` also forgets that record, because any other component may have emptied the caches in between. `cache.overrideWidget` no longer clears the shared SVG and metric caches per child widget, since each override resolves through its own scope identifier. `svg.Colorize` memoises its output by source content and resolved colour, so repeated icon recolouring skips the XML parse and marshal. Measured text metrics and rasterised SVGs are still dropped on every change: their cache keys carry neither the resolved font nor the colour value, which `TestAccordion_ChangeTheme` in the pinned widget suite detects when the mapping is wrong. `internal/painter/theme_caches_test.go` covers the three retained-face rules directly. Measured on the SQL workbench with three open query tabs (1,147 cached objects), the synchronous theme apply fell from 105 ms to 43 ms, Shell from 38 ms to 14 ms and Note from 32 ms to 6 ms. The manifest and exact patch include `internal/painter/font.go`, `internal/cache/theme.go`, `internal/svg/svg.go`, `internal/driver/glfw/loop.go`, `test/app.go` and the new painter test.

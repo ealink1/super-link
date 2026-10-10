@@ -2,6 +2,7 @@ package svg
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/fyne-io/oksvg"
 	"github.com/srwiley/rasterx"
@@ -21,8 +23,43 @@ import (
 	col "fyne.io/fyne/v2/internal/color"
 )
 
+// colorizedCacheSize bounds the memo below. Icon sources are small and a theme
+// switch revisits the same source and colour pairs repeatedly.
+const colorizedCacheSize = 64
+
+type colorizedKey struct {
+	digest [sha256.Size]byte
+	rgba   color.RGBA
+}
+
+type colorizedEntry struct {
+	key colorizedKey
+	out []byte
+}
+
+var colorizedCache struct {
+	sync.Mutex
+	entries [colorizedCacheSize]colorizedEntry
+	next    int
+}
+
 // Colorize creates a new SVG from a given one by replacing all fill colors by the given color.
+// Results are memoised by source content and colour, because the XML parse and marshal below
+// dominate a theme switch and both inputs are content addressed. The returned slice is shared
+// between callers and must not be modified.
 func Colorize(src []byte, clr color.Color) ([]byte, error) {
+	key := colorizedKey{digest: sha256.Sum256(src), rgba: opaque(clr)}
+
+	colorizedCache.Lock()
+	for _, entry := range colorizedCache.entries {
+		if entry.out != nil && entry.key == key {
+			out := entry.out
+			colorizedCache.Unlock()
+			return out, nil
+		}
+	}
+	colorizedCache.Unlock()
+
 	rdr := bytes.NewReader(src)
 	s, err := svgFromXML(rdr)
 	if err != nil {
@@ -35,7 +72,20 @@ func Colorize(src []byte, clr color.Color) ([]byte, error) {
 	if err != nil {
 		return src, fmt.Errorf("could not marshal svg, falling back to static content: %v", err)
 	}
+
+	colorizedCache.Lock()
+	colorizedCache.entries[colorizedCache.next] = colorizedEntry{key: key, out: colorized}
+	colorizedCache.next = (colorizedCache.next + 1) % colorizedCacheSize
+	colorizedCache.Unlock()
 	return colorized, nil
+}
+
+// opaque reduces a theme colour to the comparable form used as part of a cache key.
+// It must match the conversion Colorize writes into the SVG, so that two colours
+// producing different output can never share an entry.
+func opaque(c color.Color) color.RGBA {
+	r, g, b, a := col.ToNRGBA(c)
+	return color.RGBA{R: r, G: g, B: b, A: a}
 }
 
 type Decoder struct {

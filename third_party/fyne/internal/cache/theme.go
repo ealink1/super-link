@@ -91,7 +91,6 @@ func overrideTheme(o fyne.CanvasObject, s *overrideScope) {
 }
 
 func overrideWidget(w fyne.Widget, s *overrideScope) {
-	ResetThemeCaches()
 	overrides.Store(w, s)
 
 	r := Renderer(w)

@@ -1,6 +1,8 @@
+diff --git a/container/theme.go b/container/theme.go
+index b6f8177..2d00a31 100644
 --- a/container/theme.go
 +++ b/container/theme.go
-@@ -20,7 +20,7 @@
+@@ -20,7 +20,7 @@ type ThemeOverride struct {
  
  	holder *fyne.Container
  
@@ -9,7 +11,7 @@
  }
  
  // NewThemeOverride provides a container where the child widgets are themed by the specified theme.
-@@ -63,23 +63,32 @@
+@@ -63,23 +63,32 @@ func (t *ThemeOverride) Refresh() {
  //
  // Since: 2.6
  func (t *ThemeOverride) SetDeviceIsMobile(on bool) {
@@ -46,7 +48,7 @@
  	}
  
  	return nil
-@@ -92,6 +101,10 @@
+@@ -92,6 +101,10 @@ type overrideRenderer struct {
  }
  
  func (r *overrideRenderer) Destroy() {
@@ -57,7 +59,10 @@
  }
  
  func (r *overrideRenderer) Layout(s fyne.Size) {
---- a/container/theme_memory_test.go
+diff --git a/container/theme_memory_test.go b/container/theme_memory_test.go
+new file mode 100644
+index 0000000..dd91284
+--- /dev/null
 +++ b/container/theme_memory_test.go
 @@ -0,0 +1,79 @@
 +package container
@@ -139,9 +144,11 @@
 +		t.Fatal("reopening the page did not restore its theme")
 +	}
 +}
+diff --git a/internal/cache/theme.go b/internal/cache/theme.go
+index f199843..ebfbdea 100644
 --- a/internal/cache/theme.go
 +++ b/internal/cache/theme.go
-@@ -57,6 +57,18 @@
+@@ -57,6 +57,18 @@ func WidgetTheme(o fyne.CanvasObject) fyne.Theme {
  	return scope.th
  }
  
@@ -160,7 +167,32 @@
  func overrideContainer(c *fyne.Container, s *overrideScope) {
  	for _, o := range c.Objects {
  		overrideTheme(o, s)
---- a/internal/painter/fallback_memory_test.go
+@@ -79,7 +91,6 @@ func overrideTheme(o fyne.CanvasObject, s *overrideScope) {
+ }
+ 
+ func overrideWidget(w fyne.Widget, s *overrideScope) {
+-	ResetThemeCaches()
+ 	overrides.Store(w, s)
+ 
+ 	r := Renderer(w)
+diff --git a/internal/driver/glfw/loop.go b/internal/driver/glfw/loop.go
+index 4d314a1..5e38912 100644
+--- a/internal/driver/glfw/loop.go
++++ b/internal/driver/glfw/loop.go
+@@ -112,8 +112,7 @@ func (d *gLDriver) runGL() {
+ 	}
+ 
+ 	fyne.CurrentApp().Settings().AddListener(func(set fyne.Settings) {
+-		painter.ClearFontCache()
+-		cache.ResetThemeCaches()
++		painter.ApplyThemeCaches(set)
+ 		app.ApplySettingsWithCallback(set, fyne.CurrentApp(), func(w fyne.Window) {
+ 			d.applyThemeToWindow(w)
+ 			c, ok := w.Canvas().(*glCanvas)
+diff --git a/internal/painter/fallback_memory_test.go b/internal/painter/fallback_memory_test.go
+new file mode 100644
+index 0000000..28ef669
+--- /dev/null
 +++ b/internal/painter/fallback_memory_test.go
 @@ -0,0 +1,55 @@
 +package painter
@@ -218,12 +250,28 @@
 +		t.Fatal("fallbacks parsed more than once", backup.reads, additional.reads)
 +	}
 +}
+diff --git a/internal/painter/font.go b/internal/painter/font.go
+index 8266686..252e076 100644
 --- a/internal/painter/font.go
 +++ b/internal/painter/font.go
-@@ -4 +4 @@
+@@ -1,11 +1,12 @@
+ package painter
+ 
+ import (
 -	"bytes"
 +	"image"
-@@ -94,5 +94,3 @@
+ 	"image/color"
+ 	"image/draw"
+ 	"math"
+ 	"slices"
++	"strconv"
+ 	"strings"
+ 	"sync"
+ 
+@@ -91,11 +92,9 @@ func lookupRuneFont(r rune, family string, aspect font.Aspect) *font.Face {
+ 
+ func lookupFaces(theme, fallback fyne.Resource, additional []fyne.Resource, family string, style fyne.TextStyle) (faces *dynamicFontMap) {
+ 	f1 := loadMeasureFont(theme)
 -	if theme == fallback {
 -		faces = &dynamicFontMap{family: family, faces: []*font.Face{f1}}
 -	} else {
@@ -232,31 +280,127 @@
 +	faces = &dynamicFontMap{family: family, faces: []*font.Face{f1}}
 +	if theme != fallback && fallback != nil {
 +		faces.pendingFonts = append(faces.pendingFonts, fallback)
-@@ -110,7 +108,8 @@
+ 	}
+ 
+ 	aspect := font.Aspect{Style: font.StyleNormal}
+@@ -107,13 +106,14 @@ func lookupFaces(theme, fallback fyne.Resource, additional []fyne.Resource, fami
+ 	}
+ 
+ 	for _, added := range additional {
 -		faces.addFace(loadMeasureFont(added))
--	}
--
++		if added != nil {
++			faces.pendingFonts = append(faces.pendingFonts, added)
++		}
+ 	}
+ 
 -	local := lookupLangFont(family, aspect)
 -	if local != nil {
 -		faces.addFace(local)
 -	}
-+		if added != nil {
-+			faces.pendingFonts = append(faces.pendingFonts, added)
-+		}
-+	}
-+
 +	// A complete bundled face usually covers the whole UI. Load the system
 +	// locale font only when an actual rune is missing from the bundled faces.
 +	faces.pendingLocale = &aspect
-@@ -184 +183 @@
+ 
+ 	return faces
+ }
+@@ -181,7 +181,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
+ 		}
+ 
+ 		val = &FontCacheItem{Fonts: faces}
 -		fontCache.Store(cacheID{style: style, scope: scope}, val)
 +		storeFontFace(cacheID{style: style, scope: scope}, val)
-@@ -192 +191 @@
+ 	}
+ 
+ 	return val
+@@ -189,10 +189,75 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
+ 
+ // ClearFontCache is used to remove cached fonts in the case that we wish to re-load Font faces
+ func ClearFontCache() {
 -	fontCache.Clear()
++	clearFontCache()
++
++	// Any caller can empty the face caches, so forget which theme they hold.
++	themeCaches.Lock()
++	themeCaches.fontGeometry = ""
++	themeCaches.Unlock()
++}
++
++func clearFontCache() {
 +	clearFontFaces()
-@@ -209,0 +209 @@
+ 	fontCustomCache.Clear()
+ }
+ 
++// fontGeometryStyles are the text styles whose resolved face is retained by the
++// caches below. Tab width, underline and strikethrough never select a face.
++var fontGeometryStyles = []fyne.TextStyle{
++	{},
++	{Bold: true},
++	{Italic: true},
++	{Bold: true, Italic: true},
++	{Monospace: true},
++	{Monospace: true, Bold: true},
++	{Monospace: true, Italic: true},
++	{Monospace: true, Bold: true, Italic: true},
++	{Symbol: true},
++}
++
++var themeCaches struct {
++	sync.Mutex
++	fontGeometry string
++}
++
++// ApplyThemeCaches invalidates the caches that a settings change can affect.
++// Resolved faces depend only on the selected font resources, so a theme switch
++// that changes colours alone keeps them warm and avoids re-running the system
++// font lookup. Measured metrics and rasterised SVGs are keyed without the
++// resolved colour or font, so both are still dropped on every change.
++func ApplyThemeCaches(set fyne.Settings) {
++	geometry := fontGeometryKey(set)
++
++	themeCaches.Lock()
++	changed := geometry != themeCaches.fontGeometry
++	themeCaches.fontGeometry = geometry
++	themeCaches.Unlock()
++
++	if changed {
++		clearFontCache()
++	}
++	cache.ResetThemeCaches()
++}
++
++func fontGeometryKey(set fyne.Settings) string {
++	var key strings.Builder
++	key.WriteString(strconv.FormatFloat(float64(set.Scale()), 'f', -1, 32))
++	th := set.Theme()
++	if th == nil {
++		return key.String()
++	}
++	for _, style := range fontGeometryStyles {
++		font := th.Font(style)
++		if font == nil {
++			key.WriteString("|")
++			continue
++		}
++		key.WriteString("|" + font.Name() + "#" + strconv.Itoa(len(font.Content())))
++	}
++	return key.String()
++}
++
+ // DrawString draws a string into an image.
+ func DrawString(dst draw.Image, s string, color color.Color, f shaping.Fontmap, fontSize, scale float32, style fyne.TextStyle) {
+ 	DrawStringOffset(dst, s, color, f, fontSize, scale, style, 0)
+@@ -207,6 +272,7 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
+ 	}
+ 
+ 	advance := float32(0)
 +	var italicSurface *image.RGBA
-@@ -216,0 +217,10 @@
+ 	walkString(f, s, float32ToFixed266(fontSize), style, &advance, scale, func(run shaping.Output, x, y float32) {
+ 		yPix := int(math.Ceil(float64(y)))
+ 		if len(run.Glyphs) == 1 && run.Glyphs[0].GlyphID == 0 {
+@@ -214,12 +280,22 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
+ 			return
+ 		}
+ 
 +		if style.Italic && needsSyntheticItalic(run) {
 +			if italicSurface == nil {
 +				italicSurface = image.NewRGBA(dst.Bounds())
@@ -267,17 +411,33 @@
 +			compositeSyntheticItalic(dst, italicSurface, yPix)
 +			return
 +		}
-@@ -222 +232 @@
+ 		r.DrawShapedRunAt(run, dst, int(x)-offset, yPix)
+ 	})
+ }
+ 
+ func loadMeasureFont(data fyne.Resource) *font.Face {
 -	loaded, err := font.ParseTTF(bytes.NewReader(data.Content()))
 +	loaded, err := parsedFont(data.Content())
-@@ -516,2 +526,4 @@
+ 	if err != nil {
+ 		fyne.LogError("font load error", err)
+ 		return nil
+@@ -513,8 +589,10 @@ type noopLogger struct{}
+ func (n noopLogger) Printf(string, ...any) {}
+ 
+ type dynamicFontMap struct {
 -	faces  []*font.Face
 -	family string
 +	faces         []*font.Face
 +	family        string
 +	pendingFonts  []fyne.Resource
 +	pendingLocale *font.Aspect
-@@ -525,0 +538,26 @@
+ }
+ 
+ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
+@@ -523,6 +601,32 @@ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
+ 			return f
+ 		}
+ 	}
 +	// Preserve fallback priority, but avoid parsing fonts that are never used.
 +	// Resolve all pending faces once so subsequent runs use a stable font map.
 +	if len(d.pendingFonts) != 0 {
@@ -304,7 +464,13 @@
 +			}
 +		}
 +	}
---- a/internal/painter/parsed_font.go
+ 
+ 	toAdd := lookupRuneFont(r, d.family, font.Aspect{})
+ 	if toAdd != nil {
+diff --git a/internal/painter/parsed_font.go b/internal/painter/parsed_font.go
+new file mode 100644
+index 0000000..f2a92ce
+--- /dev/null
 +++ b/internal/painter/parsed_font.go
 @@ -0,0 +1,67 @@
 +package painter
@@ -374,7 +540,10 @@
 +	parsedFonts.next = (parsedFonts.next + 1) % parsedFontCacheSize
 +	return face, nil
 +}
---- a/internal/painter/parsed_font_test.go
+diff --git a/internal/painter/parsed_font_test.go b/internal/painter/parsed_font_test.go
+new file mode 100644
+index 0000000..ae4dbdf
+--- /dev/null
 +++ b/internal/painter/parsed_font_test.go
 @@ -0,0 +1,122 @@
 +package painter
@@ -499,38 +668,9 @@
 +		t.Fatal("missing glyph did not attempt the locale fallback")
 +	}
 +}
---- /dev/null
-+++ b/widget/entry_ime.go
-@@ -0,0 +1,20 @@
-+package widget
-+
-+import (
-+	"fyne.io/fyne/v2"
-+	"fyne.io/fyne/v2/internal/cache"
-+)
-+
-+// InputMethodCaret returns the actual rendered caret, including its containing
-+// scroll hierarchy. Native text-input integrations can use the driver's
-+// AbsolutePositionForObject to anchor candidates without accessing text.
-+func (e *Entry) InputMethodCaret() (fyne.CanvasObject, fyne.Position, fyne.Size) {
-+	if e.content == nil {
-+		return nil, fyne.Position{}, fyne.Size{}
-+	}
-+	renderer, ok := cache.Renderer(e.content).(*entryContentRenderer)
-+	if !ok {
-+		return nil, fyne.Position{}, fyne.Size{}
-+	}
-+	return e.content, renderer.cursor.Position(), renderer.cursor.Size()
-+}
-diff --git a/widget/list.go b/widget/list.go
-index 4bc6f14e..b75cc2bd 100644
---- a/widget/list.go
-+++ b/widget/list.go
-@@ -758 +758,3 @@ func (l *listLayout) getItem() *listItem {
--	return item.(*listItem)
-+	li := item.(*listItem)
-+	cache.OverrideThemeMatchingScope(li, l.list)
-+	return li
+diff --git a/internal/painter/synthetic_italic.go b/internal/painter/synthetic_italic.go
+new file mode 100644
+index 0000000..58b69c6
 --- /dev/null
 +++ b/internal/painter/synthetic_italic.go
 @@ -0,0 +1,27 @@
@@ -561,6 +701,9 @@ index 4bc6f14e..b75cc2bd 100644
 +		draw.Draw(dst, row, source, image.Pt(bounds.Min.X, y), draw.Over)
 +	}
 +}
+diff --git a/internal/painter/synthetic_italic_test.go b/internal/painter/synthetic_italic_test.go
+new file mode 100644
+index 0000000..b4973fa
 --- /dev/null
 +++ b/internal/painter/synthetic_italic_test.go
 @@ -0,0 +1,59 @@
@@ -623,3 +766,240 @@ index 4bc6f14e..b75cc2bd 100644
 +		t.Fatal("real italic gets double slant")
 +	}
 +}
+diff --git a/internal/painter/theme_caches_test.go b/internal/painter/theme_caches_test.go
+new file mode 100644
+index 0000000..b8dd89d
+--- /dev/null
++++ b/internal/painter/theme_caches_test.go
+@@ -0,0 +1,89 @@
++package painter
++
++import (
++	"image/color"
++	"testing"
++
++	"fyne.io/fyne/v2"
++	"fyne.io/fyne/v2/theme"
++)
++
++type cacheTestTheme struct {
++	regular, bold fyne.Resource
++	tint          uint8
++}
++
++func (t cacheTestTheme) Color(fyne.ThemeColorName, fyne.ThemeVariant) color.Color {
++	return color.NRGBA{R: 10, G: 20, B: 30, A: t.tint}
++}
++func (t cacheTestTheme) Icon(fyne.ThemeIconName) fyne.Resource { return nil }
++func (t cacheTestTheme) Size(fyne.ThemeSizeName) float32       { return 0 }
++func (t cacheTestTheme) Font(style fyne.TextStyle) fyne.Resource {
++	if style.Bold {
++		return t.bold
++	}
++	return t.regular
++}
++
++type cacheTestSettings struct{ th fyne.Theme }
++
++func (s *cacheTestSettings) Theme() fyne.Theme                    { return s.th }
++func (s *cacheTestSettings) SetTheme(fyne.Theme)                  {}
++func (s *cacheTestSettings) ThemeVariant() fyne.ThemeVariant      { return theme.VariantLight }
++func (s *cacheTestSettings) Scale() float32                       { return 1 }
++func (s *cacheTestSettings) PrimaryColor() string                 { return "" }
++func (s *cacheTestSettings) AddChangeListener(chan fyne.Settings) {}
++func (s *cacheTestSettings) AddListener(func(fyne.Settings))      {}
++func (s *cacheTestSettings) BuildType() fyne.BuildType            { return fyne.BuildStandard }
++func (s *cacheTestSettings) ShowAnimations() bool                 { return false }
++
++func warmFaceCache() {
++	fontCache.Store(cacheID{style: fyne.TextStyle{}}, &FontCacheItem{})
++}
++
++func faceCacheWarm() bool {
++	warm := false
++	fontCache.Range(func(cacheID, *FontCacheItem) bool { warm = true; return false })
++	return warm
++}
++
++func TestApplyThemeCachesKeepsFacesUntilTheFontMappingChanges(t *testing.T) {
++	night := &cacheTestSettings{th: cacheTestTheme{
++		regular: fyne.NewStaticResource("regular.ttf", []byte("regular")),
++		bold:    fyne.NewStaticResource("bold.ttf", []byte("bold")),
++		tint:    200,
++	}}
++	ApplyThemeCaches(night)
++	warmFaceCache()
++
++	day := &cacheTestSettings{th: cacheTestTheme{
++		regular: fyne.NewStaticResource("regular.ttf", []byte("regular")),
++		bold:    fyne.NewStaticResource("bold.ttf", []byte("bold")),
++		tint:    30,
++	}}
++	ApplyThemeCaches(day)
++	if !faceCacheWarm() {
++		t.Fatal("a colour-only theme switch reloaded every font face")
++	}
++
++	// The same resource names now back different styles: the faces must be reloaded.
++	permuted := &cacheTestSettings{th: cacheTestTheme{
++		regular: fyne.NewStaticResource("bold.ttf", []byte("bold")),
++		bold:    fyne.NewStaticResource("regular.ttf", []byte("regular")),
++		tint:    30,
++	}}
++	ApplyThemeCaches(permuted)
++	if faceCacheWarm() {
++		t.Fatal("faces were reused after the theme remapped its fonts")
++	}
++
++	// Another component may empty the caches without going through this path, so
++	// a later switch must not assume the faces it recorded are still stored.
++	ApplyThemeCaches(day)
++	warmFaceCache()
++	ClearFontCache()
++	ApplyThemeCaches(day)
++	if faceCacheWarm() {
++		t.Fatal("ClearFontCache left a stale record that skipped the reload")
++	}
++}
+diff --git a/internal/svg/svg.go b/internal/svg/svg.go
+index a3c8fb0..d5c36d2 100644
+--- a/internal/svg/svg.go
++++ b/internal/svg/svg.go
+@@ -2,6 +2,7 @@ package svg
+ 
+ import (
+ 	"bytes"
++	"crypto/sha256"
+ 	"encoding/hex"
+ 	"encoding/xml"
+ 	"errors"
+@@ -13,6 +14,7 @@ import (
+ 	"path/filepath"
+ 	"strconv"
+ 	"strings"
++	"sync"
+ 
+ 	"github.com/fyne-io/oksvg"
+ 	"github.com/srwiley/rasterx"
+@@ -21,8 +23,43 @@ import (
+ 	col "fyne.io/fyne/v2/internal/color"
+ )
+ 
++// colorizedCacheSize bounds the memo below. Icon sources are small and a theme
++// switch revisits the same source and colour pairs repeatedly.
++const colorizedCacheSize = 64
++
++type colorizedKey struct {
++	digest [sha256.Size]byte
++	rgba   color.RGBA
++}
++
++type colorizedEntry struct {
++	key colorizedKey
++	out []byte
++}
++
++var colorizedCache struct {
++	sync.Mutex
++	entries [colorizedCacheSize]colorizedEntry
++	next    int
++}
++
+ // Colorize creates a new SVG from a given one by replacing all fill colors by the given color.
++// Results are memoised by source content and colour, because the XML parse and marshal below
++// dominate a theme switch and both inputs are content addressed. The returned slice is shared
++// between callers and must not be modified.
+ func Colorize(src []byte, clr color.Color) ([]byte, error) {
++	key := colorizedKey{digest: sha256.Sum256(src), rgba: opaque(clr)}
++
++	colorizedCache.Lock()
++	for _, entry := range colorizedCache.entries {
++		if entry.out != nil && entry.key == key {
++			out := entry.out
++			colorizedCache.Unlock()
++			return out, nil
++		}
++	}
++	colorizedCache.Unlock()
++
+ 	rdr := bytes.NewReader(src)
+ 	s, err := svgFromXML(rdr)
+ 	if err != nil {
+@@ -35,9 +72,22 @@ func Colorize(src []byte, clr color.Color) ([]byte, error) {
+ 	if err != nil {
+ 		return src, fmt.Errorf("could not marshal svg, falling back to static content: %v", err)
+ 	}
++
++	colorizedCache.Lock()
++	colorizedCache.entries[colorizedCache.next] = colorizedEntry{key: key, out: colorized}
++	colorizedCache.next = (colorizedCache.next + 1) % colorizedCacheSize
++	colorizedCache.Unlock()
+ 	return colorized, nil
+ }
+ 
++// opaque reduces a theme colour to the comparable form used as part of a cache key.
++// It must match the conversion Colorize writes into the SVG, so that two colours
++// producing different output can never share an entry.
++func opaque(c color.Color) color.RGBA {
++	r, g, b, a := col.ToNRGBA(c)
++	return color.RGBA{R: r, G: g, B: b, A: a}
++}
++
+ type Decoder struct {
+ 	icon *oksvg.SvgIcon
+ }
+diff --git a/test/app.go b/test/app.go
+index ff7ed3f..6d550c4 100644
+--- a/test/app.go
++++ b/test/app.go
+@@ -285,8 +285,7 @@ func (s *testSettings) apply() {
+ 	}
+ 
+ 	s.app.propertyLock.Lock()
+-	painter.ClearFontCache()
+-	cache.ResetThemeCaches()
++	painter.ApplyThemeCaches(s)
+ 	intapp.ApplySettings(s, s.app)
+ 	s.app.propertyLock.Unlock()
+ 
+diff --git a/widget/entry_ime.go b/widget/entry_ime.go
+new file mode 100644
+index 0000000..9321bd5
+--- /dev/null
++++ b/widget/entry_ime.go
+@@ -0,0 +1,20 @@
++package widget
++
++import (
++	"fyne.io/fyne/v2"
++	"fyne.io/fyne/v2/internal/cache"
++)
++
++// InputMethodCaret returns the actual rendered caret, including its containing
++// scroll hierarchy. Native text-input integrations can use the driver's
++// AbsolutePositionForObject to anchor candidates without accessing text.
++func (e *Entry) InputMethodCaret() (fyne.CanvasObject, fyne.Position, fyne.Size) {
++	if e.content == nil {
++		return nil, fyne.Position{}, fyne.Size{}
++	}
++	renderer, ok := cache.Renderer(e.content).(*entryContentRenderer)
++	if !ok {
++		return nil, fyne.Position{}, fyne.Size{}
++	}
++	return e.content, renderer.cursor.Position(), renderer.cursor.Size()
++}
+diff --git a/widget/list.go b/widget/list.go
+index 4bc6f14..b75cc2b 100644
+--- a/widget/list.go
++++ b/widget/list.go
+@@ -755,7 +755,9 @@ func (l *listLayout) getItem() *listItem {
+ 			item = newListItem(item2, nil)
+ 		}
+ 	}
+-	return item.(*listItem)
++	li := item.(*listItem)
++	cache.OverrideThemeMatchingScope(li, l.list)
++	return li
+ }
+ 
+ func (l *listLayout) offsetUpdated(pos fyne.Position) {
