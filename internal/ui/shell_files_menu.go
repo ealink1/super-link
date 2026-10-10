@@ -41,18 +41,7 @@ func (f *shellFiles) showMenu(position fyne.Position) {
 	var popup *widget.PopUp
 	items := []fyne.CanvasObject{}
 	add := func(label, icon string, enabled bool, destructive bool, action func()) {
-		button := shellButton(label, icon, false, func() { popup.Hide(); action() })
-		button.Alignment = widget.ButtonAlignLeading
-		button.SetIcon(shellFileActionIcon(icon, destructive))
-		if !enabled {
-			button.Disable()
-		}
-		shade := color.Color(shellTextColor)
-		if destructive {
-			shade = color.NRGBA{255, 88, 119, 255}
-		}
-		item := container.NewThemeOverride(button, shellFileMenuTheme{monitorTintTheme{shellLabelTheme: shellLabelTheme{shellTheme: newShellTheme(), size: 13}, shade: shade}})
-		items = append(items, shellFixed(item, 176, 33))
+		items = append(items, shellMenuRow(label, icon, destructive, enabled, func() { popup.Hide(); action() }))
 	}
 	ready := !f.busy && !f.pane.ended
 	if file.Directory {
@@ -195,6 +184,25 @@ func (t shellFileMenuTheme) Font(style fyne.TextStyle) fyne.Resource {
 	style.Bold = false
 	return t.monitorTintTheme.Font(style)
 }
+
+var shellDestructiveColor = color.NRGBA{255, 88, 119, 255}
+
+// Menu rows stay left aligned with a leading outline icon; destructive actions
+// tint both the icon and the label.
+func shellMenuRow(label, icon string, destructive, enabled bool, run func()) fyne.CanvasObject {
+	button := shellButton(label, "", false, run)
+	button.Alignment = widget.ButtonAlignLeading
+	button.SetIcon(shellFileActionIcon(icon, destructive))
+	if !enabled {
+		button.Disable()
+	}
+	shade := color.Color(shellTextColor)
+	if destructive {
+		shade = shellDestructiveColor
+	}
+	return shellFixed(container.NewThemeOverride(button, shellFileMenuTheme{monitorTintTheme{shellLabelTheme: shellLabelTheme{shellTheme: newShellTheme(), size: 13}, shade: shade}}), 176, 33)
+}
+
 func shellFileActionIcon(name string, destructive bool) fyne.Resource {
 	paths := map[string]string{
 		"copy":          `<rect x="8" y="8" width="12" height="13" rx="1"/><path d="M5 16H3V3h13v2"/>`,
@@ -208,7 +216,7 @@ func shellFileActionIcon(name string, destructive bool) fyne.Resource {
 	}
 	shade := color.Color(monitorMutedColor)
 	if destructive {
-		shade = color.NRGBA{255, 88, 119, 255}
+		shade = shellDestructiveColor
 	}
 	c := color.NRGBAModel.Convert(resolveShellColor(shade)).(color.NRGBA)
 	return fyne.NewStaticResource("file-action-"+name+".svg", []byte(fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#%02x%02x%02x" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">%s</svg>`, c.R, c.G, c.B, paths[name])))

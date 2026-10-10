@@ -31,6 +31,7 @@ type sshFixture struct {
 	stall       atomic.Bool
 	stalled     chan struct{}
 	rejectPTY   atomic.Bool
+	channels    atomic.Int64
 }
 
 func newSSHFixture(t *testing.T) *sshFixture {
@@ -78,6 +79,7 @@ func newSSHFixture(t *testing.T) *sshFixture {
 				}
 				go ssh.DiscardRequests(requests)
 				for next := range channels {
+					f.channels.Add(1)
 					channel, requests, err := next.Accept()
 					if err != nil {
 						continue
@@ -122,6 +124,43 @@ func TestSSHEncryptedPrivateKeyAuthentication(t *testing.T) {
 	h.Passphrase = "wrong"
 	if _, err := OpenSSH(context.Background(), h); err == nil {
 		t.Fatal("wrong key passphrase accepted")
+	}
+}
+
+func TestProbeSSHVerifiesCredentialsWithoutASession(t *testing.T) {
+	f := newSSHFixture(t)
+	pinned := f.host.Fingerprint
+	h := f.host
+	h.Fingerprint = ""
+	fingerprint, err := ProbeSSH(context.Background(), h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fingerprint != pinned {
+		t.Fatalf("probe reported %q, want %q", fingerprint, pinned)
+	}
+	if opened := f.channels.Load(); opened != 0 {
+		t.Fatalf("probe opened %d session channels, want none", opened)
+	}
+	wrong := h
+	wrong.Password = "not-the-fixture"
+	if _, err = ProbeSSH(context.Background(), wrong); err == nil {
+		t.Fatal("probe accepted the wrong password")
+	}
+	h.Fingerprint = "SHA256:changed-pin"
+	var key *HostKeyError
+	if _, err = ProbeSSH(context.Background(), h); !errors.As(err, &key) || !key.Changed {
+		t.Fatalf("probe ignored a changed host key pin: %v", err)
+	}
+	remote, err := OpenSSH(context.Background(), f.host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = remote.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if f.channels.Load() == 0 {
+		t.Fatal("the shared setup no longer opens a session")
 	}
 }
 func (f *sshFixture) serve(channel ssh.Channel, requests <-chan *ssh.Request) {

@@ -115,7 +115,7 @@ func newShellHostCard(s *shellWorkspace) *shellHostCard {
 		label.Truncation = fyne.TextTruncateEllipsis
 	}
 	c.address.Importance, c.notes.Importance, c.tags.Importance = widget.LowImportance, widget.LowImportance, widget.LowImportance
-	c.menu = shellButton("", "ellipsis", false, func() { s.hostActions(c.host) })
+	c.menu = shellButton("", "ellipsis", false, func() { s.hostMenu(c.host, c.menu) })
 	c.connect = shellButton("快速连接", "", false, func() { s.connectHost(c.host) })
 	c.connect.bold = true
 	c.ExtendBaseWidget(c)

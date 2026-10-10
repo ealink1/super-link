@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/secrets"
+	transport "github.com/ealink1/super-link/internal/infra/shell"
 )
 
 type shellHostEditor struct {
@@ -23,7 +24,7 @@ type shellHostEditor struct {
 	credentials                                                              *fyne.Container
 	passwordMode, keyButton                                                  *shellAlignedButton
 	hint                                                                     *widget.Label
-	save                                                                     *shellAlignedButton
+	save, test                                                               *shellAlignedButton
 	modal                                                                    *shellModal
 }
 
@@ -59,9 +60,10 @@ func newShellHostEditor(s *shellWorkspace, h domain.ShellHost) *shellHostEditor 
 	e.passwordMode = shellButton("密码认证", "", false, func() { e.keyMode = false; e.refreshAuthentication() })
 	e.keyButton = shellButton("密钥认证", "", false, func() { e.keyMode = true; e.refreshAuthentication() })
 	e.save = shellButton("保存主机", "", true, e.persist)
+	e.test = shellButton("测试连接", "network", false, e.probe)
 	endpoint := shellBorder(nil, nil, nil, shellHBox(shellFixed(layout.NewSpacer(), 16, 0), shellFixed(shellField("端口", e.port), 140, 0)), shellField("主机地址 / IP", e.address))
 	rows := shellVBox(shellVBox(shellText("基础信息", 12, true, shellMutedColor), shellFixed(layout.NewSpacer(), 0, 12)), shellField("主机别名", e.name), shellFixed(layout.NewSpacer(), 0, 12), shellColumns(16, shellField("主机分组", e.group), shellField("操作系统", e.system)), shellFixed(layout.NewSpacer(), 0, 12), shellField("备注 (Description)", e.notes), shellFixed(layout.NewSpacer(), 0, 12), shellField("标签（逗号分隔）", e.tags), shellFixed(layout.NewSpacer(), 0, 20), shellLine(), shellSection("连接设置"), endpoint, shellFixed(layout.NewSpacer(), 0, 20), shellLine(), shellSection("认证方式"), shellColumns(16, shellOutlined(e.passwordMode), shellOutlined(e.keyButton)), shellFixed(layout.NewSpacer(), 0, 16), e.credentials, shellFixed(layout.NewSpacer(), 0, 12), e.remember, shellText("凭据加密保存在本机，重新启动后自动读取", 12, false, shellMutedColor))
-	footer := shellBorder(nil, nil, e.hint, shellHBox(shellButtonView(shellButton("取消", "", false, func() { e.modal.hide() })), shellFixed(layout.NewSpacer(), 12, 0), shellButtonView(e.save)), layout.NewSpacer())
+	footer := shellBorder(nil, nil, shellHBox(shellOutlined(e.test), shellFixed(layout.NewSpacer(), 12, 0)), shellHBox(shellButtonView(shellButton("取消", "", false, func() { e.modal.hide() })), shellFixed(layout.NewSpacer(), 12, 0), shellButtonView(e.save)), e.hint)
 	title := "新建主机 · SSH"
 	if h.ID != "" {
 		title = "编辑主机 · SSH"
@@ -88,11 +90,11 @@ func (e *shellHostEditor) refreshAuthentication() {
 	}
 }
 
-func (e *shellHostEditor) persist() {
+// draft collects the form into a host without touching storage.
+func (e *shellHostEditor) draft() (domain.ShellHost, error) {
 	port, err := strconv.Atoi(e.port.Text)
 	if err != nil {
-		e.hint.SetText("端口必须是数字")
-		return
+		return domain.ShellHost{}, errors.New("端口必须是数字")
 	}
 	next := e.host
 	next.Name, next.Group, next.Host, next.Port, next.User = e.name.Text, e.group.Text, e.address.Text, port, e.user.Text
@@ -105,6 +107,14 @@ func (e *shellHostEditor) persist() {
 	}
 	next.Remember = e.remember.Checked
 	if err = next.Validate(); err != nil {
+		return domain.ShellHost{}, err
+	}
+	return next, nil
+}
+
+func (e *shellHostEditor) persist() {
+	next, err := e.draft()
+	if err != nil {
 		e.hint.SetText(err.Error())
 		return
 	}
@@ -118,6 +128,26 @@ func (e *shellHostEditor) persist() {
 		}
 		e.modal.hide()
 		e.workspace.reloadHosts()
+	})
+}
+
+// probe checks reachability and credentials before the host is saved. It stops
+// at authentication, so a failed check never starts a remote shell.
+func (e *shellHostEditor) probe() {
+	next, err := e.draft()
+	if err != nil {
+		e.hint.SetText(err.Error())
+		return
+	}
+	e.test.Disable()
+	e.hint.SetText("正在测试连接…")
+	e.workspace.owner.jobs.run(func(ctx context.Context) (any, error) { return transport.ProbeSSH(ctx, next) }, func(value any, err error) {
+		e.test.Enable()
+		if err != nil {
+			e.hint.SetText("连接失败：" + err.Error())
+			return
+		}
+		e.hint.SetText("连接成功，主机指纹 " + value.(string))
 	})
 }
 

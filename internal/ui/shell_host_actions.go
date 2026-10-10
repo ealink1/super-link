@@ -2,25 +2,53 @@ package ui
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
+	"github.com/ealink1/super-link/internal/infra/secrets"
 )
 
-func (s *shellWorkspace) hostActions(h domain.ShellHost) {
-	var modal *shellModal
-	close := func(run func()) { modal.hide(); run() }
-	buttons := shellVBox(shellButton("连接终端", "terminal", true, func() { close(func() { s.connectHost(h) }) }), shellFixed(layout.NewSpacer(), 0, 12), shellOutlined(shellButton("编辑主机", "square-pen", false, func() { close(func() { s.loadHostEditor(h) }) })), shellFixed(layout.NewSpacer(), 0, 12), shellOutlined(shellButton("删除主机", "x", false, func() { close(func() { s.deleteHost(h) }) })))
-	address := fmt.Sprintf("%s@%s:%d", h.User, h.Host, h.Port)
-	if s.privacy {
-		address = "••••@••••••"
+// The card menu floats beside its trigger so the host stays visible while an
+// action is chosen; it opens below the button and flips above when clipped.
+func (s *shellWorkspace) hostMenu(h domain.ShellHost, anchor fyne.CanvasObject) {
+	var popup *widget.PopUp
+	choose := func(run func()) func() { return func() { popup.Hide(); run() } }
+	panel := container.NewThemeOverride(shellPanel(shellVBox(
+		shellMenuRow("编辑", "pencil", false, true, choose(func() { s.loadHostEditor(h) })),
+		shellMenuRow("复制密码", "copy", false, true, choose(func() { s.copyHostPassword(h) })),
+		shellMenuRow("删除", "trash-2", true, true, choose(func() { s.deleteHost(h) })),
+	), monitorSurfaceColor, 9, 4), newShellTheme())
+	popup = widget.NewPopUp(panel, s.owner.Window.Canvas())
+	canvas := s.owner.Window.Canvas()
+	origin := fyne.CurrentApp().Driver().AbsolutePositionForObject(anchor)
+	size := popup.MinSize()
+	x := max(8, origin.X+anchor.Size().Width-size.Width)
+	y := origin.Y + anchor.Size().Height + 6
+	if y+size.Height > canvas.Size().Height-8 {
+		y = max(8, origin.Y-size.Height-6)
 	}
-	body := shellVBox(shellText(address, 13, false, shellMutedColor), shellFixed(layout.NewSpacer(), 0, 24), buttons)
-	modal = s.newModal(h.Name, body, shellButton("关闭", "", false, func() { modal.hide() }), nil)
-	modal.popup.Resize(fyne.NewSize(420, 360))
-	modal.popup.Show()
+	popup.ShowAtPosition(fyne.NewPos(x, y))
+}
+
+func (s *shellWorkspace) copyHostPassword(h domain.ShellHost) {
+	s.owner.jobs.run(func(ctx context.Context) (any, error) { return s.service.Get(ctx, h.ID) }, func(value any, err error) {
+		if err == nil {
+			password := value.(domain.ShellHost).Password
+			if password != "" {
+				fyne.CurrentApp().Clipboard().SetContent(password)
+				return
+			}
+			err = secrets.ErrMissing
+		}
+		if errors.Is(err, secrets.ErrMissing) || errors.Is(err, secrets.ErrLegacy) {
+			showInformationDialog("复制密码", err.Error(), s.owner.Window)
+			return
+		}
+		s.owner.showError(err)
+	})
 }
 
 func (s *shellWorkspace) deleteHost(h domain.ShellHost) {

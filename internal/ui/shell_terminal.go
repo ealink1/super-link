@@ -182,6 +182,7 @@ func (r *terminalRenderer) Refresh() {
 			if style.Attrs&uv.AttrReverse != 0 {
 				text.Color, bg = bg, text.Color
 			}
+			text.Color = terminalInkColor(text.Color, bg)
 			r.backgrounds[used].FillColor = bg
 			r.backgrounds[used].Move(fyne.NewPos(float32(start)*cellSize.Width, float32(y)*cellSize.Height))
 			r.backgrounds[used].Resize(fyne.NewSize(float32(x-start)*cellSize.Width, cellSize.Height))

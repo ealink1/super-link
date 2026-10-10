@@ -193,6 +193,11 @@
       "file": "list-ordered.svg",
       "url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/list-ordered.svg",
       "sha256": "a77cb60b035f1f105b6f21ca4d1dce2d9f6543d3c719dc9a3f9a84ead9a0e35c"
+    },
+    {
+      "file": "network.svg",
+      "url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/network.svg",
+      "sha256": "626be730feea1e5ea7539fbf78b4a3fcb927ce5d7dc43364f2216908672ac792"
     }
   ]
 }

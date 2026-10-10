@@ -46,19 +46,48 @@ func OpenSSH(ctx context.Context, h domain.ShellHost) (*Remote, error) {
 }
 
 func openSSH(ctx context.Context, h domain.ShellHost, report func(ConnectStage, ConnectState)) (*Remote, error) {
+	remote, _, err := setupSSH(ctx, h, func(key ssh.PublicKey) error {
+		fingerprint := ssh.FingerprintSHA256(key)
+		if subtle.ConstantTimeCompare([]byte(h.Fingerprint), []byte(fingerprint)) != 1 {
+			return &HostKeyError{Fingerprint: fingerprint, Changed: h.Fingerprint != ""}
+		}
+		return nil
+	}, report, true)
+	return remote, err
+}
+
+// ProbeSSH authenticates and reports the server fingerprint without opening a
+// session, so checking credentials leaves no remote shell behind. A host that
+// already carries a pinned fingerprint must still present it; an unpinned one is
+// reported for trust-on-first-use and never stored here.
+func ProbeSSH(ctx context.Context, h domain.ShellHost) (string, error) {
+	_, fingerprint, err := setupSSH(ctx, h, func(key ssh.PublicKey) error {
+		observed := ssh.FingerprintSHA256(key)
+		if h.Fingerprint != "" && subtle.ConstantTimeCompare([]byte(h.Fingerprint), []byte(observed)) != 1 {
+			return &HostKeyError{Fingerprint: observed, Changed: true}
+		}
+		return nil
+	}, func(ConnectStage, ConnectState) {}, false)
+	return fingerprint, err
+}
+
+// setupSSH performs the bounded TCP and SSH setup. trust decides whether the
+// server identity is acceptable, and wantPTY=false stops after authentication,
+// which is when a credential failure is already known.
+func setupSSH(ctx context.Context, h domain.ShellHost, trust func(ssh.PublicKey) error, report func(ConnectStage, ConnectState), wantPTY bool) (*Remote, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	if err := h.Validate(); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	auth, err := sshAuth(h)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	address := net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
 	connection, err := (&net.Dialer{Timeout: 15 * time.Second}).DialContext(ctx, "tcp", address)
 	if err != nil {
-		return nil, fmt.Errorf("连接 SSH：%w", err)
+		return nil, "", fmt.Errorf("连接 SSH：%w", err)
 	}
 	report(ConnectTCP, ConnectCompleted)
 	report(ConnectAuth, ConnectStarted)
@@ -66,39 +95,40 @@ func openSSH(ctx context.Context, h domain.ShellHost, report func(ConnectStage, 
 	defer stop()
 	if err := connection.SetDeadline(time.Now().Add(15 * time.Second)); err != nil {
 		connection.Close()
-		return nil, err
+		return nil, "", err
 	}
+	fingerprint := ""
 	config := &ssh.ClientConfig{User: h.User, Auth: auth, HostKeyCallback: func(_ string, _ net.Addr, key ssh.PublicKey) error {
-		fingerprint := ssh.FingerprintSHA256(key)
-		if subtle.ConstantTimeCompare([]byte(h.Fingerprint), []byte(fingerprint)) != 1 {
-			return &HostKeyError{Fingerprint: fingerprint, Changed: h.Fingerprint != ""}
-		}
-		return nil
+		fingerprint = ssh.FingerprintSHA256(key)
+		return trust(key)
 	}}
 	clientConn, channels, requests, err := ssh.NewClientConn(connection, address, config)
 	if err != nil {
 		connection.Close()
-		return nil, fmt.Errorf("SSH 握手：%w", err)
+		return nil, fingerprint, fmt.Errorf("SSH 握手：%w", err)
 	}
 	client := ssh.NewClient(clientConn, channels, requests)
 	report(ConnectAuth, ConnectCompleted)
 	if err := connection.SetDeadline(time.Time{}); err != nil {
 		client.Close()
-		return nil, err
+		return nil, fingerprint, err
+	}
+	if !wantPTY {
+		return nil, fingerprint, client.Close()
 	}
 	report(ConnectChannel, ConnectStarted)
 	remote, err := openPTY(client)
 	if err != nil {
 		client.Close()
-		return nil, err
+		return nil, fingerprint, err
 	}
 	report(ConnectChannel, ConnectCompleted)
 	report(ConnectReady, ConnectStarted)
 	if err := ctx.Err(); err != nil {
-		return nil, errors.Join(err, remote.Close())
+		return nil, fingerprint, errors.Join(err, remote.Close())
 	}
 	report(ConnectReady, ConnectCompleted)
-	return remote, nil
+	return remote, fingerprint, nil
 }
 
 func sshAuth(h domain.ShellHost) ([]ssh.AuthMethod, error) {
