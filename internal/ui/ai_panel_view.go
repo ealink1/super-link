@@ -14,8 +14,12 @@ func (p *aiPanel) build() {
 	p.newButton = shellButton("", "plus", false, p.newConversation)
 	p.settingsButton = shellButton("", "settings", false, p.settings)
 	closeButton := shellButton("", "x", false, p.owner.aiEntry)
-	title := container.NewVBox(widget.NewLabelWithStyle("SuperLink AI", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), p.model)
-	header := container.NewBorder(nil, nil, nil, container.NewHBox(p.newButton, p.settingsButton, closeButton), title)
+	// Border centres its trailing object, which floated the actions between the
+	// title and its subtitle; keep them on the title row instead.
+	header := container.NewVBox(
+		container.NewHBox(widget.NewLabelWithStyle("SuperLink AI", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), layout.NewSpacer(), p.newButton, p.settingsButton, closeButton),
+		p.model,
+	)
 	p.messages = container.NewVBox()
 	p.scroll = container.NewVScroll(shellInset(p.messages, 14))
 	p.status = widget.NewLabel("正在读取 AI 配置…")
@@ -34,15 +38,20 @@ func (p *aiPanel) build() {
 
 func (p *aiPanel) introduction() {
 	p.visibleText = nil
-	intro := widget.NewRichTextFromMarkdown("## 你好，我是 SuperLink AI\n\n可以随时提问，帮你解释概念、整理思路、润色文字或排查问题。")
-	intro.Wrapping = fyne.TextWrapWord
-	objects := []fyne.CanvasObject{intro, widget.NewSeparator()}
+	// A markdown heading has no trailing margin, so the greeting and its
+	// description were drawn as one block; separate widgets keep the gap fixed.
+	greeting := shellLabel(widget.NewLabelWithStyle("你好，我是 SuperLink AI", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), 16)
+	summary := widget.NewLabel("可以随时提问，帮你解释概念、整理思路、润色文字或排查问题。")
+	summary.Wrapping = fyne.TextWrapWord
+	objects := []fyne.CanvasObject{greeting, shellFixed(layout.NewSpacer(), 0, 6), summary, widget.NewSeparator()}
 	for _, prompt := range []string{"解释一个技术概念", "帮我整理工作计划", "润色一段文字", "帮我分析报错原因"} {
 		text := prompt
-		objects = append(objects, widget.NewButton(text, func() {
+		button := widget.NewButton(text, func() {
 			p.input.SetText(text + "：")
 			p.owner.Window.Canvas().Focus(p.input)
-		}))
+		})
+		button.Alignment = widget.ButtonAlignLeading
+		objects = append(objects, button)
 	}
 	note := widget.NewLabel("仅发送本次对话内容。聊天保留至退出应用。")
 	note.Wrapping = fyne.TextWrapWord

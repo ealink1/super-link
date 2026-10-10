@@ -50,8 +50,13 @@ func TestNoteHeadingFormatsParagraphFromToolbar(t *testing.T) {
 		t.Fatalf("heading switch stacked syntax: %q", n.editor.Text)
 	}
 	n.insertFormat("## ", "")
+	if n.editor.Text != "第一段\n这是选中的正文\n最后一段" {
+		t.Fatalf("repeated heading cleared: %q", n.editor.Text)
+	}
+	n.insertFormat("## ", "")
+	want = "第一段\n## 这是选中的正文\n最后一段"
 	if n.editor.Text != want {
-		t.Fatalf("repeated heading stacked syntax: %q", n.editor.Text)
+		t.Fatalf("heading reapplied after clearing: %q", n.editor.Text)
 	}
 	var display strings.Builder
 	n.editor.Refresh()
@@ -80,6 +85,27 @@ func TestNoteHeadingAtCaretAndMultilineSelection(t *testing.T) {
 	n.insertFormat("### ", "")
 	if n.editor.Text != "### 一段\n### 二段\n三段" {
 		t.Fatal(n.editor.Text)
+	}
+}
+func TestNoteHeadingBoldDisplayIsNotInlineBold(t *testing.T) {
+	w, n := noteTestWindow(t)
+	w.Window.SetContent(n.content)
+	n.newNote()
+	n.editor.SetText("# 正文")
+	n.editor.selectSource(2, 4)
+	if noteRangeHasStyle(n.editor.Text, 2, 4, "**") {
+		t.Fatal("heading display bold counted as inline bold")
+	}
+	n.insertFormat("**", "**")
+	if n.editor.Text != "# **正文**" {
+		t.Fatalf("bold added to heading: %q", n.editor.Text)
+	}
+	if !noteRangeHasStyle(n.editor.Text, 4, 6, "**") {
+		t.Fatal("written bold markers not detected")
+	}
+	n.insertFormat("**", "**")
+	if n.editor.Text != "# 正文" {
+		t.Fatalf("bold toggle inside heading: %q", n.editor.Text)
 	}
 }
 func TestNoteInlineToolbarTogglesWithoutStacking(t *testing.T) {

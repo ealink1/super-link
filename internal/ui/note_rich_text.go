@@ -15,11 +15,14 @@ import (
 
 // A presentation run retains source offsets so editing continues to operate on
 // the original Markdown, including syntax we do not yet render specially.
+// style is what the user sees, so a heading is bold; inline records only the
+// markers written in the source, which is what the toolbar toggles.
 type noteRun struct {
-	text  string
-	start int
-	size  float32
-	style fyne.TextStyle
+	text   string
+	start  int
+	size   float32
+	style  fyne.TextStyle
+	inline fyne.TextStyle
 }
 type noteLine struct {
 	runs        []noteRun
@@ -80,7 +83,7 @@ func notePresentation(source string) []noteLine {
 		text = strings.TrimPrefix(text, prefix)
 		start := offset + utf8.RuneCountInString(prefix)
 		if fenced {
-			line.runs = []noteRun{{text, start, line.size, style}}
+			line.runs = []noteRun{{text, start, line.size, style, style}}
 		} else {
 			line.runs = noteInlineRuns(text, start, line.size, style)
 		}
@@ -105,14 +108,14 @@ func noteInlineRuns(value string, start int, size float32, style fyne.TextStyle)
 		if value == "" {
 			return nil
 		}
-		return []noteRun{{value, start, size, style}}
+		return []noteRun{{value, start, size, style, fyne.TextStyle{}}}
 	}
 	source := []byte(body)
 	contentStart := start + utf8.RuneCountInString(leading)
 	document := noteInlineMarkdown.Parser().Parse(goldtext.NewReader(source))
 	var runs []noteRun
 	if leading != "" {
-		runs = append(runs, noteRun{leading, start, size, style})
+		runs = append(runs, noteRun{leading, start, size, style, fyne.TextStyle{}})
 	}
 	parsed := false
 	_ = ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
@@ -123,32 +126,32 @@ func noteInlineRuns(value string, start int, size float32, style fyne.TextStyle)
 		if !ok {
 			return ast.WalkContinue, nil
 		}
-		nested := style
+		nested, inline := style, fyne.TextStyle{}
 		for parent := node.Parent(); parent != nil; parent = parent.Parent() {
 			switch v := parent.(type) {
 			case *ast.Emphasis:
 				if v.Level == 2 {
-					nested.Bold = true
+					nested.Bold, inline.Bold = true, true
 				} else {
-					nested.Italic = true
+					nested.Italic, inline.Italic = true, true
 				}
 			case *ast.CodeSpan:
-				nested.Monospace = true
+				nested.Monospace, inline.Monospace = true, true
 			case *extensionast.Strikethrough:
-				nested.Strikethrough = true
+				nested.Strikethrough, inline.Strikethrough = true, true
 			}
 		}
 		content := string(text.Segment.Value(source))
 		parsed = true
-		runs = append(runs, noteRun{content, contentStart + utf8.RuneCount(source[:text.Segment.Start]), size, nested})
+		runs = append(runs, noteRun{content, contentStart + utf8.RuneCount(source[:text.Segment.Start]), size, nested, inline})
 		return ast.WalkContinue, nil
 	})
 	// Keep unrecognised content editable, including standalone punctuation.
 	if !parsed {
-		runs = append(runs, noteRun{body, contentStart, size, style})
+		runs = append(runs, noteRun{body, contentStart, size, style, fyne.TextStyle{}})
 	}
 	if trailing != "" {
-		runs = append(runs, noteRun{trailing, contentStart + utf8.RuneCountInString(body), size, style})
+		runs = append(runs, noteRun{trailing, contentStart + utf8.RuneCountInString(body), size, style, fyne.TextStyle{}})
 	}
 	return runs
 }

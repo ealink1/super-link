@@ -32,7 +32,7 @@ func TestAppearancePreservesQueryFormAndTerminalContents(t *testing.T) {
 	pane.terminal.feed([]byte("\x1b[31;44mRED\x1b[0m plain / 中文"))
 	terminal := pane.terminal
 	renderer := test.WidgetRenderer(terminal).(*terminalRenderer)
-	ansiForeground, ansiBackground := renderer.pool[0].Color, renderer.backgrounds[0].FillColor
+	ansiBackground := renderer.backgrounds[0].FillColor
 	content := terminal.emulator.String()
 	editor := newShellHostEditor(s, domain.ShellHost{Port: 22, User: "tester", Remember: true})
 	editor.name.SetText("未保存的主机")
@@ -56,8 +56,20 @@ func TestAppearancePreservesQueryFormAndTerminalContents(t *testing.T) {
 		if !sameAppearanceColor(renderer.background.FillColor, (Theme{Dark: dark}).Color(theme.ColorNameBackground, theme.VariantLight)) || !sameAppearanceColor(renderer.pool[1].Color, (Theme{Dark: dark}).Color(theme.ColorNameForeground, theme.VariantLight)) {
 			t.Fatal("terminal kept the previous default colors")
 		}
-		if !sameAppearanceColor(renderer.pool[0].Color, ansiForeground) || !sameAppearanceColor(renderer.backgrounds[0].FillColor, ansiBackground) {
-			t.Fatal("theme change altered explicit ANSI colors")
+		// Night keeps explicit ANSI colors exactly as the program sent them;
+		// day mode only moves the ink away from its own cell background.
+		ansiInk := color.NRGBA{R: 0x80, A: 0xff}
+		if !sameAppearanceColor(renderer.backgrounds[0].FillColor, ansiBackground) {
+			t.Fatal("theme change altered the explicit ANSI background")
+		}
+		if dark {
+			if !sameAppearanceColor(renderer.pool[0].Color, ansiInk) {
+				t.Fatal("night mode altered an explicit ANSI color")
+			}
+		} else if sameAppearanceColor(renderer.pool[0].Color, ansiInk) {
+			t.Fatal("day mode left red on blue at the dark-screen palette")
+		} else if contrastAgainst(terminalNRGBA(renderer.pool[0].Color), terminalNRGBA(ansiBackground)) < contrastAgainst(ansiInk, terminalNRGBA(ansiBackground)) {
+			t.Fatal("day mode made the ANSI ink less readable")
 		}
 		w.switcher.selectMode(0)
 		if w.tabs.Selected() != sqlItem || w.workspaces[sqlItem] != sql || sql.editor.Text != "SELECT '未执行的主题测试';" {

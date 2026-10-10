@@ -10,7 +10,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 	"github.com/ealink1/super-link/internal/domain"
@@ -320,11 +319,6 @@ func (w *Window) showError(err error) {
 		return
 	}
 	showErrorDialog(err, w.Window)
-}
-func (w *Window) about() {
-	content := widget.NewLabel(fmt.Sprintf("版本 %s\n独立 Go + Fyne 项目\n本地目录：%s\n数据库权限是最终保护边界。\n记住的密码加密保存在本机，草稿可能包含业务数据。", w.Version, w.Root))
-	content.Alignment = fyne.TextAlignCenter
-	dialog.NewCustom("SuperLink", "好", content, w.Window).Show()
 }
 func (w *Window) shutdown() {
 	if w.shuttingDown {

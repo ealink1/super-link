@@ -56,13 +56,25 @@ func (w *Window) openDatabaseTables(p domain.Profile, scope string) *databaseTab
 	page.list = page.buildTableGrid()
 	page.deleteButton = page.buildDeleteButton()
 	page.updateDeleteButton()
-	page.item = container.NewTabItem(scope, container.NewBorder(container.NewBorder(nil, nil, container.NewHBox(widget.NewLabel(scope+" · 所有表"), action("刷新", "refresh", page.refresh), page.deleteButton), shellFixed(page.search, 240, 32), nil), page.status, nil, nil, container.NewBorder(widget.NewSeparator(), nil, nil, nil, container.NewThemeOverride(page.list, catalogGridTheme{fyne.CurrentApp().Settings().Theme()}))))
+	page.item = container.NewTabItem(scope, container.NewBorder(page.buildHeader(), page.status, nil, nil, container.NewBorder(widget.NewSeparator(), nil, nil, nil, container.NewThemeOverride(page.list, catalogGridTheme{fyne.CurrentApp().Settings().Theme()}))))
 	w.databases[page.item] = page
 	w.tabs.Append(page.item)
 	w.tabs.Select(page.item)
 	w.syncDocuments()
 	page.refresh()
 	return page
+}
+
+func (p *databaseTables) buildHeader() fyne.CanvasObject {
+	const height = float32(32)
+	title := shellText(p.scope, 13, false, shellTextColor)
+	refresh := action("", "refresh", p.refresh)
+	controls := container.NewHBox(
+		shellFixed(container.NewCenter(title), title.MinSize().Width+12, height),
+		shellFixed(refresh, 32, height),
+		shellFixed(p.deleteButton, 32, height),
+	)
+	return container.NewBorder(nil, nil, controls, shellFixed(p.search, 240, height), nil)
 }
 
 func (p *databaseTables) refresh() {

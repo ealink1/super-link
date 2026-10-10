@@ -71,7 +71,7 @@ func (n *noteWorkspace) applyNoteFormat(prefix, suffix string) {
 			start, end, value = blockStart, blockEnd, body
 		}
 		applied := prefix
-		if !strings.HasPrefix(prefix, "#") && noteBlocksActive(value, prefix) {
+		if noteBlocksActive(value, prefix) {
 			applied = ""
 		}
 		replacement := noteSetBlock(value, applied)
@@ -138,13 +138,13 @@ func noteRangeHasStyle(source string, start, end int, mark string) bool {
 			active := false
 			switch mark {
 			case "**":
-				active = run.style.Bold
+				active = run.inline.Bold
 			case "*":
-				active = run.style.Italic
+				active = run.inline.Italic
 			case "~~":
-				active = run.style.Strikethrough
+				active = run.inline.Strikethrough
 			case "`":
-				active = run.style.Monospace
+				active = run.inline.Monospace
 			}
 			if !active {
 				return false

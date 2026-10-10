@@ -18,10 +18,13 @@ func (n *noteWorkspace) formatToolbar() *fyne.Container {
 	} {
 		item := format
 		button := shellButton(item.name, item.icon, false, func() { n.insertFormat(item.prefix, item.suffix) })
+		if item.name != "" {
+			button.textOffset = 2
+		}
 		n.formatButtons = append(n.formatButtons, noteFormatButton{item.prefix, item.suffix, button})
 		objects = append(objects, noteButtonView(button), shellFixed(layout.NewSpacer(), 4, 0))
 	}
-	objects = append(objects, noteButtonView(shellButton("撤销", "undo-2", false, n.editor.Undo)), noteButtonView(shellButton("重做", "redo-2", false, n.editor.Redo)))
+	objects = append(objects, noteButtonView(shellButton("", "undo-2", false, n.editor.Undo)), noteButtonView(shellButton("", "redo-2", false, n.editor.Redo)))
 	return shellHBox(objects...)
 }
 
