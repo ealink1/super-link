@@ -32,7 +32,7 @@ func TestCompactDocumentTabsExposeContextOnlyOnHover(t *testing.T) {
 	w.buildDocuments()
 	w.tabs.OnSelected = func(*container.TabItem) { w.syncDocuments() }
 	w.syncDocuments()
-	w.Window.SetContent(w.docHost)
+	w.Window.SetContent(container.NewStack(w.docHost, w.docTooltip.layer))
 	w.Window.Resize(fyne.NewSize(640, 300))
 	w.Window.Show()
 	q, tab := w.docButtons[query], w.docButtons[table]

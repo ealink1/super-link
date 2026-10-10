@@ -17,8 +17,8 @@ func newHeaderAction(label string, run func()) fyne.CanvasObject {
 		resource = icon("link")
 	case "管理连接分组":
 		resource = headerOutlineIcon("groups", `<path d="M4 3v14a2 2 0 0 0 2 2h3M4 7h5M4 14h5"/><path d="M10 4h4l2 2h4v5H10zM10 14h4l2 2h4v5H10z"/>`)
-	case "SQL 工具":
-		resource = headerOutlineIcon("tools", `<path d="M14 6a5 5 0 0 0-6 6L2 18a2.8 2.8 0 0 0 4 4l6-6a5 5 0 0 0 6-6l-4 4-4-4 4-4z"/>`)
+	case "执行历史":
+		resource = headerOutlineIcon("history", `<path d="M3 11a9 9 0 1 1 2.6 7.4M3 4v7h7M12 7v5l3 2"/>`)
 	case "驱动管理":
 		resource = icon("package")
 	default:

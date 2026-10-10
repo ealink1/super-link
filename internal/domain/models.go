@@ -17,6 +17,7 @@ var (
 )
 
 type Profile struct {
+	CreatedAt       time.Time                   `json:"createdAt,omitempty"`
 	ID              string                      `json:"id"`
 	Name            string                      `json:"name"`
 	Group           string                      `json:"group"`

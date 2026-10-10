@@ -21,6 +21,7 @@ type navNode struct {
 	children                          []string
 	loaded, busy                      bool
 	revision                          int64
+	count                             int
 	cancel                            context.CancelFunc
 }
 
@@ -71,7 +72,7 @@ func newNavigator(w *Window) *navigator {
 }
 
 func (n *navigator) content() fyne.CanvasObject {
-	tools := container.NewHBox(action("", "search", func() {
+	tools := container.NewHBox(n.hintedAction("search", func() {
 		if n.owner.search.Visible() {
 			n.owner.search.SetText("")
 			n.owner.search.Hide()
@@ -79,50 +80,24 @@ func (n *navigator) content() fyne.CanvasObject {
 			n.owner.search.Show()
 			n.owner.Window.Canvas().Focus(n.owner.search)
 		}
-	}), action("", "locate", n.locate), action("", "refresh", n.refresh), action("", "connection-menu", n.connectionMenu))
+	}), n.hintedAction("locate", n.locate), n.hintedAction("refresh", n.refresh), n.hintedAction("connection-menu", n.connectionMenu))
 	setFilter := func(kind string) func() { return func() { n.kindFilter = kind; n.tree.Refresh() } }
-	filters := container.NewHBox(action("", "all-objects", setFilter("")), action("", "table", setFilter("table")), action("", "view", setFilter("view")), action("", "function", setFilter("function")), action("", "sql-doc", n.owner.savedQueryManager), action("", "history", n.owner.sqlTools))
+	filters := container.NewHBox(n.hintedAction("all-objects", setFilter("")), n.hintedAction("table", setFilter("table")), n.hintedAction("view", setFilter("view")), n.hintedAction("function", setFilter("function")), n.hintedAction("sql-doc", n.owner.savedQueryManager), n.hintedAction("history", n.owner.showExecutionHistory))
 	head := container.NewVBox(container.NewBorder(nil, nil, nil, tools, n.breadcrumb), n.contextLabel, n.owner.search, filters)
 	footer := container.NewVBox(action("全部已存查询", "folder-open", n.owner.savedQueryManager))
 	return container.NewBorder(head, footer, nil, nil, n.tree)
 }
 
-func (n *navigator) syncProfiles() {
-	current := make(map[string]bool, len(n.owner.profiles))
-	for _, p := range n.owner.profiles {
-		current["connection:"+p.ID] = true
-	}
-	for id, node := range n.nodes {
-		if node.kind == "connection" && !current[id] {
-			n.removeChildren(node)
-			if node.cancel != nil {
-				node.cancel()
-			}
-			delete(n.nodes, id)
-		}
-	}
-	n.roots = n.roots[:0]
-	for _, p := range n.owner.visible {
-		id := "connection:" + p.ID
-		node := n.nodes[id]
-		if node == nil || node.revision != p.Revision {
-			if node != nil {
-				n.removeChildren(node)
-				if node.cancel != nil {
-					node.cancel()
-				}
-			}
-			node = &navNode{id: id, label: p.Name, kind: "connection", profileID: p.ID, revision: p.Revision}
-			n.nodes[id] = node
-		}
-		n.roots = append(n.roots, id)
-	}
-	n.tree.Refresh()
-}
-
 func (n *navigator) selectNode(id string) {
 	node := n.nodes[id]
 	if node == nil {
+		return
+	}
+	if node.kind == "connection-group" {
+		n.selected = id
+		n.owner.selected = ""
+		n.breadcrumb.SetText(node.label)
+		n.contextLabel.Hide()
 		return
 	}
 	n.owner.selected = node.profileID
@@ -299,6 +274,10 @@ func (n *navigator) refresh() {
 		id = node.parent
 	}
 	if node := n.nodes[id]; node != nil {
+		if node.kind == "connection-group" {
+			n.owner.reload()
+			return
+		}
 		node.generation++
 		if node.busy && node.cancel != nil {
 			node.cancel()
@@ -344,6 +323,9 @@ func (n *navigator) filteredChildren(node *navNode) []string {
 }
 func (n *navigator) locate() {
 	if id := n.selected; id != "" {
+		for node := n.nodes[id]; node != nil && node.parent != ""; node = n.nodes[node.parent] {
+			n.tree.OpenBranch(node.parent)
+		}
 		n.tree.ScrollTo(id)
 	}
 }

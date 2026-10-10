@@ -84,7 +84,7 @@ func (n *noteWorkspace) exportMarkdown() {
 func (n *noteWorkspace) saveMarkdownFile(path, body string, overwrite bool) {
 	n.owner.jobs.run(func(ctx context.Context) (any, error) { return nil, notefile.Save(ctx, path, body, overwrite) }, func(_ any, err error) {
 		if errors.Is(err, os.ErrExist) && !overwrite {
-			dialog.ShowConfirm("覆盖 Markdown 文件", "替换「"+filepath.Base(path)+"」？", func(ok bool) {
+			showConfirmDialog("覆盖 Markdown 文件", "替换「"+filepath.Base(path)+"」？", func(ok bool) {
 				if ok {
 					n.saveMarkdownFile(path, body, true)
 				}

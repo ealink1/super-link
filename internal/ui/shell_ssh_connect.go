@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/domain"
 	transport "github.com/ealink1/super-link/internal/infra/shell"
 )
@@ -48,7 +47,7 @@ func (s *shellWorkspace) connectHost(h domain.ShellHost) {
 }
 
 func (s *shellWorkspace) confirmHostIdentity(p *shellPane, h domain.ShellHost, key *transport.HostKeyError) {
-	dialog.ShowConfirm("核实 SSH 主机指纹", fmt.Sprintf("%s@%s:%d\n%s\n\n请通过可信渠道核实后，确认并连接。", h.User, h.Host, h.Port, key.Fingerprint), func(ok bool) {
+	showConfirmDialog("核实 SSH 主机指纹", fmt.Sprintf("%s@%s:%d\n%s\n\n请通过可信渠道核实后，确认并连接。", h.User, h.Host, h.Port, key.Fingerprint), func(ok bool) {
 		if !ok || p.closed {
 			return
 		}

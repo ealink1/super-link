@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/infra/update"
 	"os"
 	"path/filepath"
@@ -51,6 +50,6 @@ func (w *Window) checkUpdateReport() {
 		if report.RolledBack {
 			message += "已恢复旧版本。"
 		}
-		dialog.ShowInformation("更新未成功", message+"\n目标版本："+report.Version+"\n原因："+report.Message, w.Window)
+		showInformationDialog("更新未成功", message+"\n目标版本："+report.Version+"\n原因："+report.Message, w.Window)
 	})
 }

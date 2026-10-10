@@ -100,7 +100,7 @@ func (n *navigator) runDatabaseExport(p domain.Profile, scope, path string, incl
 			return
 		}
 		result := value.(databaseexport.Result)
-		dialog.ShowInformation("导出完成", fmt.Sprintf("已导出 %d 张表、%d 行数据\n%s", result.Tables, result.Rows, path), n.owner.Window)
+		showInformationDialog("导出完成", fmt.Sprintf("已导出 %d 张表、%d 行数据\n%s", result.Tables, result.Rows, path), n.owner.Window)
 	})
 }
 

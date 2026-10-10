@@ -119,7 +119,7 @@ func (w *Window) savedQueryManager() {
 				return
 			}
 			q := queries[selected]
-			dialog.ShowConfirm("删除已存查询", "删除「"+q.Title+"」？已打开的编辑草稿仍会保留。", func(ok bool) {
+			showConfirmDialog("删除已存查询", "删除「"+q.Title+"」？已打开的编辑草稿仍会保留。", func(ok bool) {
 				if !ok || closed {
 					return
 				}

@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"image/color"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -37,8 +38,9 @@ type gridModel struct {
 // dataGrid keeps Fyne's virtualization and header resizing.
 type dataGrid struct {
 	*widget.Table
-	model gridModel
-	cells []*gridCell
+	model          gridModel
+	cells          []*gridCell
+	rowNumberWidth float32
 }
 
 func newDataGrid(model gridModel) *dataGrid {
@@ -62,7 +64,6 @@ func newDataGrid(model gridModel) *dataGrid {
 	g.UpdateHeader = func(id widget.TableCellID, item fyne.CanvasObject) { item.(*gridHeader).bind(id.Col) }
 	g.SetRowHeight(-1, 52)
 	g.SetColumnWidth(0, 28)
-	g.SetColumnWidth(1, 28)
 	for i := range model.columns {
 		g.SetColumnWidth(i+2, 140)
 	}
@@ -70,11 +71,20 @@ func newDataGrid(model gridModel) *dataGrid {
 	return g
 }
 func (g *dataGrid) Refresh() {
+	digits := max(2, len(strconv.Itoa(max(1, g.model.length()))))
+	width := float32(40)
+	for _, digit := range "0123456789" {
+		width = max(width, fyne.MeasureText(strings.Repeat(string(digit), digits), 14, fyne.TextStyle{}).Width+20)
+	}
+	if width != g.rowNumberWidth {
+		g.rowNumberWidth = width
+		g.SetColumnWidth(1, width)
+	}
 	g.Table.Refresh()
 }
 func (g *dataGrid) Resize(size fyne.Size) {
 	if len(g.model.columns) > 0 {
-		width := size.Width - 56 - float32(len(g.model.columns)-1)*144 - 16
+		width := size.Width - 28 - g.rowNumberWidth - float32(len(g.model.columns)-1)*144 - 16
 		g.SetColumnWidth(len(g.model.columns)+1, max(140, width))
 	}
 	g.Table.Resize(size)

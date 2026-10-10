@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/ealink1/super-link/internal/application"
+	"strconv"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -16,17 +17,24 @@ type treeRow struct {
 	image     *databaseBadge
 	label     *widget.Label
 	status    *connectionDot
+	count     *widget.Label
+	countView fyne.CanvasObject
 }
 
 func newTreeRow(n *navigator) *treeRow {
 	r := &treeRow{navigator: n, image: newDatabaseBadge("folder"), label: widget.NewLabel(""), status: newConnectionDot()}
 	r.status.Hide()
+	r.count = widget.NewLabel("")
+	r.count.Alignment = fyne.TextAlignCenter
+	r.countView = newNavigatorGroupCount(r.count)
+	r.countView.Hide()
 	r.label.Wrapping = fyne.TextTruncate
 	r.ExtendBaseWidget(r)
 	return r
 }
 func (r *treeRow) bind(node *navNode) {
 	r.node = node
+	r.countView.Hide()
 	if node == nil {
 		r.label.SetText("")
 		r.status.Hide()
@@ -44,6 +52,10 @@ func (r *treeRow) bind(node *navNode) {
 		r.status.Hide()
 	}
 	r.label.SetText(node.label)
+	if node.kind == "connection-group" {
+		r.count.SetText(strconv.Itoa(node.count))
+		r.countView.Show()
+	}
 	name := "folder"
 	if node.kind == "database" {
 		name = "database"
@@ -72,7 +84,12 @@ func (r *treeRow) bind(node *navNode) {
 	r.image.set(name)
 	if node.kind != "connection" {
 		shade := "#15803d"
-		if node.kind == "database" {
+		if node.kind == "connection-group" {
+			shade = "#d58a00"
+			if option := r.navigator.owner.profileGroupOptions[node.label]; option.Color != "" {
+				shade = option.Color
+			}
+		} else if node.kind == "database" {
 			shade = "#4286a5"
 		} else if node.kind == "schema" {
 			shade = "#89918b"
@@ -91,7 +108,7 @@ func (r *treeRow) bind(node *navNode) {
 	r.Refresh()
 }
 func (r *treeRow) CreateRenderer() fyne.WidgetRenderer {
-	return widget.NewSimpleRenderer(container.NewBorder(nil, nil, r.image, r.status, r.label))
+	return widget.NewSimpleRenderer(container.NewBorder(nil, nil, r.image, r.status, container.New(&navigatorGroupLabelLayout{r}, r.label, r.countView)))
 }
 func (r *treeRow) Tapped(*fyne.PointEvent) {
 	if r.node != nil {

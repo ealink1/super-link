@@ -9,7 +9,8 @@ import (
 // line-box whitespace relative to the adjacent icon.
 type shellAlignedButton struct {
 	widget.Button
-	bold bool
+	bold       bool
+	textOffset float32
 }
 
 func (b *shellAlignedButton) CreateRenderer() fyne.WidgetRenderer {
@@ -25,6 +26,13 @@ func (r *shellAlignedButtonRenderer) MinSize() fyne.Size { return r.content.MinS
 func (r *shellAlignedButtonRenderer) Layout(size fyne.Size) {
 	r.content.Layout(size)
 	alignShellButtonText(r.content, size)
+	if r.button.textOffset != 0 {
+		for _, object := range r.content.Objects() {
+			if _, ok := object.(*widget.RichText); ok {
+				object.Move(object.Position().Add(fyne.NewPos(0, r.button.textOffset)))
+			}
+		}
+	}
 }
 func (r *shellAlignedButtonRenderer) Objects() []fyne.CanvasObject { return r.content.Objects() }
 func (r *shellAlignedButtonRenderer) Destroy()                     { r.content.Destroy() }

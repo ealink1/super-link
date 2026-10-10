@@ -1,7 +1,5 @@
 package ui
 
-import "fyne.io/fyne/v2/dialog"
-
 func (w *Window) closeTable(t *tableWorkspace) {
 	close := func() {
 		t.closed = true
@@ -17,7 +15,7 @@ func (w *Window) closeTable(t *tableWorkspace) {
 		if t.busy {
 			text += "\n正在执行的请求将被取消；已提交的写入不会回滚。"
 		}
-		dialog.ShowConfirm("关闭表工作台", text, func(ok bool) {
+		showConfirmDialog("关闭表工作台", text, func(ok bool) {
 			if ok {
 				close()
 			}
@@ -38,7 +36,7 @@ func (w *Window) closeImport(i *importWorkbench) {
 		w.syncDocuments()
 	}
 	if i.busy {
-		dialog.ShowConfirm("停止并关闭导入", "停止当前任务并关闭？已提交批次会保留；取消提交时需要检查服务端结果。", func(ok bool) {
+		showConfirmDialog("停止并关闭导入", "停止当前任务并关闭？已提交批次会保留；取消提交时需要检查服务端结果。", func(ok bool) {
 			if ok {
 				close()
 			}

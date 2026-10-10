@@ -59,6 +59,10 @@ func (h *documentTooltip) show(t *documentTab) {
 }
 
 func (h *documentTooltip) showContent(t fyne.CanvasObject, text string) {
+	h.showContentAt(t, text, nil)
+}
+
+func (h *documentTooltip) showContentAt(t fyne.CanvasObject, text string, event *desktop.MouseEvent) {
 	driver := fyne.CurrentApp().Driver()
 	parent := driver.CanvasForObject(t)
 	if parent == nil || len(parent.Overlays().List()) != 0 || h.layer.Size().IsZero() {
@@ -72,17 +76,35 @@ func (h *documentTooltip) showContent(t fyne.CanvasObject, text string) {
 	for _, line := range strings.Split(text, "\n") {
 		width = max(width, fyne.MeasureText(line, theme.TextSize(), fyne.TextStyle{}).Width)
 	}
-	width = min(width+4*theme.Padding(), 360, h.layer.Size().Width)
+	// Include both the outer container padding and Label's inner padding.
+	width = min(width+2*theme.InnerPadding()+2*theme.Padding()+2, 360, h.layer.Size().Width)
 	h.label.Resize(fyne.NewSize(max(0, width-2*theme.Padding()), 0))
 	size := fyne.NewSize(width, h.label.MinSize().Height+2*theme.Padding())
 	h.box.Resize(size)
 	position := driver.AbsolutePositionForObject(t).Subtract(driver.AbsolutePositionForObject(h.layer))
 	position.Y += t.Size().Height + 4
+	if event != nil {
+		position = event.AbsolutePosition.Subtract(driver.AbsolutePositionForObject(h.layer))
+		position.Y += 16
+	}
 	position.X = max(0, min(position.X, h.layer.Size().Width-size.Width))
 	position.Y = max(0, min(position.Y, h.layer.Size().Height-size.Height))
 	h.box.Move(position)
 	h.box.Show()
 	h.box.Refresh()
+}
+
+func (h *documentTooltip) moveBelowPointer(event *desktop.MouseEvent) {
+	if event == nil || h.active == nil || !h.box.Visible() {
+		return
+	}
+	origin := fyne.CurrentApp().Driver().AbsolutePositionForObject(h.layer)
+	position := event.AbsolutePosition.Subtract(origin)
+	position.Y += 16
+	size := h.box.Size()
+	position.X = max(0, min(position.X, h.layer.Size().Width-size.Width))
+	position.Y = max(0, min(position.Y, h.layer.Size().Height-size.Height))
+	h.box.Move(position)
 }
 
 func (h *documentTooltip) hide() {

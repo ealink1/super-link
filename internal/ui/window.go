@@ -41,6 +41,9 @@ type Window struct {
 	Releases                    *release.Client
 	jobs                        *tasks
 	profiles                    []domain.Profile
+	profileGroups               []string
+	profileGroupParents         map[string]string
+	profileGroupOptions         map[string]domain.ConnectionGroupOptions
 	visible                     []domain.Profile
 	list                        *widget.List
 	search                      *widget.Entry
@@ -118,24 +121,32 @@ func (w *Window) Show() {
 }
 func (w *Window) Ready() <-chan struct{} { return w.ready }
 func (w *Window) loadProfiles() {
-	w.jobs.run(func(ctx context.Context) (any, error) { return w.Profiles.List(ctx) }, func(value any, err error) {
+	w.jobs.run(func(ctx context.Context) (any, error) { return readConnectionGroupSnapshot(ctx, w) }, func(value any, err error) {
 		if err != nil {
 			w.showError(err)
 			return
 		}
-		w.profiles = value.([]domain.Profile)
+		snapshot := value.(connectionGroupSnapshot)
+		w.profiles = snapshot.profiles
+		w.profileGroups = snapshot.groups
+		w.profileGroupParents = snapshot.parents
+		w.profileGroupOptions = snapshot.options
 		w.filter()
 		w.status.SetText(fmt.Sprintf("%d 个连接 · v%s", len(w.profiles), w.Version))
 		w.restoreDrafts()
 	})
 }
 func (w *Window) reload() {
-	w.jobs.run(func(ctx context.Context) (any, error) { return w.Profiles.List(ctx) }, func(value any, err error) {
+	w.jobs.run(func(ctx context.Context) (any, error) { return readConnectionGroupSnapshot(ctx, w) }, func(value any, err error) {
 		if err != nil {
 			w.showError(err)
 			return
 		}
-		w.profiles = value.([]domain.Profile)
+		snapshot := value.(connectionGroupSnapshot)
+		w.profiles = snapshot.profiles
+		w.profileGroups = snapshot.groups
+		w.profileGroupParents = snapshot.parents
+		w.profileGroupOptions = snapshot.options
 		w.filter()
 	})
 }
@@ -252,7 +263,7 @@ func (w *Window) deleteSelected() {
 	if !ok {
 		return
 	}
-	dialog.ShowConfirm("删除连接", "删除「"+p.Name+"」及其本地草稿和历史？", func(ok bool) {
+	showConfirmDialog("删除连接", "删除「"+p.Name+"」及其本地草稿和历史？", func(ok bool) {
 		if !ok {
 			return
 		}
@@ -308,10 +319,12 @@ func (w *Window) showError(err error) {
 		w.status.SetText("操作已取消")
 		return
 	}
-	dialog.ShowError(err, w.Window)
+	showErrorDialog(err, w.Window)
 }
 func (w *Window) about() {
-	dialog.ShowInformation("SuperLink", fmt.Sprintf("版本 %s\n独立 Go + Fyne 项目\n本地目录：%s\n数据库权限是最终保护边界。\n记住的密码加密保存在本机，草稿可能包含业务数据。", w.Version, w.Root), w.Window)
+	content := widget.NewLabel(fmt.Sprintf("版本 %s\n独立 Go + Fyne 项目\n本地目录：%s\n数据库权限是最终保护边界。\n记住的密码加密保存在本机，草稿可能包含业务数据。", w.Version, w.Root))
+	content.Alignment = fyne.TextAlignCenter
+	dialog.NewCustom("SuperLink", "好", content, w.Window).Show()
 }
 func (w *Window) shutdown() {
 	if w.shuttingDown {
@@ -329,7 +342,7 @@ func (w *Window) shutdown() {
 		}
 	}
 	if dirty > 0 {
-		dialog.ShowConfirm("未提交的修改", fmt.Sprintf("%d 个页面存在未提交的数据或结构修改。丢弃这些修改并退出？", dirty), func(ok bool) {
+		showConfirmDialog("未提交的修改", fmt.Sprintf("%d 个页面存在未提交的数据或结构修改。丢弃这些修改并退出？", dirty), func(ok bool) {
 			if ok {
 				for _, t := range w.tables {
 					t.clearEdits()
@@ -385,7 +398,7 @@ func (w *Window) shutdown() {
 		fyne.Do(func() {
 			if err != nil {
 				w.Window.SetCloseIntercept(nil)
-				modal := dialog.NewInformation("关闭时出现问题", err.Error(), w.Window)
+				modal := newInformationDialog("关闭时出现问题", err.Error(), w.Window)
 				modal.SetOnClosed(w.App.Quit)
 				modal.Show()
 				return

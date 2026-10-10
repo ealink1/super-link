@@ -131,7 +131,7 @@ func (n *navigator) submitCreateTable(node *navNode, p domain.Profile, request d
 	}, func(_ any, err error) {
 		var required *domain.ConfirmationRequired
 		if errors.As(err, &required) {
-			dialog.ShowConfirm("确认创建表", fmt.Sprintf("连接：%s\n%s", p.Name, request.Text), func(ok bool) {
+			showConfirmDialog("确认创建表", fmt.Sprintf("连接：%s\n%s", p.Name, request.Text), func(ok bool) {
 				if !ok {
 					done(fmt.Errorf("已取消创建表"))
 					return

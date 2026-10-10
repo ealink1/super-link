@@ -71,7 +71,7 @@ func (d *tableDesigner) save(confirmation string) {
 			}
 		}
 		if warning != nil {
-			dialog.ShowInformation("结构变更已提交", warning.Error(), d.owner.Window)
+			showInformationDialog("结构变更已提交", warning.Error(), d.owner.Window)
 		}
 	})
 }
@@ -80,7 +80,7 @@ func (d *tableDesigner) refresh() {
 		return
 	}
 	if d.dirty() {
-		dialog.ShowConfirm("刷新结构", "丢弃当前暂存修改并重新读取服务端结构？", func(ok bool) {
+		showConfirmDialog("刷新结构", "丢弃当前暂存修改并重新读取服务端结构？", func(ok bool) {
 			if ok {
 				d.reload()
 			}
@@ -142,7 +142,7 @@ func (w *Window) closeDesigner(d *tableDesigner) {
 		w.syncDocuments()
 	}
 	if d.dirty() || d.busy {
-		dialog.ShowConfirm("关闭设计表", "丢弃暂存修改并关闭？进行中的操作会取消，已执行的 DDL 可能保留。", func(ok bool) {
+		showConfirmDialog("关闭设计表", "丢弃暂存修改并关闭？进行中的操作会取消，已执行的 DDL 可能保留。", func(ok bool) {
 			if ok {
 				close()
 			}

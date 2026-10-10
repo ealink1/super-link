@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"io"
 	"net/http"
 	"runtime"
@@ -66,6 +68,12 @@ func TestCheckUpdatesShowsNoReleaseAfterForbiddenAPI(t *testing.T) {
 	var text strings.Builder
 	for _, overlay := range w.Window.Canvas().Overlays().List() {
 		text.WriteString(shellDialogText(overlay))
+		walkUpdateDialog(overlay, func(object fyne.CanvasObject) {
+			if item, ok := object.(*canvas.Text); ok {
+				text.WriteString(item.Text)
+				text.WriteString("\n")
+			}
+		})
 	}
 	if !strings.Contains(w.status.Text, "尚未发布公开稳定版本") || !strings.Contains(text.String(), "暂无可用的公开稳定版本") || strings.Contains(text.String(), "403") {
 		t.Fatal("update check did not complete with a no-release explanation", w.status.Text, text.String())
@@ -122,8 +130,14 @@ func TestStartupUpdateShowsSignedNewVersionConfirmation(t *testing.T) {
 	var text strings.Builder
 	for _, overlay := range w.Window.Canvas().Overlays().List() {
 		text.WriteString(shellDialogText(overlay))
+		walkUpdateDialog(overlay, func(object fyne.CanvasObject) {
+			if item, ok := object.(*canvas.Text); ok {
+				text.WriteString(item.Text)
+				text.WriteString("\n")
+			}
+		})
 	}
-	if !strings.Contains(text.String(), "0.1.0 → 0.2.0") || !strings.Contains(text.String(), "签名清单验证通过") {
+	if !strings.Contains(text.String(), "0.1.0") || !strings.Contains(text.String(), "0.2.0") || !strings.Contains(text.String(), "官方签名清单已验证") {
 		t.Fatal("missing update confirmation", text.String())
 	}
 }

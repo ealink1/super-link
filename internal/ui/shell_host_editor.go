@@ -16,9 +16,9 @@ import (
 type shellHostEditor struct {
 	workspace                                                                *shellWorkspace
 	host                                                                     domain.ShellHost
-	name, group, address, port, user, password, key, passphrase, notes, tags *widget.Entry
-	remember                                                                 *widget.Check
-	system                                                                   *widget.Select
+	name, group, address, port, user, password, key, passphrase, notes, tags *shellFormEntry
+	remember                                                                 *shellFormCheck
+	system                                                                   *shellFormSelect
 	keyMode                                                                  bool
 	credentials                                                              *fyne.Container
 	passwordMode, keyButton                                                  *shellAlignedButton
@@ -33,8 +33,8 @@ func (s *shellWorkspace) editHost(h domain.ShellHost) {
 }
 
 func newShellHostEditor(s *shellWorkspace, h domain.ShellHost) *shellHostEditor {
-	entry := func(value, placeholder string) *widget.Entry {
-		e := widget.NewEntry()
+	entry := func(value, placeholder string) *shellFormEntry {
+		e := newShellFormEntry(false)
 		e.SetText(value)
 		e.SetPlaceHolder(placeholder)
 		return e
@@ -43,12 +43,12 @@ func newShellHostEditor(s *shellWorkspace, h domain.ShellHost) *shellHostEditor 
 	e.name, e.group = entry(h.Name, "例如: Production DB"), entry(h.Group, "默认分组")
 	e.address, e.port, e.user = entry(h.Host, "192.168.1.10"), entry(strconv.Itoa(h.Port), "22"), entry(h.User, "root")
 	e.notes, e.tags, e.key = entry(h.Notes, "简短描述主机的用途..."), entry(h.Tags, "开发, 测试"), entry(h.KeyPath, "本机私钥的绝对路径")
-	e.password, e.passphrase = widget.NewPasswordEntry(), widget.NewPasswordEntry()
+	e.password, e.passphrase = newShellFormEntry(true), newShellFormEntry(true)
 	e.password.SetText(h.Password)
 	e.passphrase.SetText(h.Passphrase)
-	e.remember = widget.NewCheck("记住密码和私钥口令", nil)
+	e.remember = newShellFormCheck("记住密码和私钥口令")
 	e.remember.SetChecked(h.Remember)
-	e.system = widget.NewSelect([]string{"Linux", "macOS", "Windows", "其他"}, nil)
+	e.system = newShellFormSelect([]string{"Linux", "macOS", "Windows", "其他"})
 	e.system.SetSelected("Linux")
 	if h.OperatingSystem != "" {
 		e.system.SetSelected(h.OperatingSystem)

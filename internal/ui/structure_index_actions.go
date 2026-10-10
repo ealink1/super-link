@@ -20,12 +20,13 @@ func (d *tableDesigner) removeIndexes(selected map[int]bool, undo bool) {
 		return
 	}
 	old, added := map[string]bool{}, map[string]bool{}
+	existing := indexDisplayRows(d.info.Indexes)
 	for row, value := range selected {
-		if value && row >= 0 && row < len(d.info.Indexes) {
-			old[d.info.Indexes[row].Name] = true
+		if value && row >= 0 && row < len(existing) {
+			old[existing[row].name] = true
 		}
 	}
-	row := len(d.info.Indexes)
+	row := len(existing)
 	for _, change := range d.indexChanges {
 		if change.Kind == "addIndex" {
 			if selected[row] && !undo {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -25,7 +24,7 @@ func (s *shellWorkspace) hostActions(h domain.ShellHost) {
 }
 
 func (s *shellWorkspace) deleteHost(h domain.ShellHost) {
-	dialog.ShowConfirm("删除主机", "删除此主机及保存的凭据？", func(ok bool) {
+	showConfirmDialog("删除主机", "删除此主机及保存的凭据？", func(ok bool) {
 		if !ok {
 			return
 		}

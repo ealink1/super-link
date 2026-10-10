@@ -23,6 +23,8 @@ func (t sourcePickerTheme) Color(name fyne.ThemeColorName, v fyne.ThemeVariant) 
 		return t.shade("brand")
 	case theme.ColorNameSelection:
 		return t.shade("soft")
+	case theme.ColorNameOverlayBackground:
+		return t.shade("background")
 	case theme.ColorNameInputBackground, theme.ColorNameBackground:
 		return t.shade("panel")
 	case theme.ColorNameInputBorder, theme.ColorNameSeparator:
@@ -38,6 +40,8 @@ func (t sourcePickerTheme) Color(name fyne.ThemeColorName, v fyne.ThemeVariant) 
 }
 func (t sourcePickerTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {
+	case theme.SizeNamePopupRadius:
+		return 20
 	case theme.SizeNameInputRadius, theme.SizeNameSelectionRadius:
 		return 10
 	case theme.SizeNameInputBorder:

@@ -63,6 +63,14 @@ func (e *connectionEditor) initFields() {
 	c := p.Config
 	e.name = e.entry(p.Name, false)
 	e.group = e.entry(p.Group, false)
+	if e.owner != nil && p.Revision == 0 && p.Group == "" {
+		for name, option := range e.owner.profileGroupOptions {
+			if option.Default {
+				e.group.SetText(name)
+				break
+			}
+		}
+	}
 	e.host = e.entry(c.Host, false)
 	e.port = e.entry(strconv.Itoa(c.Port), false)
 	e.user = e.entry(c.User, false)

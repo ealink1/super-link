@@ -73,12 +73,12 @@ func (w *Window) openTable(p domain.Profile, object domain.Object) *tableWorkspa
 	}), w.tableAction("add-row", t.addRow), w.tableAction("trash", t.deleteRows), w.tableAction("cell-select", t.previewChanges), t.commitButton, w.tableAction("rollback", t.discardEdits), w.tableAction("table-design", t.design), w.tableAction("copy", t.copy), w.tableAction("export", t.export), w.tableAction("sql-doc", t.newQuery))
 	tools.Add(w.tableAction("import", func() { w.importTable(t.profile, t.object, t.page.Info) }))
 	top := container.NewVBox(tools, t.filterPanel)
-	footer := container.NewHBox(layout.NewSpacer(), t.paging, action("首页", "scroll-top", func() { t.gotoPage(1) }), action("上一页", "undo", func() { t.gotoPage(t.request.Page - 1) }), t.jump, action("跳", "jump-column", func() {
+	footer := container.New(pagingRowLayout{}, layout.NewSpacer(), t.paging, action("首页", "", func() { t.gotoPage(1) }), action("上一页", "", func() { t.gotoPage(t.request.Page - 1) }), t.jump, action("跳", "", func() {
 		page, err := strconv.Atoi(t.jump.Text)
 		if err == nil {
 			t.gotoPage(page)
 		}
-	}), action("下一页", "send", func() { t.gotoPage(t.request.Page + 1) }), action("尾页", "dock", func() { t.gotoPage(t.pageCount()) }), t.pageSize)
+	}), action("下一页", "", func() { t.gotoPage(t.request.Page + 1) }), action("尾页", "", func() { t.gotoPage(t.pageCount()) }), t.pageSize)
 	content := container.NewBorder(top, container.NewVBox(t.status, footer), nil, nil, t.views)
 	t.item = container.NewTabItem(object.Name, content)
 	w.tables[t.item] = t

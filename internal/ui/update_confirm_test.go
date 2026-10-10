@@ -2,34 +2,42 @@ package ui
 
 import (
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"testing"
 )
 
-func TestUpdateConfirmUsesOnlySymbolsAndRequiresAccept(t *testing.T) {
+func TestUpdateConfirmShowsReleaseAndRequiresAccept(t *testing.T) {
 	w := shellTestWindow(t)
 	accepted := 0
 	for _, chooseAccept := range []bool{false, true} {
-		w.showUpdateConfirm("版本更新", func() { accepted++ })
+		w.showUpdateConfirm("0.1.11", "0.1.14", 48_024_780, func() { accepted++ })
 		var cancel, confirm *widget.Button
+		seen := map[string]bool{}
 		for _, overlay := range w.Window.Canvas().Overlays().List() {
 			walkUpdateDialog(overlay, func(object fyne.CanvasObject) {
+				if text, ok := object.(*canvas.Text); ok {
+					seen[text.Text] = true
+				}
 				button, ok := object.(*widget.Button)
 				if !ok || button.Icon == nil {
 					return
 				}
-				if button.Text != "" {
-					t.Fatal("confirmation button contains text", button.Text)
-				}
+
 				switch button.Icon.Name() {
 				case theme.CancelIcon().Name():
 					cancel = button
-				case theme.ConfirmIcon().Name():
+				case theme.DownloadIcon().Name():
 					confirm = button
 				}
 			})
+		}
+		for _, value := range []string{"发现新版本", "0.1.11", "0.1.14", "NEW", "安装包大小"} {
+			if !seen[value] {
+				t.Fatalf("missing release detail %q", value)
+			}
 		}
 		if cancel == nil || confirm == nil {
 			t.Fatal("missing symbol buttons")

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/google/uuid"
@@ -42,7 +41,7 @@ func (n *noteWorkspace) showMore() {
 	}), fyne.NewMenuItem(text, n.toggleDeleted)}
 	if note.Deleted {
 		items = append(items, fyne.NewMenuItem("永久删除", func() {
-			dialog.ShowConfirm("永久删除笔记", "此操作无法恢复。建议先导出笔记，确认永久删除？", func(ok bool) {
+			showConfirmDialog("永久删除笔记", "此操作无法恢复。建议先导出笔记，确认永久删除？", func(ok bool) {
 				if ok {
 					n.deleteCurrent()
 				}

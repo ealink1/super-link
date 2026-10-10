@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"fyne.io/fyne/v2"
@@ -13,33 +14,47 @@ import (
 
 func (d *tableDesigner) indexPanel() fyne.CanvasObject {
 	selected := map[int]bool{}
-	result := domain.Result{Columns: []domain.Column{{Name: "名称"}, {Name: "字段"}, {Name: "唯一"}, {Name: "类型"}, {Name: "顺序"}}}
-	for _, index := range d.info.Indexes {
-		result.Rows = append(result.Rows, []any{index.Name, index.ColumnName, index.NonUnique == 0, index.IndexType, index.SeqInIndex})
+	result := domain.Result{Columns: []domain.Column{{Name: "索引名"}, {Name: "字段"}, {Name: "索引类型"}, {Name: "唯一性"}, {Name: "状态"}}}
+	existing := indexDisplayRows(d.info.Indexes)
+	fieldCount := len(d.info.Indexes)
+	for _, index := range existing {
+		state := "正常"
+		for _, change := range d.indexChanges {
+			if change.Kind == "dropIndex" && change.OriginalName == index.name {
+				state = "待删除"
+			}
+		}
+		result.Rows = append(result.Rows, []any{index.name, index.columns, index.method, indexUniqueness(index.unique), state})
 	}
 	for _, change := range d.indexChanges {
 		if change.Kind == "addIndex" {
 			names := []string{}
 			for _, c := range change.Index.Columns {
-				names = append(names, c.Name)
+				name := c.Name
+				if c.Descending {
+					name += " DESC"
+				}
+				names = append(names, name)
 			}
-			result.Rows = append(result.Rows, []any{change.Index.Name, strings.Join(names, ", "), change.Index.Unique, change.Index.Method, "待新增"})
+			fieldCount += len(change.Index.Columns)
+			result.Rows = append(result.Rows, []any{change.Index.Name, strings.Join(names, ", "), change.Index.Method, indexUniqueness(change.Index.Unique), "待新增"})
 		}
 	}
-	model := gridModel{columns: result.Columns, length: func() int { return len(result.Rows) }, value: func(row, col int) any { return result.Rows[row][col] }, selected: selected, selectRow: func(row int, v bool) { selected[row] = v }, inspect: func(row, col int) { d.owner.showCell(result.Columns[col].Name, result.Rows[row][col]) }, boolColumns: map[int]bool{2: true}}
+	model := gridModel{columns: result.Columns, length: func() int { return len(result.Rows) }, value: func(row, col int) any { return result.Rows[row][col] }, selected: selected, selectRow: func(row int, v bool) { selected[row] = v }, inspect: func(row, col int) { d.owner.showCell(result.Columns[col].Name, result.Rows[row][col]) }}
 	model.changed = func(row int) string {
-		if row >= len(d.info.Indexes) {
+		if row >= len(existing) {
 			return "insert"
 		}
 		for _, change := range d.indexChanges {
-			if change.Kind == "dropIndex" && change.OriginalName == d.info.Indexes[row].Name {
+			if change.Kind == "dropIndex" && change.OriginalName == existing[row].name {
 				return "delete"
 			}
 		}
 		return ""
 	}
 	tools := container.NewHBox(action("新建索引", "add-row", d.addIndex), action("删除选中索引", "trash", func() { d.removeIndexes(selected, false) }), action("撤销选中删除", "undo", func() { d.removeIndexes(selected, true) }), layout.NewSpacer())
-	return container.NewBorder(tools, nil, nil, nil, newDataGrid(model))
+	stats := widget.NewLabel(fmt.Sprintf("索引数：%d，索引字段数：%d", len(result.Rows), fieldCount))
+	return container.NewBorder(container.NewVBox(tools, stats), nil, nil, nil, newIndexListGrid(model))
 }
 
 type indexField struct {
@@ -126,4 +141,11 @@ func (d *tableDesigner) addIndex() {
 	updatePreview()
 	modal.Resize(fyne.NewSize(630, 620))
 	modal.Show()
+}
+
+func indexUniqueness(unique bool) string {
+	if unique {
+		return "唯一"
+	}
+	return "普通"
 }

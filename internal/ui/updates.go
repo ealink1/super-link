@@ -10,7 +10,6 @@ import (
 	"runtime"
 	"time"
 
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/infra/release"
 	"github.com/ealink1/super-link/internal/infra/update"
 )
@@ -56,7 +55,7 @@ func (w *Window) checkUpdatesWithMode(quiet bool) {
 		}
 		if errors.Is(err, release.ErrNoRelease) {
 			w.status.SetText("目标仓库尚未发布公开稳定版本（草稿和预发布不参与更新）")
-			dialog.ShowInformation("检查更新", "暂无可用的公开稳定版本。Release 草稿和预发布不会用于应用更新。", w.Window)
+			showInformationDialog("检查更新", "暂无可用的公开稳定版本。Release 草稿和预发布不会用于应用更新。", w.Window)
 			return
 		}
 		if err != nil {
@@ -70,7 +69,7 @@ func (w *Window) checkUpdatesWithMode(quiet bool) {
 				return
 			}
 			w.status.SetText("当前已是最新稳定版本")
-			dialog.ShowInformation("检查更新", "当前已是最新稳定版本。", w.Window)
+			showInformationDialog("检查更新", "当前已是最新稳定版本。", w.Window)
 			return
 		}
 		artifact, err := manifest.Artifact("app", "superlink", runtime.GOOS, runtime.GOARCH)
@@ -83,7 +82,7 @@ func (w *Window) checkUpdatesWithMode(quiet bool) {
 			return
 		}
 		w.status.SetText("发现新版本 " + manifest.Version)
-		w.showUpdateConfirm(fmt.Sprintf("%s → %s\n签名清单验证通过。下载完整应用包（含配套驱动），大小 %.1f MiB？", w.Version, manifest.Version, float64(artifact.Size)/(1<<20)), func() {
+		w.showUpdateConfirm(w.Version, manifest.Version, artifact.Size, func() {
 			w.downloadUpdate(artifact, manifest.Version)
 		})
 	})
@@ -117,10 +116,10 @@ func (w *Window) installUpdate(path, version string) {
 	}
 	target, err := update.RunningRoot(executable)
 	if err != nil {
-		dialog.ShowInformation("更新包已校验", err.Error()+"\n下载位置：\n"+path, w.Window)
+		showInformationDialog("更新包已校验", err.Error()+"\n下载位置：\n"+path, w.Window)
 		return
 	}
-	dialog.ShowConfirm("安装并重启", "完整应用包已校验。保存草稿后，更新将替换当前版本并重启；失败时自动恢复旧版本。是否继续？", func(ok bool) {
+	showConfirmDialog("安装并重启", "完整应用包已校验。保存草稿后，更新将替换当前版本并重启；失败时自动恢复旧版本。是否继续？", func(ok bool) {
 		if !ok {
 			return
 		}

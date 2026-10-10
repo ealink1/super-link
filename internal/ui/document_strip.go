@@ -17,7 +17,7 @@ func (w *Window) buildDocuments() {
 	controls.Layout = &toolbarLayout{height: 32}
 	w.docHeader = container.NewStack(container.NewBorder(nil, widget.NewSeparator(), nil, nil, container.NewBorder(nil, nil, nil, controls, strip)))
 	w.docBody = container.NewStack()
-	w.docHost = container.NewStack(container.NewBorder(w.docHeader, nil, nil, nil, w.docBody), w.docTooltip.layer)
+	w.docHost = container.NewStack(container.NewBorder(w.docHeader, nil, nil, nil, w.docBody))
 }
 
 // Keep header widgets stable while switching, renaming or refreshing pages.

@@ -1,12 +1,8 @@
 package ui
 
 import (
-	"context"
-	"strings"
-
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -24,7 +20,7 @@ func (w *Window) settingsPage() {
 		return container.NewVBox(widget.NewLabelWithStyle("主题与外观", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), dark, widget.NewLabel("独立 Fyne 工作区 · 原生桌面界面"))
 	}
 	updatePage := func() fyne.CanvasObject {
-		return container.NewVBox(widget.NewLabelWithStyle("SuperLink", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), widget.NewLabel("当前版本 "+w.Version), widget.NewLabel("更新仓库 ealink1/super-link"), widget.NewButton("检查更新", w.checkUpdates), widget.NewButton("驱动管理", w.driverManager))
+		return container.NewVBox(widget.NewLabelWithStyle("SuperLink", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), widget.NewLabel("当前版本 "+w.Version), widget.NewLabel("更新仓库 ealink1/super-link"), widget.NewButton("关于 SuperLink", w.about), widget.NewButton("检查更新", w.checkUpdates), widget.NewButton("驱动管理", w.driverManager))
 	}
 	connections := func() fyne.CanvasObject {
 		return container.NewVBox(widget.NewLabel("连接与配置"), widget.NewLabel("数据目录："+w.Root), widget.NewButton("新建连接", func() { w.editProfile(domain.Profile{}) }), widget.NewButton("管理连接分组", w.groupManager), widget.NewButton("管理查询草稿", w.draftManager))
@@ -41,7 +37,7 @@ func (w *Window) settingsPage() {
 		case 2:
 			content = container.NewVBox(widget.NewLabel("驱动管理"), widget.NewButton("打开驱动管理", w.driverManager))
 		case 3:
-			content = container.NewVBox(widget.NewLabel("SQL 工具"), widget.NewButton("查看执行历史", w.sqlTools))
+			content = container.NewVBox(widget.NewLabel("执行历史"), widget.NewButton("查看执行历史", w.showExecutionHistory))
 		default:
 			content = updatePage()
 		}
@@ -57,38 +53,6 @@ func (w *Window) settingsPage() {
 	w.syncDocuments()
 }
 
-func (w *Window) groupManager() {
-	p, ok := w.selectedProfile()
-	if !ok {
-		return
-	}
-	group := widget.NewEntry()
-	group.SetText(p.Group)
-	dialog.ShowForm("管理连接分组", "保存", "取消", []*widget.FormItem{widget.NewFormItem("分组", group)}, func(save bool) {
-		if !save {
-			return
-		}
-		name := strings.TrimSpace(group.Text)
-		w.jobs.run(func(ctx context.Context) (any, error) {
-			current, err := w.Profiles.Get(ctx, p.ID)
-			if err != nil {
-				return nil, err
-			}
-			if current.Revision != p.Revision {
-				return nil, domain.ErrConflict
-			}
-			current.Group = name
-			return w.Profiles.Save(ctx, current)
-		}, func(_ any, err error) {
-			if err != nil {
-				w.showError(err)
-				return
-			}
-			w.reload()
-		})
-	}, w.Window)
-}
-
 func (w *Window) documentMenu() {
 	menu := fyne.NewMenu("工作区", fyne.NewMenuItem("新建查询", w.newSelectedQuery), fyne.NewMenuItem("查询草稿", w.draftManager), fyne.NewMenuItem("关闭当前标签", func() {
 		if selected := w.tabs.Selected(); selected != nil {
@@ -97,7 +61,7 @@ func (w *Window) documentMenu() {
 	}))
 	widget.ShowPopUpMenuAtPosition(menu, w.Window.Canvas(), fyne.NewPos(w.Window.Canvas().Size().Width-190, 80))
 }
-func (w *Window) sqlTools() {
+func (w *Window) showExecutionHistory() {
 	if s := w.workspaces[w.tabs.Selected()]; s != nil {
 		s.history()
 		return
@@ -115,7 +79,7 @@ func (w *Window) workflowMenu() {
 			w.importTable(t.profile, t.object, t.page.Info)
 			return
 		}
-		dialog.ShowInformation("数据导入", "先在对象树打开目标表，再启动导入。", w.Window)
+		showInformationDialog("数据导入", "先在对象树打开目标表，再启动导入。", w.Window)
 	}), fyne.NewMenuItem("导出当前结果", func() {
 		if t := w.tables[w.tabs.Selected()]; t != nil {
 			t.export()

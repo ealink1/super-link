@@ -46,6 +46,7 @@ func (w *Window) typePicker() {
 		w.editProfile(domain.Profile{ReadOnly: true, Config: connection.ConnectionConfig{Type: d.Key, Host: "localhost", Port: d.Port, User: "root", Timeout: 30, QueryTimeout: 30}})
 	}, func() { modal.Hide() })
 	modal = widget.NewModalPopUp(picker.content, w.Window.Canvas())
+	container.NewThemeOverride(modal, picker.colors)
 	size := w.Window.Canvas().Size()
 	modal.Resize(fyne.NewSize(min(1180, max(560, size.Width-48)), min(780, max(420, size.Height-64))))
 	modal.Show()
@@ -64,7 +65,7 @@ type sourcePicker struct {
 	choose                   func(domain.Descriptor)
 }
 
-func newSourcePicker(dark bool, version string, choose func(domain.Descriptor), close func()) *sourcePicker {
+func newSourcePicker(dark bool, _ string, choose func(domain.Descriptor), close func()) *sourcePicker {
 	p := &sourcePicker{category: "全部", colors: sourcePickerTheme{Theme: Theme{Dark: dark}}, choose: choose}
 	p.search = widget.NewEntry()
 	p.search.Icon = theme.SearchIcon()
@@ -101,7 +102,7 @@ func newSourcePicker(dark bool, version string, choose func(domain.Descriptor), 
 	left := p.panel(container.NewBorder(container.NewVBox(p.search, p.spacer(8)), nil, nil, nil, p.nav), 14)
 	title := container.NewHBox(p.selected, p.spacer(4), p.count)
 	heading := container.NewBorder(nil, nil, title, nil, container.NewHBox(layout.NewSpacer(), p.text("单击进入配置表单", 12, false, "muted")))
-	footer := container.NewVBox(p.spacer(10), widget.NewSeparator(), p.spacer(6), container.NewBorder(nil, nil, nil, p.text("SuperLink v"+version, 12, false, "muted"), p.summary))
+	footer := container.NewVBox(p.spacer(10), widget.NewSeparator(), p.spacer(6), p.summary)
 	p.empty = container.NewCenter(container.NewVBox(p.text("没有匹配的数据源", 16, true, "text"), p.text("试试其他名称，或切换左侧分类", 13, false, "muted")))
 	p.empty.Hide()
 	main := p.panel(container.NewBorder(container.NewVBox(heading, p.spacer(12)), footer, nil, nil, container.NewStack(p.scroll, p.empty)), 20)
@@ -118,6 +119,7 @@ func newSourcePicker(dark bool, version string, choose func(domain.Descriptor), 
 	steps := container.NewHBox(p.step("1  选类型", true), p.text("—", 12, false, "line"), p.step("2  配参数", false), p.text("—", 12, false, "line"), p.step("3  测试保存", false))
 	header := p.panel(container.NewBorder(nil, nil, brand, closeButton, container.NewHBox(layout.NewSpacer(), steps)), 14)
 	background := canvas.NewRectangle(p.colors.shade("background"))
+	background.CornerRadius = 20
 	view := container.NewStack(background, container.New(layout.NewCustomPaddedLayout(16, 16, 16, 16), container.NewBorder(container.NewVBox(header, p.spacer(12)), nil, nil, nil, body)))
 	p.content = container.NewThemeOverride(view, p.colors)
 	p.nav.Select(0)

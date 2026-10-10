@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/queryfile"
 	"github.com/google/uuid"
@@ -50,7 +49,7 @@ func (s *workspace) saveSQLFile(path, text string, overwrite bool) {
 			return
 		}
 		if errors.Is(err, os.ErrExist) && !overwrite {
-			dialog.ShowConfirm("覆盖 SQL 文件", "替换「"+filepath.Base(path)+"」？", func(ok bool) {
+			showConfirmDialog("覆盖 SQL 文件", "替换「"+filepath.Base(path)+"」？", func(ok bool) {
 				if ok && !s.closed {
 					s.saveSQLFile(path, text, true)
 				}

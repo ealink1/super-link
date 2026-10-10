@@ -132,7 +132,7 @@ func (f *shellFiles) remove(file transport.File, source string) {
 	if file.Directory {
 		message += "仅支持删除空目录。"
 	}
-	dialog.NewConfirm("删除", message, func(ok bool) {
+	newConfirmDialog("删除", message, func(ok bool) {
 		if ok {
 			f.operation("删除", func(ctx context.Context) error { return f.remote.RemoveFile(ctx, source) })
 		}

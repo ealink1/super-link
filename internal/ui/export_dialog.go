@@ -166,7 +166,7 @@ func (f *exportForm) submit() {
 			f.owner.startExport(f.source, options, path, overwrite, full)
 		}
 		if value.(bool) {
-			dialog.ShowConfirm("覆盖文件", "导出成功后替换「"+filepath.Base(path)+"」？", func(ok bool) {
+			showConfirmDialog("覆盖文件", "导出成功后替换「"+filepath.Base(path)+"」？", func(ok bool) {
 				if ok {
 					run(true)
 				}

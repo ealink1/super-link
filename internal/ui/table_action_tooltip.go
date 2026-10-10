@@ -43,10 +43,14 @@ func (w *Window) tableAction(name string, run func()) *tableActionButton {
 func (b *tableActionButton) MouseIn(event *desktop.MouseEvent) {
 	b.Button.MouseIn(event)
 	if b.tooltip != nil {
-		b.tooltip.showContent(b, b.hint)
+		b.tooltip.showContentAt(b, b.hint, event)
 	}
 }
-func (b *tableActionButton) MouseMoved(*desktop.MouseEvent) {}
+func (b *tableActionButton) MouseMoved(event *desktop.MouseEvent) {
+	if b.tooltip != nil && b.tooltip.active == b {
+		b.tooltip.moveBelowPointer(event)
+	}
+}
 func (b *tableActionButton) MouseOut() {
 	b.Button.MouseOut()
 	if b.tooltip != nil && b.tooltip.active == b {

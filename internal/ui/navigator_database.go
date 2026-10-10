@@ -31,7 +31,7 @@ func (n *navigator) createDatabase(node *navNode) {
 		return
 	}
 	if p.ReadOnly {
-		modal := dialog.NewConfirm("只读连接无法新建库", "当前连接开启了只读保护。新建库需要写入权限，请编辑连接并取消勾选“只读保护”后重试。是否打开编辑连接？", func(edit bool) {
+		modal := newConfirmDialog("只读连接无法新建库", "当前连接开启了只读保护。新建库需要写入权限，请编辑连接并取消勾选“只读保护”后重试。是否打开编辑连接？", func(edit bool) {
 			if edit {
 				n.owner.editProfile(p)
 			}
@@ -85,7 +85,7 @@ func (n *navigator) submitCreateDatabase(node *navNode, p domain.Profile, reques
 	}, func(_ any, err error) {
 		var required *domain.ConfirmationRequired
 		if errors.As(err, &required) {
-			dialog.ShowConfirm("确认创建数据库", fmt.Sprintf("连接：%s\n操作：%s", p.Name, request.Text), func(ok bool) {
+			showConfirmDialog("确认创建数据库", fmt.Sprintf("连接：%s\n操作：%s", p.Name, request.Text), func(ok bool) {
 				if ok {
 					request.Confirmation = required.Fingerprint
 					n.submitCreateDatabase(node, p, request)

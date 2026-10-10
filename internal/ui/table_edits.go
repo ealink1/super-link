@@ -190,7 +190,7 @@ func (t *tableWorkspace) discardEdits() {
 	if t.busy {
 		return
 	}
-	dialog.ShowConfirm("丢弃未提交修改", "这会清除当前表的暂存修改。", func(ok bool) {
+	showConfirmDialog("丢弃未提交修改", "这会清除当前表的暂存修改。", func(ok bool) {
 		if ok {
 			t.clearEdits()
 			t.showPage()
@@ -273,7 +273,7 @@ func (t *tableWorkspace) submitChanges(confirmation string) {
 		if errors.As(err, &warning) {
 			t.clearEdits()
 			t.refresh()
-			dialog.ShowInformation("修改已提交", warning.Error(), t.owner.Window)
+			showInformationDialog("修改已提交", warning.Error(), t.owner.Window)
 			return
 		}
 		if err != nil {

@@ -10,7 +10,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/datafile"
@@ -182,7 +181,7 @@ func (i *importWorkbench) run(confirmation string) {
 		var required *domain.ConfirmationRequired
 		if errors.As(err, &required) {
 			i.status.SetText("等待确认导入")
-			dialog.ShowConfirm("确认导入数据", fmt.Sprintf("文件：%s\n连接：%s · %s\n表：%s.%s\n导入 %d 行，每批 %d 行。\n失败或停止时，已经提交的批次会保留。", filepath.Base(i.loadedPath), i.profile.Name, i.profile.Environment, i.object.Scope, i.object.Name, len(request.Rows), request.BatchSize), func(ok bool) {
+			showConfirmDialog("确认导入数据", fmt.Sprintf("文件：%s\n连接：%s · %s\n表：%s.%s\n导入 %d 行，每批 %d 行。\n失败或停止时，已经提交的批次会保留。", filepath.Base(i.loadedPath), i.profile.Name, i.profile.Environment, i.object.Scope, i.object.Name, len(request.Rows), request.BatchSize), func(ok bool) {
 				if ok {
 					i.run(required.Fingerprint)
 				}

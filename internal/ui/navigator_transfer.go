@@ -52,7 +52,7 @@ func (n *navigator) tableTransfer(node *navNode, importing bool) {
 			labels = append(labels, fmt.Sprintf("%d · %s", len(objects), label))
 		}
 		if len(objects) == 0 {
-			dialog.ShowInformation(title, "当前数据库没有可用的数据表。", n.owner.Window)
+			showInformationDialog(title, "当前数据库没有可用的数据表。", n.owner.Window)
 			return
 		}
 		selected := 0

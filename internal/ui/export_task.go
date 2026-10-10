@@ -49,6 +49,6 @@ func (w *Window) startExport(source exportSource, options datafile.Options, path
 			w.showError(err)
 			return
 		}
-		dialog.ShowInformation("导出完成", fmt.Sprintf("已导出 %d 行\n%s", value.(int64), path), w.Window)
+		showInformationDialog("导出完成", fmt.Sprintf("已导出 %d 行\n%s", value.(int64), path), w.Window)
 	})
 }

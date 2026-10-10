@@ -249,7 +249,7 @@ func (s *workspace) runRequest(request domain.Execution) {
 		if errors.As(err, &confirmation) {
 			s.status.SetText("等待确认目标和操作…")
 			description := fmt.Sprintf("连接：%s\n环境：%s\n范围：%s\n操作：\n%s\n\n执行后可能修改服务端状态。中断写入不等于回滚。", s.profile.Name, s.profile.Environment, request.Scope, previewValue(request.Text))
-			dialog.ShowConfirm("确认有副作用操作", description, func(ok bool) {
+			showConfirmDialog("确认有副作用操作", description, func(ok bool) {
 				if ok {
 					request.Confirmation = confirmation.Fingerprint
 					s.runRequest(request)

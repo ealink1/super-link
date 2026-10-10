@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/secrets"
@@ -77,6 +78,18 @@ func (p *Profiles) Save(ctx context.Context, profile domain.Profile) (domain.Pro
 		if old.Revision != profile.Revision {
 			return profile, domain.ErrConflict
 		}
+	}
+	if profile.Revision == 0 {
+		if strings.TrimSpace(profile.Group) == "" {
+			options, err := p.groupOptions(ctx)
+			if err != nil {
+				return profile, err
+			}
+			profile.Group = defaultConnectionGroup(options)
+		}
+		profile.CreatedAt = time.Now().UTC()
+	} else {
+		profile.CreatedAt = old.CreatedAt
 	}
 	public, bundle, err := secrets.Split(profile.Config)
 	if err != nil {

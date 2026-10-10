@@ -24,6 +24,9 @@ func (n *navigator) nodeProfile(node *navNode) (domain.Profile, bool) {
 }
 
 func (n *navigator) nodeMenu(node *navNode) *fyne.Menu {
+	if node.kind == "connection-group" {
+		return fyne.NewMenu("连接分组", fyne.NewMenuItem("管理连接分组", n.owner.groupManager), fyne.NewMenuItem("刷新", n.owner.reload))
+	}
 	query := fyne.NewMenuItem("新建查询", func() { n.queryForNode(node) })
 	refresh := fyne.NewMenuItem("刷新", func() { n.selected = node.id; n.refresh() })
 	if node.kind != "object" {

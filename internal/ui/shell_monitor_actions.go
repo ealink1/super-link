@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	transport "github.com/ealink1/super-link/internal/infra/shell"
 )
@@ -76,7 +75,7 @@ func (m *shellMonitor) openDirectory(directory string) {
 	p.showAuxiliary("files", "文件管理 · SFTP", p.filePane.content)
 }
 func (m *shellMonitor) confirmStop(proc transport.ProcessMetric) {
-	dialog.ShowConfirm("停止进程", fmt.Sprintf("向 %s（PID %d，用户 %s）发送 SIGTERM？\n此操作可能中断正在运行的服务。", proc.Name, proc.PID, proc.User), func(ok bool) {
+	showConfirmDialog("停止进程", fmt.Sprintf("向 %s（PID %d，用户 %s）发送 SIGTERM？\n此操作可能中断正在运行的服务。", proc.Name, proc.PID, proc.User), func(ok bool) {
 		if !ok || m.pane.closed || m.pane.ended {
 			return
 		}

@@ -89,7 +89,7 @@ func (w *Window) driverManager() {
 	view.Add(install)
 	view.Add(widget.NewButton("导入本机可信驱动包", func() {
 		w.chooseLocalPath("导入本机可信驱动包", true, nil, func(directory string) {
-			dialog.ShowConfirm("导入本机驱动", "将执行此目录中的原生驱动程序。请确认来源可信：\n"+directory, func(ok bool) {
+			showConfirmDialog("导入本机驱动", "将执行此目录中的原生驱动程序。请确认来源可信：\n"+directory, func(ok bool) {
 				if !ok {
 					return
 				}

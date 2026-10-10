@@ -3,8 +3,12 @@ package ui
 import (
 	"fmt"
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
+	"strings"
 	"testing"
 )
 
@@ -68,5 +72,33 @@ func TestSourcePickerRender(t *testing.T) {
 			}
 			captureConnectionIndicators(t, window, fmt.Sprintf("source-picker-%v-%d.png", dark, int(size.Width)))
 		}
+	}
+}
+
+func TestSourcePickerHasRoundedOuterPopupAndNoVersionFooter(t *testing.T) {
+	app := test.NewApp()
+	defer app.Quit()
+	window := app.NewWindow("picker")
+	defer window.Close()
+	window.Resize(fyne.NewSize(900, 700))
+	window.Show()
+	picker := newSourcePicker(false, "0.1.0", func(domain.Descriptor) {}, func() {})
+	walkUpdateDialog(picker.content, func(object fyne.CanvasObject) {
+		if text, ok := object.(*canvas.Text); ok && strings.HasPrefix(text.Text, "SuperLink v") {
+			t.Fatal("version footer remains")
+		}
+	})
+	popup := widget.NewModalPopUp(picker.content, window.Canvas())
+	container.NewThemeOverride(popup, picker.colors)
+	popup.Resize(fyne.NewSize(760, 620))
+	popup.Show()
+	defer popup.Hide()
+	background := test.WidgetRenderer(popup).Objects()[0].(*canvas.Rectangle)
+	if background.CornerRadius != 20 {
+		t.Fatal("outer popup corners are not rounded", background.CornerRadius)
+	}
+	view := picker.content.Content.(*fyne.Container)
+	if view.Objects[0].(*canvas.Rectangle).CornerRadius != background.CornerRadius {
+		t.Fatal("square content masks rounded popup")
 	}
 }

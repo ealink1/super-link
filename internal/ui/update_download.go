@@ -19,8 +19,14 @@ func (w *Window) downloadUpdate(artifact release.Artifact, version string) {
 	label := widget.NewLabel(updateDownloadText(0, artifact.Size))
 	var cancel context.CancelFunc
 	active := true
-	progressDialog := dialog.NewCustom("下载 SuperLink "+version, "取消下载", container.NewVBox(label, bar), w.Window)
-	progressDialog.Resize(fyne.NewSize(440, 160))
+	content := container.NewStack()
+	progressDialog := dialog.NewCustomWithoutButtons("", content, w.Window)
+	cancelButton := widget.NewButton("取消下载", progressDialog.Hide)
+	working := widget.NewButton("更新中…", nil)
+	working.Importance = widget.HighImportance
+	working.Disable()
+	content.Add(updateCard(w.Version, version, artifact.Size, container.NewVBox(bar, label), container.NewGridWithColumns(2, cancelButton, working)))
+	progressDialog.Resize(fyne.NewSize(440, 570))
 	progressDialog.SetOnClosed(func() {
 		if active && cancel != nil {
 			cancel()
@@ -46,6 +52,7 @@ func (w *Window) downloadUpdate(artifact release.Artifact, version string) {
 				label.SetText(updateDownloadText(downloaded, total))
 				if downloaded == total {
 					label.SetText("下载完成，正在校验应用包…")
+					working.SetText("校验中…")
 					w.status.SetText("正在校验完整应用包…")
 				}
 			})

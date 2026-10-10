@@ -3,6 +3,8 @@ package ui
 import (
 	"image/color"
 	"strconv"
+	"strings"
+	"unicode"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -118,6 +120,11 @@ func (t *resultTabs) sync() {
 			t.buttons[item] = cached
 		}
 		cached.state.selected = item == t.Selected()
+		// Latin capitals occupy a shorter, higher ink box than Chinese glyphs.
+		cached.button.textOffset = 3
+		if strings.ContainsFunc(label, func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
+			cached.button.textOffset = 0
+		}
 		cached.button.SetText(label)
 		buttons = append(buttons, cached.content)
 	}

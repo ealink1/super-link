@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
 	"time"
@@ -44,7 +43,7 @@ func (n *navigator) submitTableMutation(p domain.Profile, object domain.Object, 
 			if key == "truncate" {
 				detail = "将使用 TRUNCATE 清除全部数据，保留表结构；自增计数的处理取决于数据库。"
 			}
-			dialog.ShowConfirm(label, fmt.Sprintf("连接：%s\n表：%s / %s / %s\n%s此操作无法在应用中撤销。\n\n%s", p.Name, object.Scope, object.Schema, object.Name, detail, request.Text), func(ok bool) {
+			showConfirmDialog(label, fmt.Sprintf("连接：%s\n表：%s / %s / %s\n%s此操作无法在应用中撤销。\n\n%s", p.Name, object.Scope, object.Schema, object.Name, detail, request.Text), func(ok bool) {
 				if ok {
 					request.Confirmation = required.Fingerprint
 					n.submitTableMutation(p, object, key, label, request)
