@@ -3,9 +3,11 @@ package ui
 import (
 	"context"
 	"errors"
+	"image/color"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/secrets"
@@ -17,11 +19,12 @@ func (s *shellWorkspace) hostMenu(h domain.ShellHost, anchor fyne.CanvasObject) 
 	var popup *widget.PopUp
 	choose := func(run func()) func() { return func() { popup.Hide(); run() } }
 	panel := container.NewThemeOverride(shellPanel(shellVBox(
-		shellMenuRow("编辑", "pencil", false, true, choose(func() { s.loadHostEditor(h) })),
-		shellMenuRow("复制密码", "copy", false, true, choose(func() { s.copyHostPassword(h) })),
-		shellMenuRow("删除", "trash-2", true, true, choose(func() { s.deleteHost(h) })),
-	), monitorSurfaceColor, 9, 4), newShellTheme())
+		shellHostMenuRow("编辑", "pencil", false, choose(func() { s.loadHostEditor(h) })),
+		shellHostMenuRow("复制密码", "copy", false, choose(func() { s.copyHostPassword(h) })),
+		shellHostMenuRow("删除", "trash-2", true, choose(func() { s.deleteHost(h) })),
+	), shellPanelColor, 8, 4), newShellTheme())
 	popup = widget.NewPopUp(panel, s.owner.Window.Canvas())
+	container.NewThemeOverride(popup, shellHostPopupTheme{newShellTheme()})
 	canvas := s.owner.Window.Canvas()
 	origin := fyne.CurrentApp().Driver().AbsolutePositionForObject(anchor)
 	size := popup.MinSize()
@@ -31,6 +34,38 @@ func (s *shellWorkspace) hostMenu(h domain.ShellHost, anchor fyne.CanvasObject) 
 		y = max(8, origin.Y-size.Height-6)
 	}
 	popup.ShowAtPosition(fyne.NewPos(x, y))
+}
+
+func shellHostMenuRow(label, icon string, destructive bool, run func()) fyne.CanvasObject {
+	button := shellButton(label, "", false, run)
+	button.Alignment = widget.ButtonAlignLeading
+	button.SetIcon(shellFileActionIcon(icon, destructive))
+	shade := color.Color(shellTextColor)
+	if destructive {
+		shade = shellDestructiveColor
+	}
+	return shellFixed(container.NewThemeOverride(button, shellHostMenuRowTheme{shellButtonTheme: shellButtonTheme{shellTheme: newShellTheme()}, shade: shade}), 176, 34)
+}
+
+type shellHostMenuRowTheme struct {
+	shellButtonTheme
+	shade color.Color
+}
+
+func (t shellHostMenuRowTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameForeground {
+		return resolveShellColor(t.shade)
+	}
+	return t.shellButtonTheme.Color(name, variant)
+}
+
+type shellHostPopupTheme struct{ shellTheme }
+
+func (t shellHostPopupTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	if name == theme.ColorNameOverlayBackground || name == theme.ColorNameShadow {
+		return color.Transparent
+	}
+	return t.shellTheme.Color(name, variant)
 }
 
 func (s *shellWorkspace) copyHostPassword(h domain.ShellHost) {

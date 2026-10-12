@@ -1,10 +1,12 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/driver/desktop"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
 
@@ -29,7 +31,7 @@ var terminalKeys = map[fyne.KeyName]rune{
 func (t *terminalSurface) TypedKey(key *fyne.KeyEvent) {
 	if code, ok := terminalKeys[key.Name]; ok && !t.closed {
 		t.scroll = 0
-		t.emulator.SendKey(vt.KeyPressEvent{Code: code, Mod: terminalModifiers(terminalDesktopModifiers())})
+		t.sendTerminalKey(code, terminalDesktopModifiers())
 	}
 }
 
@@ -119,5 +121,42 @@ func (t *terminalSurface) sendKey(key fyne.KeyName, mod fyne.KeyModifier) {
 		}
 	}
 	t.scroll = 0
-	t.emulator.SendKey(vt.KeyPressEvent{Code: code, Mod: terminalModifiers(mod)})
+	t.sendTerminalKey(code, mod)
+}
+
+func (t *terminalSurface) setInputMode(mode ansi.Mode, enabled bool) {
+	if mode == ansi.DECMode(1) {
+		t.applicationCursor = enabled
+	}
+	t.setMouseMode(mode, enabled)
+}
+
+// xterm Home/End follow DECCKM, just like the arrow keys. The emulator's
+// encoder currently ignores this mode for these two keys and drops modifiers.
+func (t *terminalSurface) sendTerminalKey(code rune, mod fyne.KeyModifier) {
+	if code != vt.KeyHome && code != vt.KeyEnd {
+		t.emulator.SendKey(vt.KeyPressEvent{Code: code, Mod: terminalModifiers(mod)})
+		return
+	}
+	suffix := "H"
+	if code == vt.KeyEnd {
+		suffix = "F"
+	}
+	parameter := 1
+	if mod&fyne.KeyModifierShift != 0 {
+		parameter += 1
+	}
+	if mod&fyne.KeyModifierAlt != 0 {
+		parameter += 2
+	}
+	if mod&fyne.KeyModifierControl != 0 {
+		parameter += 4
+	}
+	sequence := "\x1b[" + suffix
+	if parameter != 1 {
+		sequence = fmt.Sprintf("\x1b[1;%d%s", parameter, suffix)
+	} else if t.applicationCursor {
+		sequence = "\x1bO" + suffix
+	}
+	t.emulator.SendText(sequence)
 }

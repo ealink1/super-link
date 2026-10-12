@@ -34,10 +34,13 @@ func TestUpdateConfirmShowsReleaseAndRequiresAccept(t *testing.T) {
 				}
 			})
 		}
-		for _, value := range []string{"发现新版本", "0.1.11", "0.1.14", "NEW", "安装包大小"} {
+		for _, value := range []string{"发现新版本", "0.1.11", "0.1.14", "安装包大小"} {
 			if !seen[value] {
 				t.Fatalf("missing release detail %q", value)
 			}
+		}
+		if seen["NEW"] {
+			t.Fatal("update dialog still shows the removed badge")
 		}
 		if cancel == nil || confirm == nil {
 			t.Fatal("missing symbol buttons")

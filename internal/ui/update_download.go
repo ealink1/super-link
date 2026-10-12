@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/infra/release"
 )
@@ -20,18 +19,18 @@ func (w *Window) downloadUpdate(artifact release.Artifact, version string) {
 	var cancel context.CancelFunc
 	active := true
 	content := container.NewStack()
-	progressDialog := dialog.NewCustomWithoutButtons("", content, w.Window)
-	cancelButton := widget.NewButton("取消下载", progressDialog.Hide)
-	working := widget.NewButton("更新中…", nil)
-	working.Importance = widget.HighImportance
-	working.Disable()
-	content.Add(updateCard(w.Version, version, artifact.Size, container.NewVBox(bar, label), container.NewGridWithColumns(2, cancelButton, working)))
-	progressDialog.Resize(fyne.NewSize(440, 570))
-	progressDialog.SetOnClosed(func() {
+	progressDialog := widget.NewModalPopUp(content, w.Window.Canvas())
+	cancelButton := widget.NewButton("取消下载", func() {
+		progressDialog.Hide()
 		if active && cancel != nil {
 			cancel()
 		}
 	})
+	working := widget.NewButton("更新中…", nil)
+	working.Importance = widget.HighImportance
+	working.Disable()
+	content.Add(updateCard(w.Version, version, artifact.Size, container.NewVBox(bar, label), container.NewGridWithColumns(2, cancelButton, working)))
+	progressDialog.Resize(fyne.NewSize(440, content.MinSize().Height))
 	progressDialog.Show()
 	w.status.SetText("正在下载完整应用包…")
 	w.jobs.runWithCancel(&cancel, func(ctx context.Context) (any, error) {

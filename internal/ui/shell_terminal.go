@@ -3,33 +3,37 @@ package ui
 import (
 	"image/color"
 	"io"
+	"math"
 	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/widget"
 	uv "github.com/charmbracelet/ultraviolet"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/vt"
 )
 
 type terminalSurface struct {
 	widget.BaseWidget
-	imeCaret      fyne.CanvasObject
-	emulator      *vt.Emulator // All parser, input-encoding and screen calls stay on the UI goroutine.
-	resize        func(int, int)
-	closed        bool
-	focused       bool
-	visibleCursor bool
-	altScreen     bool
-	scroll        int
-	rejectPaste   func()
-	textSize      float32
+	imeCaret          fyne.CanvasObject
+	emulator          *vt.Emulator // All parser, input-encoding and screen calls stay on the UI goroutine.
+	resize            func(int, int)
+	closed            bool
+	focused           bool
+	visibleCursor     bool
+	altScreen         bool
+	applicationCursor bool
+	mouseModes        map[ansi.Mode]bool
+	scroll            int
+	rejectPaste       func()
+	textSize          float32
 }
 
 func newTerminalSurface(resize func(int, int)) *terminalSurface {
 	t := &terminalSurface{emulator: vt.NewEmulator(80, 24), resize: resize, visibleCursor: true, textSize: 14}
 	t.emulator.SetScrollbackSize(1000)
-	t.emulator.SetCallbacks(vt.Callbacks{CursorVisibility: func(visible bool) { t.visibleCursor = visible }, AltScreen: func(active bool) { t.altScreen = active; t.scroll = 0 }})
+	t.emulator.SetCallbacks(vt.Callbacks{CursorVisibility: func(visible bool) { t.visibleCursor = visible }, AltScreen: func(active bool) { t.altScreen = active; t.scroll = 0 }, EnableMode: func(mode ansi.Mode) { t.setInputMode(mode, true) }, DisableMode: func(mode ansi.Mode) { t.setInputMode(mode, false) }})
 	t.ExtendBaseWidget(t)
 	return t
 }
@@ -90,7 +94,11 @@ type terminalRenderer struct {
 }
 
 func (t *terminalSurface) cellSize() fyne.Size {
-	return fyne.MeasureText("M", t.textSize, fyne.TextStyle{Monospace: true})
+	cell := fyne.MeasureText("M", t.textSize, fyne.TextStyle{Monospace: true})
+	// Fallback Chinese glyphs can extend below the Latin font's line box.
+	// Keep integral row boundaries and enough leading for their lower strokes.
+	cell.Height = float32(math.Ceil(float64(cell.Height + max(2, t.textSize*0.15))))
+	return cell
 }
 
 func (t *terminalSurface) setTextSize(size float32) {
@@ -196,7 +204,9 @@ func (r *terminalRenderer) Refresh() {
 	objects := make([]fyne.CanvasObject, used*2)
 	for i := range r.pool {
 		if i < used {
-			objects[i*2], objects[i*2+1] = r.backgrounds[i], r.pool[i]
+			// Paint all cell backgrounds first so the next row cannot erase
+			// the descenders of a fallback CJK font from the previous row.
+			objects[i], objects[used+i] = r.backgrounds[i], r.pool[i]
 		} else {
 			r.pool[i].Hide()
 		}
@@ -231,7 +241,10 @@ func (t *terminalSurface) cellAt(x, y int) *uv.Cell {
 	return t.emulator.CellAt(x, index-t.emulator.ScrollbackLen())
 }
 func (t *terminalSurface) Scrolled(event *fyne.ScrollEvent) {
-	if t.altScreen || t.closed {
+	if t.closed || event.Scrolled.DY == 0 {
+		return
+	}
+	if t.scrollRemote(event) {
 		return
 	}
 	if event.Scrolled.DY > 0 {

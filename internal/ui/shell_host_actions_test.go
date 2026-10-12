@@ -7,6 +7,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/test"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/secrets"
@@ -44,6 +45,15 @@ func TestHostCardMenuFloatsAndCopiesRememberedPassword(t *testing.T) {
 	if strings.Contains(string(rows[0].Icon.Content()), "#ff5877") {
 		t.Fatal("编辑 inherited the destructive tint")
 	}
+	for _, dark := range []bool{false, true} {
+		w.setDark(dark)
+		if _, _, _, alpha := popup.Theme().Color(theme.ColorNameShadow, theme.VariantLight).RGBA(); alpha != 0 {
+			t.Fatal("host menu retained the default popup shadow")
+		}
+		mode := map[bool]string{false: "light", true: "dark"}[dark]
+		captureConnectionIndicators(t, w.Window, "host-menu-"+mode+".png")
+	}
+	w.setDark(false)
 	origin := w.App.Driver().AbsolutePositionForObject(card.menu)
 	if position := popup.Position(); position.Y < origin.Y || position.X > origin.X+card.menu.Size().Width {
 		t.Fatalf("menu did not open beside the trigger: menu=%v button=%v", position, origin)
