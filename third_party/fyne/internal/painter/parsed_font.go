@@ -5,8 +5,35 @@ import (
 	"crypto/sha256"
 	"sync"
 
+	"fyne.io/fyne/v2"
 	"github.com/go-text/typesetting/font"
 )
+
+// Applications may supply compact fallback faces without replacing their
+// desktop font. Read the application theme so local colour/size overrides do
+// not lose this policy. Resources are parsed only for a missing primary glyph.
+func configuredFontFallbacks(style fyne.TextStyle) []fyne.Resource {
+	if app := fyne.CurrentApp(); app != nil {
+		return fontFallbacksForTheme(app.Settings().Theme(), style)
+	}
+	return nil
+}
+
+func fontFallbacksForTheme(th fyne.Theme, style fyne.TextStyle) []fyne.Resource {
+	provider, ok := th.(interface {
+		FontFallbacks(fyne.TextStyle) []fyne.Resource
+	})
+	if !ok {
+		return nil
+	}
+	var resources []fyne.Resource
+	for _, resource := range provider.FontFallbacks(style) {
+		if resource != nil {
+			resources = append(resources, resource)
+		}
+	}
+	return resources
+}
 
 // Theme scopes change colors independently, but often use identical font bytes.
 // Retain a bounded set of parsed immutable faces across scopes and theme changes.

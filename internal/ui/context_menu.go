@@ -1,11 +1,12 @@
 package ui
 
 import (
+	"image/color"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"image/color"
 )
 
 // Preserve Fyne's keyboard navigation, disabled actions and popup dismissal.
@@ -46,6 +47,18 @@ func showContextMenu(menu *fyne.Menu, c fyne.Canvas, position fyne.Position) {
 }
 
 type contextMenuTheme struct{ Theme }
+
+func (t contextMenuTheme) Font(style fyne.TextStyle) fyne.Resource {
+	if style.Symbol {
+		return t.Theme.Font(style)
+	}
+	// Fyne sizes text textures from the primary face's line metrics. Use the
+	// Chinese face for both measurement and painting to retain bottom strokes.
+	if style.Bold {
+		return cjkBoldFont
+	}
+	return cjkRegularFont
+}
 
 func (t contextMenuTheme) Size(name fyne.ThemeSizeName) float32 {
 	switch name {

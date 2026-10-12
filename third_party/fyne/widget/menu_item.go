@@ -351,6 +351,11 @@ func (r *menuItemRenderer) refreshText(text *canvas.Text, shortcut bool) {
 	th := r.i.parent.Theme()
 	v := fyne.CurrentApp().Settings().ThemeVariant()
 
+	// Text.MinSize has no widget scope; keep measurement and painting on the
+	// same resolved face when a menu uses an overridden theme.
+	if !text.TextStyle.Symbol {
+		text.FontSource = th.Font(text.TextStyle)
+	}
 	text.TextSize = th.Size(theme.SizeNameText)
 	if r.i.Item.Disabled {
 		text.Color = th.Color(theme.ColorNameDisabled, v)

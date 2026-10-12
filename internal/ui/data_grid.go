@@ -108,24 +108,10 @@ type gridCell struct {
 }
 
 func newGridCell(model gridModel) *gridCell {
-	c := &gridCell{model: model, text: canvas.NewText("", theme.ForegroundColor()), check: widget.NewCheck("", nil), entry: newGridEditEntry(), background: canvas.NewRectangle(color.Transparent)}
+	c := &gridCell{model: model, text: canvas.NewText("", theme.ForegroundColor()), background: canvas.NewRectangle(color.Transparent)}
 	c.text.TextSize = 14
 	c.divider = canvas.NewRectangle(color.NRGBA{R: 128, G: 128, B: 128, A: 38})
-	c.choice = widget.NewSelect(nil, nil)
-	c.choice.Hide()
-	c.entry.Hide()
-	c.check.Hide()
 	c.ExtendBaseWidget(c)
-	c.entry.OnSubmitted = func(string) { _ = c.commitEditor() }
-	c.entry.onBlur = func() { _ = c.commitEditor() }
-	c.entry.OnChanged = func(string) {
-		if c.editing {
-			c.rememberEditor()
-			if c.model.pending != nil {
-				c.model.pending()
-			}
-		}
-	}
 	return c
 }
 
@@ -133,11 +119,12 @@ func (c *gridCell) bind(id widget.TableCellID) {
 	if c.id != id {
 		_ = c.commitEditor()
 		c.editing = false
-		c.entry.Hide()
+		if c.entry != nil {
+			c.entry.Hide()
+		}
 	}
 	c.id = id
-	c.check.Hide()
-	c.choice.Hide()
+	c.hideSelectorControls()
 	c.text.Show()
 	c.text.Color = theme.ForegroundColor()
 	c.background.FillColor = color.Transparent
@@ -149,6 +136,7 @@ func (c *gridCell) bind(id widget.TableCellID) {
 		c.text.Alignment = fyne.TextAlignTrailing
 	}
 	if id.Col == 0 {
+		c.ensureCheck()
 		c.check.Enable()
 		c.text.Hide()
 		c.check.Show()
@@ -164,6 +152,7 @@ func (c *gridCell) bind(id widget.TableCellID) {
 	} else {
 		value := c.model.value(id.Row, id.Col-2)
 		if c.model.boolColumns[id.Col-2] {
+			c.ensureCheck()
 			c.text.Hide()
 			c.check.Show()
 			c.check.OnChanged = nil
@@ -179,8 +168,6 @@ func (c *gridCell) bind(id widget.TableCellID) {
 					}
 				}
 			}
-		} else {
-			c.check.Enable()
 		}
 		c.text.Text = previewValue(value)
 		if draft, ok := c.model.editorDrafts[id]; ok {
@@ -203,6 +190,7 @@ func (c *gridCell) bind(id widget.TableCellID) {
 		}
 	}
 	if c.id.Col >= 2 && c.model.edit != nil && len(c.model.choices[c.id.Col-2]) > 0 && !c.editing {
+		c.ensureChoice()
 		c.choice.OnChanged = nil
 		c.choice.Options = append([]string{}, c.model.choices[c.id.Col-2]...)
 		current := displayValue(c.model.value(c.id.Row, c.id.Col-2))
@@ -227,6 +215,7 @@ func (c *gridCell) bind(id widget.TableCellID) {
 				return
 			}
 			if err := c.model.edit(c.id.Row, c.id.Col-2, value, false); err != nil {
+				c.ensureEntry()
 				c.entry.SetValidationError(err)
 			}
 			c.bind(c.id)
@@ -236,7 +225,9 @@ func (c *gridCell) bind(id widget.TableCellID) {
 	}
 	if c.editing {
 		c.text.Hide()
-		c.choice.Hide()
+		if c.choice != nil {
+			c.choice.Hide()
+		}
 	}
 
 	c.fullText = c.text.Text
@@ -269,11 +260,15 @@ func (c *gridCell) DoubleTapped(*fyne.PointEvent) {
 	if draft, ok := c.model.editorDrafts[c.id]; ok {
 		c.originalText, text = draft.original, draft.text
 	}
+	c.ensureEntry()
 	c.entry.SetText(text)
 	c.editing = true
 	c.text.Hide()
-	c.choice.Hide()
+	if c.choice != nil {
+		c.choice.Hide()
+	}
 	c.entry.Show()
+	c.Refresh()
 	fyne.CurrentApp().Driver().CanvasForObject(c).Focus(c.entry)
 }
 func (c *gridCell) TappedSecondary(event *fyne.PointEvent) {
@@ -303,9 +298,15 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.background.Resize(size)
 	r.c.divider.Move(fyne.NewPos(size.Width-1, 0))
 	r.c.divider.Resize(fyne.NewSize(1, size.Height))
-	r.c.check.Resize(size)
-	r.c.entry.Resize(size)
-	r.c.choice.Resize(size)
+	if r.c.check != nil && r.c.check.Visible() {
+		r.c.check.Resize(size)
+	}
+	if r.c.entry != nil && r.c.entry.Visible() {
+		r.c.entry.Resize(size)
+	}
+	if r.c.choice != nil && r.c.choice.Visible() {
+		r.c.choice.Resize(size)
+	}
 	r.c.text.Move(fyne.NewPos(8, (size.Height-r.c.text.MinSize().Height)/2))
 	// Theme color changes do not change glyph widths. Reuse the clipped preview
 	// instead of shaping long values again on every layout and color refresh.
@@ -313,13 +314,25 @@ func (r *gridCellRenderer) Layout(size fyne.Size) {
 	r.c.text.Resize(fyne.NewSize(max(0, size.Width-16), r.c.text.MinSize().Height))
 }
 func (r *gridCellRenderer) Objects() []fyne.CanvasObject {
-	return []fyne.CanvasObject{r.c.background, r.c.divider, r.c.text, r.c.check, r.c.choice, r.c.entry}
+	objects := []fyne.CanvasObject{r.c.background, r.c.divider, r.c.text}
+	if r.c.check != nil {
+		objects = append(objects, r.c.check)
+	}
+	if r.c.choice != nil {
+		objects = append(objects, r.c.choice)
+	}
+	if r.c.entry != nil {
+		objects = append(objects, r.c.entry)
+	}
+	return objects
 }
 func (r *gridCellRenderer) Refresh() {
 	r.Layout(r.c.Size())
 	r.c.background.Refresh()
 	r.c.text.Refresh()
-	r.c.check.Refresh()
+	if r.c.check != nil && r.c.check.Visible() {
+		r.c.check.Refresh()
+	}
 }
 func (r *gridCellRenderer) Destroy() {}
 

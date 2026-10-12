@@ -23,6 +23,9 @@ func (m *shellMonitor) identityCard() fyne.CanvasObject {
 		name, address, user = h.Name, h.Host, h.User
 	}
 	label := func(text string, size float32, bold, mono bool, shade color.Color) fyne.CanvasObject {
+		if mono {
+			return newMonitorMonoLabel(text, size, fyne.TextAlignLeading, shade)
+		}
 		l := widget.NewLabel(text)
 		l.TextStyle = fyne.TextStyle{Bold: bold, Monospace: mono}
 		l.Truncation = fyne.TextTruncateEllipsis
@@ -34,10 +37,9 @@ func (m *shellMonitor) identityCard() fyne.CanvasObject {
 	if kernel == "" {
 		kernel = "等待读取系统信息"
 	}
-	objects := []fyne.CanvasObject{shellRectangle(monitorIdentityFill, 12, shellBorderColor), shellImage("server", true, 18), label(name, 13, true, false, shellTextColor), ip, username, label("· "+kernel, 11, false, true, shellMutedColor), label("运行时间", 10, false, false, shellMutedColor), label(monitorUptime(m.metrics.Uptime), 13, true, true, monitorUptimeColor)}
-	for _, i := range []int{6, 7} {
-		objects[i].(*container.ThemeOverride).Content.(*widget.Label).Alignment = fyne.TextAlignTrailing
-	}
+	objects := []fyne.CanvasObject{shellRectangle(monitorIdentityFill, 12, shellBorderColor), shellImage("server", true, 18), label(name, 13, true, false, shellTextColor), ip, username, label("· "+kernel, 11, false, true, shellMutedColor), label("运行时间", 10, false, false, shellMutedColor), label(monitorUptime(m.metrics.Uptime), 10, false, true, monitorUptimeColor)}
+	objects[6].(*container.ThemeOverride).Content.(*widget.Label).Alignment = fyne.TextAlignTrailing
+	objects[7].(*monitorMonoLabel).align = fyne.TextAlignTrailing
 	return container.New(&monitorIdentityLayout{}, objects...)
 }
 func monitorUptime(raw string) string {
@@ -72,7 +74,7 @@ func (*monitorIdentityLayout) Layout(o []fyne.CanvasObject, size fyne.Size) {
 	place(4, x, 38, userWidth, 24)
 	place(5, x+userWidth+8, 38, max(0, available-userWidth-8), 24)
 	place(6, size.Width-rightWidth-14, 14, rightWidth, 18)
-	place(7, size.Width-rightWidth-14, 33, rightWidth, 25)
+	place(7, size.Width-rightWidth-24, 33, rightWidth, 25)
 }
 
 type monitorIdentityBadge struct {
@@ -93,13 +95,10 @@ func (b *monitorIdentityBadge) Tapped(*fyne.PointEvent) {
 	}
 }
 func (b *monitorIdentityBadge) CreateRenderer() fyne.WidgetRenderer {
-	text := widget.NewLabel(b.text)
-	text.TextStyle.Monospace = true
-	text.Truncation = fyne.TextTruncateEllipsis
-	content := container.NewThemeOverride(text, monitorTintTheme{shellLabelTheme: shellLabelTheme{shellTheme: newShellTheme(), size: 11}, shade: resolveShellColor(b.shade)})
+	content := newMonitorMonoLabel(b.text, 11, fyne.TextAlignLeading, b.shade)
 	return widget.NewSimpleRenderer(container.NewStack(shellRectangle(monitorBadgeFill, 6, nil), shellInset(content, 4)))
 }
 
 func (b *monitorIdentityBadge) MinSize() fyne.Size {
-	return fyne.NewSize(fyne.MeasureText(b.text, 11, fyne.TextStyle{Monospace: true}).Width+12, 25)
+	return fyne.NewSize(monitorTextSize(b.text+monitorTextRasterSuffix, 11).Width+16, 25)
 }

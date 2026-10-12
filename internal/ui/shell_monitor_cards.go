@@ -35,6 +35,9 @@ func (c *monitorMetricCard) Tapped(*fyne.PointEvent) {
 }
 func (c *monitorMetricCard) CreateRenderer() fyne.WidgetRenderer {
 	text := func(s string, size float32, bold, mono bool, align fyne.TextAlign, shade color.Color) fyne.CanvasObject {
+		if mono {
+			return newMonitorMonoLabel(s, size, align, shade)
+		}
 		l := widget.NewLabel(s)
 		l.TextStyle = fyne.TextStyle{Bold: bold, Monospace: mono}
 		l.Alignment = align
@@ -48,7 +51,7 @@ func (c *monitorMetricCard) CreateRenderer() fyne.WidgetRenderer {
 	}
 	icon := canvas.NewImageFromResource(monitorMetricIcon(c.title, c.shade))
 	icon.FillMode = canvas.ImageFillContain
-	objects := []fyne.CanvasObject{shellRectangle(monitorIdentityFill, 10, shellBorderColor), icon, text(c.title, 11, true, false, fyne.TextAlignLeading, shellMutedColor), text(c.value, 15, false, true, fyne.TextAlignTrailing, c.shade), shellRectangle(monitorTrackColor, 3, nil), shellRectangle(c.shade, 3, nil), text(c.left, size, false, false, fyne.TextAlignLeading, leftShade), text(c.right, size, false, false, fyne.TextAlignTrailing, rightShade)}
+	objects := []fyne.CanvasObject{shellRectangle(monitorIdentityFill, 10, shellBorderColor), icon, text(c.title, 11, true, false, fyne.TextAlignLeading, shellMutedColor), text(c.value, 11, false, true, fyne.TextAlignTrailing, c.shade), shellRectangle(monitorTrackColor, 3, nil), shellRectangle(c.shade, 3, nil), text(c.left, size, false, false, fyne.TextAlignLeading, leftShade), text(c.right, size, false, false, fyne.TextAlignTrailing, rightShade)}
 	if c.network {
 		objects[3].Hide()
 		objects[4].Hide()
@@ -82,7 +85,7 @@ func (r *monitorMetricRenderer) Layout(size fyne.Size) {
 	place(0, 0, 0, size.Width, size.Height)
 	place(1, 12, 17, 16, 16)
 	place(2, 35, 14, 38, 22)
-	place(3, 70, 10, size.Width-82, 30)
+	place(3, 60, 10, size.Width-82, 30)
 	width := max(0, size.Width-24)
 	place(4, 12, 49, width, 6)
 	place(5, 12, 49, width*float32(min(1, max(0, r.card.fraction))), 6)

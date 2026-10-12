@@ -53,6 +53,7 @@ type Window struct {
 	dark                        bool
 	appearance                  *appearanceState
 	shuttingDown                bool
+	closingDocuments            bool
 	stopInputMethods            func()
 	onClose                     func() error
 	ready                       chan struct{}

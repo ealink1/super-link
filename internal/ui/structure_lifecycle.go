@@ -132,6 +132,9 @@ func (d *tableDesigner) reload() {
 	})
 }
 func (w *Window) closeDesigner(d *tableDesigner) {
+	w.closeDesignerThen(d, nil)
+}
+func (w *Window) closeDesignerThen(d *tableDesigner, done func(bool)) {
 	close := func() {
 		d.closed = true
 		if d.cancel != nil {
@@ -140,11 +143,14 @@ func (w *Window) closeDesigner(d *tableDesigner) {
 		delete(w.designers, d.item)
 		w.tabs.Remove(d.item)
 		w.syncDocuments()
+		completeTabClose(done, true)
 	}
 	if d.dirty() || d.busy {
 		showConfirmDialog("关闭设计表", "丢弃暂存修改并关闭？进行中的操作会取消，已执行的 DDL 可能保留。", func(ok bool) {
 			if ok {
 				close()
+			} else {
+				completeTabClose(done, false)
 			}
 		}, w.Window)
 		return

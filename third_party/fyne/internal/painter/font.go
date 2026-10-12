@@ -127,7 +127,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
 			if face == nil {
 				face = loadMeasureFont(theme.TextFont())
 			}
-			faces := &dynamicFontMap{family: source.Name(), faces: []*font.Face{face}}
+			faces := &dynamicFontMap{family: source.Name(), faces: []*font.Face{face}, pendingFonts: configuredFontFallbacks(style)}
 
 			val = &FontCacheItem{Fonts: faces}
 			fontCustomCache.Store(source, val)
@@ -149,7 +149,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
 
 		// Skip any nil fallback fonts — they can be nil when built with
 		// -tags no_emoji, and the lookupFaces loop expects non-nil entries.
-		var fallbacks []fyne.Resource
+		fallbacks := configuredFontFallbacks(style)
 		if emoji := theme.DefaultEmojiFont(); emoji != nil { // TODO only one emoji - maybe others too
 			fallbacks = append(fallbacks, emoji)
 		}
@@ -254,6 +254,11 @@ func fontGeometryKey(set fyne.Settings) string {
 			continue
 		}
 		key.WriteString("|" + font.Name() + "#" + strconv.Itoa(len(font.Content())))
+		for _, fallback := range fontFallbacksForTheme(th, style) {
+			if fallback != nil {
+				key.WriteString("|fallback:" + fallback.Name() + "#" + strconv.Itoa(len(fallback.Content())))
+			}
+		}
 	}
 	return key.String()
 }

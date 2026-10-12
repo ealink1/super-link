@@ -29,7 +29,7 @@ func TestFieldTypeDropdownStagesSelectedType(t *testing.T) {
 	model.edit = nil
 	readonly := newGridCell(model)
 	readonly.bind(widget.TableCellID{Row: 0, Col: 2})
-	if readonly.choice.Visible() {
-		t.Fatal("read-only type editable")
+	if readonly.choice != nil {
+		t.Fatal("read-only type allocated an editable dropdown")
 	}
 }

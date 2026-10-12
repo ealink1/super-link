@@ -23,6 +23,14 @@ func (d *documents) Append(item *container.TabItem) {
 	}
 }
 func (d *documents) Selected() *container.TabItem { return d.selected }
+func (d *documents) SelectedIndex() int {
+	return slices.Index(d.Items, d.selected)
+}
+func (d *documents) SelectIndex(index int) {
+	if index >= 0 && index < len(d.Items) {
+		d.Select(d.Items[index])
+	}
+}
 func (d *documents) Select(item *container.TabItem) {
 	if d.selected == item {
 		return

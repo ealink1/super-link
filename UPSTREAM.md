@@ -118,6 +118,16 @@ tests run in selfcheck/CI. See `docs/memory-analysis-2026-10-02.md` and
 `docs/memory-refinement-2026-10-02.md` for measurements and known upstream
 container snapshot failures on this Mac.
 
+On 2026-10-12, the reviewed menu renderer now assigns its resolved theme font
+to non-symbol text primitives. `canvas.Text.MinSize` has no widget theme scope;
+without an explicit source it measures the application font while the painter
+uses the menu's overridden font, clipping the bottom of Chinese glyphs. Menu
+shortcut symbols retain their existing symbol-font selection. The application
+context menu uses the bundled complete Chinese face for consistent line metrics.
+The menu source hash and exact adaptation are recorded in the Fyne manifest and
+patch; `TestContextMenuChineseInkFitsTextTexture` checks independent oversized
+glyph rasters at four scales and includes disabled and mixed-script labels.
+
 `internal/ui/assets/superlink/sources.json` records hashes and source paths for 63
 UI icons, 21 database SVGs and 13 database PNGs. JSX icon geometry was extracted
 mechanically; PNG/SVG assets were copied, and ICO pixels converted to PNG.
@@ -154,3 +164,19 @@ The reviewed Fyne painter now shears rasterized upright fallback faces when ital
 ### Day/night switch cache retention (2026-10-10)
 
 A day/night switch rebuilt every font and icon because the settings listener emptied the painter caches unconditionally, and each `ThemeOverride` refresh repeated that wipe once per contained widget. The reviewed painter now records the active theme's font resources and scale, so a switch that changes colours alone reuses the resolved faces; `ClearFontCache` also forgets that record, because any other component may have emptied the caches in between. `cache.overrideWidget` no longer clears the shared SVG and metric caches per child widget, since each override resolves through its own scope identifier. `svg.Colorize` memoises its output by source content and resolved colour, so repeated icon recolouring skips the XML parse and marshal. Measured text metrics and rasterised SVGs are still dropped on every change: their cache keys carry neither the resolved font nor the colour value, which `TestAccordion_ChangeTheme` in the pinned widget suite detects when the mapping is wrong. `internal/painter/theme_caches_test.go` covers the three retained-face rules directly. Measured on the SQL workbench with three open query tabs (1,147 cached objects), the synchronous theme apply fell from 105 ms to 43 ms, Shell from 38 ms to 14 ms and Note from 32 ms to 6 ms. The manifest and exact patch include `internal/painter/font.go`, `internal/cache/theme.go`, `internal/svg/svg.go`, `internal/driver/glfw/loop.go`, `test/app.go` and the new painter test.
+
+### Compact CJK fallback with desktop primary fonts (2026-10-12)
+
+Switching primary fonts to desktop resources made missing Chinese glyphs load
+large system TrueType faces again. A native isolated welcome-page heap profile
+attributed about 130 MiB to system font fallback. The reviewed painter accepts
+an optional application-theme `FontFallbacks(fyne.TextStyle)` provider, including
+for explicitly sourced text and nested theme overrides. SuperLink supplies its
+existing complete CFF regular and semibold Chinese resources lazily; Latin text
+keeps the desktop primary face. System locale and rune fallback remain available
+for characters outside those resources. Fallback resources participate in the
+theme geometry key, so a replacement invalidates resolved faces while colour
+changes retain them. The manifest and exact patch include `font.go`,
+`parsed_font.go`, `configured_fonts_test.go` and `theme_caches_test.go`. Native
+monitor measurements and verification are recorded in
+`docs/qa/2026-10-12-memory-font-fallback.md`.

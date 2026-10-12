@@ -59,16 +59,21 @@ func (s *shellWorkspace) newPane(name string) *shellPane {
 	p.terminal.textSize = float32(s.settings.FontSize)
 	content := p.buildSessionContent()
 	p.item = container.NewTabItem(name, content)
+	p.terminal.active = func() bool {
+		return s.owner.switcher.mode == 1 && s.page == 1 && s.tabs.Selected() == p.item
+	}
 	s.panes[p.item] = p
 	s.tabs.Append(p.item)
 	s.tabs.Select(p.item)
 	s.showTerminals()
+	emulator := p.terminal.emulator
+	pipe, _ := emulator.InputPipe().(io.Closer)
 	// Encoding may write terminal replies from the UI; this consumer always
 	// drains the pipe, independently of slow or disconnected network writes.
 	s.owner.jobs.run(func(context.Context) (any, error) {
 		buffer := make([]byte, 4096)
 		for {
-			n, err := p.terminal.emulator.Read(buffer)
+			n, err := emulator.Read(buffer)
 			if n > 0 {
 				copy := append([]byte(nil), buffer[:n]...)
 				select {
@@ -82,15 +87,12 @@ func (s *shellWorkspace) newPane(name string) *shellPane {
 			}
 		}
 	}, func(_ any, _ error) {})
-	context.AfterFunc(ctx, func() { _ = p.terminalPipeClose() })
+	context.AfterFunc(ctx, func() {
+		if pipe != nil {
+			_ = pipe.Close()
+		}
+	})
 	return p
-}
-
-func (p *shellPane) terminalPipeClose() error {
-	if closer, ok := p.terminal.emulator.InputPipe().(io.Closer); ok {
-		return closer.Close()
-	}
-	return nil
 }
 
 func (s *shellWorkspace) openLocal(executable string) {
@@ -237,5 +239,5 @@ func (p *shellPane) stop() {
 		p.connection.close()
 	}
 	p.cancel()
-	p.terminal.dispose()
+	p.terminal.release()
 }

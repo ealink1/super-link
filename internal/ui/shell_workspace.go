@@ -21,7 +21,11 @@ type shellWorkspace struct {
 	search                      *widget.Entry
 	hostList                    *shellHostCollection
 	visible                     []domain.ShellHost
-	tabs                        *container.DocTabs
+	tabs                        *documents
+	terminalPage                fyne.CanvasObject
+	terminalEmpty               fyne.CanvasObject
+	terminalBody, terminalStrip *fyne.Container
+	terminalButtons             map[*container.TabItem]*documentTab
 	panes                       map[*container.TabItem]*shellPane
 	status                      *widget.Label
 	page                        int
@@ -39,16 +43,14 @@ func newShellWorkspace(w *Window) *shellWorkspace {
 	s := &shellWorkspace{owner: w, service: &application.ShellHosts{Store: w.Store, Vault: w.Profiles.Vault}, panes: make(map[*container.TabItem]*shellPane)}
 	s.status = widget.NewLabel("")
 	s.body = container.NewStack()
-	s.tabs = container.NewDocTabs()
+	s.tabs = &documents{}
 	s.tabs.CloseIntercept = func(item *container.TabItem) {
 		if p := s.panes[item]; p != nil {
 			p.stop()
 			delete(s.panes, item)
 		}
 		s.tabs.Remove(item)
-		if len(s.tabs.Items) == 0 {
-			s.showTerminals()
-		}
+		s.syncTerminalTabs()
 	}
 	s.tabs.CreateTab = func() *container.TabItem { s.openLocal(""); return nil }
 	s.search = widget.NewEntry()
@@ -92,8 +94,16 @@ func (s *shellWorkspace) showHosts() {
 	s.refreshPage()
 }
 func (s *shellWorkspace) showTerminals() {
+	changedPage := s.page != 1 || s.terminalPage == nil
 	s.page = 1
-	s.body.Objects = []fyne.CanvasObject{s.buildTerminalPage()}
+	if s.terminalPage == nil {
+		s.terminalPage = s.buildTerminalPage()
+	}
+	s.syncTerminalTabs()
+	if !changedPage {
+		return
+	}
+	s.body.Objects = []fyne.CanvasObject{s.terminalPage}
 	s.refreshPage()
 }
 

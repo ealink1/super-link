@@ -19,6 +19,7 @@ type terminalSurface struct {
 	imeCaret          fyne.CanvasObject
 	emulator          *vt.Emulator // All parser, input-encoding and screen calls stay on the UI goroutine.
 	resize            func(int, int)
+	active            func() bool
 	closed            bool
 	focused           bool
 	visibleCursor     bool
@@ -45,7 +46,9 @@ func (t *terminalSurface) feed(output []byte) {
 		if t.scroll > 0 {
 			t.scroll = min(t.emulator.ScrollbackLen(), t.scroll+max(0, t.emulator.ScrollbackLen()-before))
 		}
-		t.Refresh()
+		if t.active == nil || t.active() {
+			t.Refresh()
+		}
 	}
 }
 
@@ -55,12 +58,24 @@ func (t *terminalSurface) dispose() {
 	}
 	t.closed = true
 	t.resize = nil
+	t.active = nil
 	t.rejectPaste = nil
 	// Close the concurrency-safe pipe rather than racing Emulator.Close's state
 	// against Read. The joined pipe consumer never mutates emulator screen state.
 	if closer, ok := t.emulator.InputPipe().(io.Closer); ok {
 		_ = closer.Close()
 	}
+}
+
+// A finished session keeps its last screen until the tab is closed. A removed
+// tab must drop its multi-megabyte emulator even while Fyne caches the widget.
+func (t *terminalSurface) release() {
+	t.dispose()
+	if t.emulator != nil {
+		t.emulator.SetCallbacks(vt.Callbacks{})
+		t.emulator = nil
+	}
+	t.Refresh()
 }
 
 func (t *terminalSurface) Tapped(*fyne.PointEvent) {
@@ -123,6 +138,9 @@ func (r *terminalRenderer) Layout(size fyne.Size) {
 	cols := min(500, max(2, int(size.Width/cell.Width)))
 	rows := min(200, max(2, int(size.Height/cell.Height)))
 	e := r.terminal.emulator
+	if e == nil {
+		return
+	}
 	if cols != e.Width() || rows != e.Height() {
 		e.Resize(cols, rows)
 		if r.terminal.resize != nil {
@@ -142,6 +160,12 @@ func (r *terminalRenderer) Refresh() {
 	r.background.Refresh()
 	r.cursor.FillColor = terminalCursorColor()
 	e := r.terminal.emulator
+	if e == nil {
+		r.text.Objects, r.pool, r.backgrounds = nil, nil, nil
+		r.cursor.Hide()
+		r.text.Refresh()
+		return
+	}
 	cellSize := r.terminal.cellSize()
 	used := 0
 	for y := 0; y < e.Height(); y++ {
@@ -172,12 +196,19 @@ func (r *terminalRenderer) Refresh() {
 				}
 				x += max(1, cell.Width)
 			}
+			content := value.String()
+			if style.IsZero() {
+				content = strings.TrimRight(content, " ")
+				if content == "" {
+					continue
+				}
+			}
 			if used == len(r.pool) {
 				r.pool = append(r.pool, canvas.NewText("", resolveShellColor(terminalForeground)))
 				r.backgrounds = append(r.backgrounds, canvas.NewRectangle(resolveShellColor(terminalBackground)))
 			}
 			text := r.pool[used]
-			text.Text, text.TextSize = value.String(), r.terminal.textSize
+			text.Text, text.TextSize = content, r.terminal.textSize
 			text.TextStyle = fyne.TextStyle{Monospace: true, Bold: style.Attrs&uv.AttrBold != 0, Italic: style.Attrs&uv.AttrItalic != 0}
 			text.Color = style.Fg
 			if text.Color == nil {

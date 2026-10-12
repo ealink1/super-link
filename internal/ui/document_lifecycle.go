@@ -1,6 +1,9 @@
 package ui
 
 func (w *Window) closeTable(t *tableWorkspace) {
+	w.closeTableThen(t, nil)
+}
+func (w *Window) closeTableThen(t *tableWorkspace, done func(bool)) {
 	close := func() {
 		t.closed = true
 		if t.cancel != nil {
@@ -9,6 +12,7 @@ func (w *Window) closeTable(t *tableWorkspace) {
 		delete(w.tables, t.item)
 		w.tabs.Remove(t.item)
 		w.syncDocuments()
+		completeTabClose(done, true)
 	}
 	if t.dirty() || t.busy {
 		text := "丢弃当前未提交修改并关闭？"
@@ -18,6 +22,8 @@ func (w *Window) closeTable(t *tableWorkspace) {
 		showConfirmDialog("关闭表工作台", text, func(ok bool) {
 			if ok {
 				close()
+			} else {
+				completeTabClose(done, false)
 			}
 		}, w.Window)
 		return
@@ -26,6 +32,9 @@ func (w *Window) closeTable(t *tableWorkspace) {
 }
 
 func (w *Window) closeImport(i *importWorkbench) {
+	w.closeImportThen(i, nil)
+}
+func (w *Window) closeImportThen(i *importWorkbench, done func(bool)) {
 	close := func() {
 		i.closed = true
 		if i.cancel != nil {
@@ -34,11 +43,14 @@ func (w *Window) closeImport(i *importWorkbench) {
 		delete(w.imports, i.item)
 		w.tabs.Remove(i.item)
 		w.syncDocuments()
+		completeTabClose(done, true)
 	}
 	if i.busy {
 		showConfirmDialog("停止并关闭导入", "停止当前任务并关闭？已提交批次会保留；取消提交时需要检查服务端结果。", func(ok bool) {
 			if ok {
 				close()
+			} else {
+				completeTabClose(done, false)
 			}
 		}, w.Window)
 		return

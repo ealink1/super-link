@@ -22,7 +22,7 @@ type shellMonitor struct {
 	refresh                   *shellAlignedButton
 	status                    *widget.Label
 	body                      *fyne.Container
-	tabs                      *container.AppTabs
+	tabs                      *documents
 	auto                      *widget.Check
 	interval                  time.Duration
 	lastRefresh               time.Time
@@ -91,7 +91,7 @@ func newShellMonitorView(p *shellPane) *shellMonitor {
 	m.auto = widget.NewCheck("自动刷新", nil)
 	m.auto.SetChecked(true)
 
-	m.tabs = container.NewAppTabs()
+	m.tabs = &documents{}
 	for _, name := range []string{"综合", "CPU", "GPU", "MEM", "DISK", "NET"} {
 		m.tabs.Append(container.NewTabItem(name, container.NewStack()))
 	}

@@ -38,6 +38,7 @@ func (w *Window) syncDocuments() {
 		if button == nil {
 			button = newDocumentTab(title, subtitle, item == selected, func() { w.tabs.Select(item) }, func() { w.closeTab(item) })
 			button.tooltip = w.docTooltip
+			button.showMenu = func(event *fyne.PointEvent) { w.showDocumentTabMenu(item, event) }
 			w.docButtons[item] = button
 		}
 		button.title, button.subtitle, button.selected = title, subtitle, item == selected
@@ -48,6 +49,7 @@ func (w *Window) syncDocuments() {
 		if !active[item] {
 			button.hideTooltip()
 			button.selectTab, button.closeTab = nil, nil
+			button.showMenu = nil
 			button.tooltip = nil
 			delete(w.docButtons, item)
 		}

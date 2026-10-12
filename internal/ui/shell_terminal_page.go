@@ -8,13 +8,8 @@ import (
 )
 
 func (s *shellWorkspace) buildTerminalPage() fyne.CanvasObject {
-	var body fyne.CanvasObject
-	if len(s.tabs.Items) > 0 {
-		body = s.selectedTerminalContent()
-	} else {
-		body = container.New(&shellWelcomeLayout{}, s.terminalWelcome())
-	}
-	return shellBorder(s.terminalHeader(), nil, nil, nil, body)
+	s.terminalBody = container.NewStack()
+	return shellBorder(s.terminalHeader(), nil, nil, nil, s.terminalBody)
 }
 
 func (s *shellWorkspace) terminalWelcome() fyne.CanvasObject {
@@ -36,13 +31,12 @@ func (s *shellWorkspace) terminalWelcome() fyne.CanvasObject {
 }
 
 func (s *shellWorkspace) terminalHeader() fyne.CanvasObject {
-	items := make([]fyne.CanvasObject, 0, len(s.tabs.Items))
-	for _, item := range s.tabs.Items {
-		items = append(items, newShellTab(s, item))
-	}
-	tabs := container.NewHScroll(shellHBox(items...))
+	s.terminalButtons = make(map[*container.TabItem]*documentTab)
+	s.terminalStrip = container.NewHBox()
+	tabs := container.NewHScroll(container.NewThemeOverride(s.terminalStrip, Theme{}))
+	tabs.SetMinSize(fyne.NewSize(0, 32))
 	tools := shellHBox(shellButton("", "plus", false, s.quickConnect), shellFixed(layout.NewSpacer(), 8, 0), shellOutlined(shellButton("主机", "server", false, s.showHosts)))
-	header := shellFixed(shellInset(shellBorder(nil, nil, nil, tools, tabs), 8), 0, 40)
+	header := shellFixed(shellInset(shellBorder(nil, nil, nil, tools, tabs), 4), 0, 40)
 	return shellVBox(header, shellLine())
 }
 

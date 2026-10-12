@@ -189,6 +189,66 @@ index 4d314a1..5e38912 100644
  		app.ApplySettingsWithCallback(set, fyne.CurrentApp(), func(w fyne.Window) {
  			d.applyThemeToWindow(w)
  			c, ok := w.Canvas().(*glCanvas)
+diff --git a/internal/painter/configured_fonts_test.go b/internal/painter/configured_fonts_test.go
+new file mode 100644
+index 0000000..a058ced
+--- /dev/null
++++ b/internal/painter/configured_fonts_test.go
+@@ -0,0 +1,54 @@
++package painter_test
++
++import (
++	"os"
++	"testing"
++
++	"fyne.io/fyne/v2"
++	"fyne.io/fyne/v2/container"
++	"fyne.io/fyne/v2/internal/painter"
++	"fyne.io/fyne/v2/test"
++	"fyne.io/fyne/v2/theme"
++	"fyne.io/fyne/v2/widget"
++)
++
++type fallbackTestTheme struct {
++	fyne.Theme
++	fallback fyne.Resource
++}
++
++func (t fallbackTestTheme) FontFallbacks(fyne.TextStyle) []fyne.Resource {
++	return []fyne.Resource{nil, t.fallback}
++}
++
++func TestConfiguredCJKFallbackSurvivesLocalThemesAndExplicitFontSources(t *testing.T) {
++	data, err := os.ReadFile("../../../../internal/ui/assets/NaviUI-Regular.otf")
++	if err != nil {
++		t.Fatal(err)
++	}
++	application := test.NewTempApp(t)
++	application.Settings().SetTheme(fallbackTestTheme{Theme: theme.DefaultTheme(), fallback: fyne.NewStaticResource("cjk.otf", data)})
++	painter.ClearFontCache()
++	defer painter.ClearFontCache()
++	label := widget.NewLabel("中文")
++	_ = container.NewThemeOverride(label, theme.DefaultTheme())
++	for _, source := range []fyne.Resource{nil, theme.DefaultTextMonospaceFont()} {
++		faces := painter.CachedFontFace(fyne.TextStyle{}, source, label).Fonts
++		latin := faces.ResolveFace('A')
++		chinese := faces.ResolveFace('中')
++		if chinese == latin {
++			t.Fatal("primary Latin face unexpectedly covers Chinese")
++		}
++		if chinese.Font.Describe().Family != "NaviUI Regular" {
++			t.Fatalf("configured CJK fallback was lost: %s", chinese.Font.Describe().Family)
++		}
++		for _, r := range "中文数据库服务器" {
++			if got := faces.ResolveFace(r); got != chinese {
++				t.Fatal("same CJK coverage reloaded a different font")
++			}
++			if _, ok := chinese.NominalGlyph(r); !ok {
++				t.Fatalf("fallback lacks %c", r)
++			}
++		}
++	}
++}
 diff --git a/internal/painter/fallback_memory_test.go b/internal/painter/fallback_memory_test.go
 new file mode 100644
 index 0000000..28ef669
@@ -251,7 +311,7 @@ index 0000000..28ef669
 +	}
 +}
 diff --git a/internal/painter/font.go b/internal/painter/font.go
-index 8266686..252e076 100644
+index 8266686..1a0380a 100644
 --- a/internal/painter/font.go
 +++ b/internal/painter/font.go
 @@ -1,11 +1,12 @@
@@ -303,6 +363,24 @@ index 8266686..252e076 100644
  
  	return faces
  }
+@@ -127,7 +127,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
+ 			if face == nil {
+ 				face = loadMeasureFont(theme.TextFont())
+ 			}
+-			faces := &dynamicFontMap{family: source.Name(), faces: []*font.Face{face}}
++			faces := &dynamicFontMap{family: source.Name(), faces: []*font.Face{face}, pendingFonts: configuredFontFallbacks(style)}
+ 
+ 			val = &FontCacheItem{Fonts: faces}
+ 			fontCustomCache.Store(source, val)
+@@ -149,7 +149,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
+ 
+ 		// Skip any nil fallback fonts — they can be nil when built with
+ 		// -tags no_emoji, and the lookupFaces loop expects non-nil entries.
+-		var fallbacks []fyne.Resource
++		fallbacks := configuredFontFallbacks(style)
+ 		if emoji := theme.DefaultEmojiFont(); emoji != nil { // TODO only one emoji - maybe others too
+ 			fallbacks = append(fallbacks, emoji)
+ 		}
 @@ -181,7 +181,7 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
  		}
  
@@ -312,7 +390,7 @@ index 8266686..252e076 100644
  	}
  
  	return val
-@@ -189,10 +189,75 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
+@@ -189,10 +189,80 @@ func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObj
  
  // ClearFontCache is used to remove cached fonts in the case that we wish to re-load Font faces
  func ClearFontCache() {
@@ -382,6 +460,11 @@ index 8266686..252e076 100644
 +			continue
 +		}
 +		key.WriteString("|" + font.Name() + "#" + strconv.Itoa(len(font.Content())))
++		for _, fallback := range fontFallbacksForTheme(th, style) {
++			if fallback != nil {
++				key.WriteString("|fallback:" + fallback.Name() + "#" + strconv.Itoa(len(fallback.Content())))
++			}
++		}
 +	}
 +	return key.String()
 +}
@@ -389,7 +472,7 @@ index 8266686..252e076 100644
  // DrawString draws a string into an image.
  func DrawString(dst draw.Image, s string, color color.Color, f shaping.Fontmap, fontSize, scale float32, style fyne.TextStyle) {
  	DrawStringOffset(dst, s, color, f, fontSize, scale, style, 0)
-@@ -207,6 +272,7 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
+@@ -207,6 +277,7 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
  	}
  
  	advance := float32(0)
@@ -397,7 +480,7 @@ index 8266686..252e076 100644
  	walkString(f, s, float32ToFixed266(fontSize), style, &advance, scale, func(run shaping.Output, x, y float32) {
  		yPix := int(math.Ceil(float64(y)))
  		if len(run.Glyphs) == 1 && run.Glyphs[0].GlyphID == 0 {
-@@ -214,12 +280,22 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
+@@ -214,12 +285,22 @@ func DrawStringOffset(dst draw.Image, s string, color color.Color, f shaping.Fon
  			return
  		}
  
@@ -421,7 +504,7 @@ index 8266686..252e076 100644
  	if err != nil {
  		fyne.LogError("font load error", err)
  		return nil
-@@ -513,8 +589,10 @@ type noopLogger struct{}
+@@ -513,8 +594,10 @@ type noopLogger struct{}
  func (n noopLogger) Printf(string, ...any) {}
  
  type dynamicFontMap struct {
@@ -434,7 +517,7 @@ index 8266686..252e076 100644
  }
  
  func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
-@@ -523,6 +601,32 @@ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
+@@ -523,6 +606,32 @@ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
  			return f
  		}
  	}
@@ -469,10 +552,10 @@ index 8266686..252e076 100644
  	if toAdd != nil {
 diff --git a/internal/painter/parsed_font.go b/internal/painter/parsed_font.go
 new file mode 100644
-index 0000000..f2a92ce
+index 0000000..662fba5
 --- /dev/null
 +++ b/internal/painter/parsed_font.go
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,94 @@
 +package painter
 +
 +import (
@@ -480,8 +563,35 @@ index 0000000..f2a92ce
 +	"crypto/sha256"
 +	"sync"
 +
++	"fyne.io/fyne/v2"
 +	"github.com/go-text/typesetting/font"
 +)
++
++// Applications may supply compact fallback faces without replacing their
++// desktop font. Read the application theme so local colour/size overrides do
++// not lose this policy. Resources are parsed only for a missing primary glyph.
++func configuredFontFallbacks(style fyne.TextStyle) []fyne.Resource {
++	if app := fyne.CurrentApp(); app != nil {
++		return fontFallbacksForTheme(app.Settings().Theme(), style)
++	}
++	return nil
++}
++
++func fontFallbacksForTheme(th fyne.Theme, style fyne.TextStyle) []fyne.Resource {
++	provider, ok := th.(interface {
++		FontFallbacks(fyne.TextStyle) []fyne.Resource
++	})
++	if !ok {
++		return nil
++	}
++	var resources []fyne.Resource
++	for _, resource := range provider.FontFallbacks(style) {
++		if resource != nil {
++			resources = append(resources, resource)
++		}
++	}
++	return resources
++}
 +
 +// Theme scopes change colors independently, but often use identical font bytes.
 +// Retain a bounded set of parsed immutable faces across scopes and theme changes.
@@ -768,10 +878,10 @@ index 0000000..b4973fa
 +}
 diff --git a/internal/painter/theme_caches_test.go b/internal/painter/theme_caches_test.go
 new file mode 100644
-index 0000000..b8dd89d
+index 0000000..39290eb
 --- /dev/null
 +++ b/internal/painter/theme_caches_test.go
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,116 @@
 +package painter
 +
 +import (
@@ -860,6 +970,33 @@ index 0000000..b8dd89d
 +	if faceCacheWarm() {
 +		t.Fatal("ClearFontCache left a stale record that skipped the reload")
 +	}
++}
++
++type fallbackCacheTheme struct {
++	cacheTestTheme
++	fallback fyne.Resource
++}
++
++func (t fallbackCacheTheme) FontFallbacks(fyne.TextStyle) []fyne.Resource {
++	return []fyne.Resource{t.fallback}
++}
++
++func TestApplyThemeCachesReloadsChangedFallbackFonts(t *testing.T) {
++	primary := cacheTestTheme{regular: fyne.NewStaticResource("primary.ttf", []byte("primary"))}
++	first := &cacheTestSettings{th: fallbackCacheTheme{primary, fyne.NewStaticResource("fallback-a.otf", []byte("first"))}}
++	second := &cacheTestSettings{th: fallbackCacheTheme{primary, fyne.NewStaticResource("fallback-b.otf", []byte("second"))}}
++	ApplyThemeCaches(first)
++	warmFaceCache()
++	ApplyThemeCaches(second)
++	if faceCacheWarm() {
++		t.Fatal("new fallback kept the previous face mapping")
++	}
++	warmFaceCache()
++	ApplyThemeCaches(second)
++	if !faceCacheWarm() {
++		t.Fatal("unchanged fallback invalidated the face mapping")
++	}
++	ClearFontCache()
 +}
 diff --git a/internal/svg/svg.go b/internal/svg/svg.go
 index a3c8fb0..d5c36d2 100644
@@ -1003,3 +1140,19 @@ index 4bc6f14..b75cc2b 100644
  }
  
  func (l *listLayout) offsetUpdated(pos fyne.Position) {
+diff --git a/widget/menu_item.go b/widget/menu_item.go
+index 6d63f3a2..1126db55 100644
+--- a/widget/menu_item.go
++++ b/widget/menu_item.go
+@@ -351,6 +351,11 @@ func (r *menuItemRenderer) refreshText(text *canvas.Text, shortcut bool) {
+ 	th := r.i.parent.Theme()
+ 	v := fyne.CurrentApp().Settings().ThemeVariant()
+ 
++	// Text.MinSize has no widget scope; keep measurement and painting on the
++	// same resolved face when a menu uses an overridden theme.
++	if !text.TextStyle.Symbol {
++		text.FontSource = th.Font(text.TextStyle)
++	}
+ 	text.TextSize = th.Size(theme.SizeNameText)
+ 	if r.i.Item.Disabled {
+ 		text.Color = th.Color(theme.ColorNameDisabled, v)

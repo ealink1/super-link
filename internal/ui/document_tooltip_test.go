@@ -67,6 +67,11 @@ func TestCompactDocumentTabsExposeContextOnlyOnHover(t *testing.T) {
 	if w.tabs.Selected() != table || w.docTooltip.box.Visible() {
 		t.Fatal("tooltip blocked tab selection or survived selection")
 	}
+	menu, ok := w.Window.Canvas().Focused().(*widget.PopUpMenu)
+	if !ok || len(menu.Items) != 4 {
+		t.Fatal("tab click did not open its close menu")
+	}
+	menu.TypedKey(&fyne.KeyEvent{Name: fyne.KeyEscape})
 	tab.MouseIn(nil)
 	tab.MouseOut()
 	if w.docTooltip.active != nil || w.docTooltip.box.Visible() || w.docTooltip.label.Text != "" {

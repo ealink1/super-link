@@ -87,3 +87,30 @@ func TestApplyThemeCachesKeepsFacesUntilTheFontMappingChanges(t *testing.T) {
 		t.Fatal("ClearFontCache left a stale record that skipped the reload")
 	}
 }
+
+type fallbackCacheTheme struct {
+	cacheTestTheme
+	fallback fyne.Resource
+}
+
+func (t fallbackCacheTheme) FontFallbacks(fyne.TextStyle) []fyne.Resource {
+	return []fyne.Resource{t.fallback}
+}
+
+func TestApplyThemeCachesReloadsChangedFallbackFonts(t *testing.T) {
+	primary := cacheTestTheme{regular: fyne.NewStaticResource("primary.ttf", []byte("primary"))}
+	first := &cacheTestSettings{th: fallbackCacheTheme{primary, fyne.NewStaticResource("fallback-a.otf", []byte("first"))}}
+	second := &cacheTestSettings{th: fallbackCacheTheme{primary, fyne.NewStaticResource("fallback-b.otf", []byte("second"))}}
+	ApplyThemeCaches(first)
+	warmFaceCache()
+	ApplyThemeCaches(second)
+	if faceCacheWarm() {
+		t.Fatal("new fallback kept the previous face mapping")
+	}
+	warmFaceCache()
+	ApplyThemeCaches(second)
+	if !faceCacheWarm() {
+		t.Fatal("unchanged fallback invalidated the face mapping")
+	}
+	ClearFontCache()
+}

@@ -452,26 +452,35 @@ func (s *workspace) history() {
 	})
 }
 func (w *Window) closeTab(item *container.TabItem) {
+	w.closeTabThen(item, nil)
+}
+func (w *Window) closeTabThen(item *container.TabItem, done func(bool)) {
 	if page := w.databases[item]; page != nil {
 		w.closeDatabaseTables(page)
+		completeTabClose(done, true)
 		return
 	}
 	if designer := w.designers[item]; designer != nil {
-		w.closeDesigner(designer)
+		w.closeDesignerThen(designer, done)
 		return
 	}
 	if table := w.tables[item]; table != nil {
-		w.closeTable(table)
+		w.closeTableThen(table, done)
 		return
 	}
 	if importer := w.imports[item]; importer != nil {
-		w.closeImport(importer)
+		w.closeImportThen(importer, done)
 		return
 	}
 	space := w.workspaces[item]
 	if space == nil {
 		w.tabs.Remove(item)
 		w.syncDocuments()
+		completeTabClose(done, true)
+		return
+	}
+	if space.closed {
+		completeTabClose(done, false)
 		return
 	}
 	space.cancelOperation()
@@ -492,12 +501,14 @@ func (w *Window) closeTab(item *container.TabItem) {
 			space.scope.Enable()
 			space.finish()
 			w.showError(err)
+			completeTabClose(done, false)
 			return
 		}
 		space.closed = true
 		w.tabs.Remove(item)
 		delete(w.workspaces, item)
 		w.syncDocuments()
+		completeTabClose(done, true)
 	})
 }
 func (w *Window) restoreDrafts() {

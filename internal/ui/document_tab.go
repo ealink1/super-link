@@ -17,6 +17,7 @@ type documentTab struct {
 	title, subtitle     string
 	selected            bool
 	selectTab, closeTab func()
+	showMenu            func(*fyne.PointEvent)
 	tooltip             *documentTooltip
 }
 
@@ -26,10 +27,18 @@ func newDocumentTab(title, subtitle string, selected bool, selectTab, closeTab f
 	return t
 }
 
-func (t *documentTab) Tapped(*fyne.PointEvent) {
+func (t *documentTab) Tapped(event *fyne.PointEvent) {
 	t.hideTooltip()
 	if t.selectTab != nil {
 		t.selectTab()
+	}
+	if t.showMenu != nil {
+		t.showMenu(event)
+	}
+}
+func (t *documentTab) TappedSecondary(event *fyne.PointEvent) {
+	if t.showMenu != nil {
+		t.Tapped(event)
 	}
 }
 func (t *documentTab) close() {

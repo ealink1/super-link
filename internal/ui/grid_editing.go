@@ -111,7 +111,9 @@ func (g *dataGrid) discardEditors() {
 	clear(g.model.editorDrafts)
 	for _, c := range g.cells {
 		c.editing = false
-		c.entry.Hide()
+		if c.entry != nil {
+			c.entry.Hide()
+		}
 		c.text.Show()
 	}
 }
