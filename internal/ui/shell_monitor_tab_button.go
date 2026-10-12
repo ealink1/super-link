@@ -57,11 +57,12 @@ func (r *monitorTabButtonRenderer) Layout(size fyne.Size) {
 	r.icon.Move(fyne.NewPos(x, (size.Height-iconSize)/2))
 	r.icon.Resize(fyne.NewSquareSize(iconSize))
 	textY := (size.Height - textSize.Height) / 2
-	// CJK fallback glyphs share the selected Latin font line box. Arial on
-	// macOS needs more compensation than DejaVu/Segoe on other desktops.
+	// CJK fallback glyphs share the selected Latin font line box. Compensate
+	// for the leading in Arial and DejaVu when using the compact CFF face.
 	if r.button.Text == "综合" {
 		textY -= 1
-		if strings.HasSuffix(r.label.Theme().Font(r.label.TextStyle).Name(), "/Arial.ttf") {
+		fontName := r.label.Theme().Font(r.label.TextStyle).Name()
+		if strings.HasSuffix(fontName, "/Arial.ttf") || strings.HasSuffix(fontName, "/DejaVuSans.ttf") {
 			textY -= 2
 		}
 	}

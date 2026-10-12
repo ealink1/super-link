@@ -21,3 +21,7 @@
 原生检查使用当前生产标签源码构建独立小窗口，三列分别绘制旧的不留白文字、修复后的控件、留白的完整字形参照。在 1、1.5、2 倍缩放下，修复后的 `76%`、`80%`、`100%` 均与完整参照逐像素相同。在 1 倍缩放下，前两者旧图分别有 79/101 个墨迹像素，修复及参照分别有 83/105 个，验证补回缺失像素。原生截图保留在本地 `.cache/shell-qa/percent-native/production*.png`。
 
 追加的纹理回归、监控相关竞态测试、静态检查和 macOS 原生构建通过。已替换本地二进制、项目应用包及安装应用包，校验签名与二进制一致并重启，启动健康握手通过。此次仍未使用浏览器测试。
+
+## 发布前跨平台补充
+
+v0.1.18 云端 Linux 原生测试发现中文监控标题的可见字形中心偏低。为 DejaVu 正常与粗体字体增加紧凑 CFF 回退的行高补偿，保持 macOS Arial 的原有补偿。`TestMonitorSectionIconAndTextPaintedTogether`、`TestMonitorTabIconAndLabelPaintedAtSameHeight` 和悬停位置测试在原生 macOS 和使用 DejaVu 2.37 字体的独立 Go 源码覆盖复测中均通过；未放宽像素容差。

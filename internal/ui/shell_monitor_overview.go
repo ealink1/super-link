@@ -148,11 +148,12 @@ func (*monitorSectionLayout) Layout(o []fyne.CanvasObject, size fyne.Size) {
 	o[0].Move(fyne.NewPos(0, (size.Height-12)/2))
 	o[0].Resize(fyne.NewSize(12, 12))
 	height := o[1].MinSize().Height
-	// Arial has extra CJK fallback leading; do not apply that correction
-	// when the desktop uses DejaVu, Segoe or the bundled fallback font.
+	// The compact CJK fallback inherits the primary font's line leading.
 	offset := float32(0)
 	if strings.Contains(desktopFonts.bold.Name(), "/Arial ") {
 		offset = -3
+	} else if strings.HasSuffix(desktopFonts.bold.Name(), "/DejaVuSans-Bold.ttf") {
+		offset = -2
 	}
 	o[1].Move(fyne.NewPos(18, (size.Height-height)/2+offset))
 	o[1].Resize(fyne.NewSize(max(0, size.Width-18), height))
