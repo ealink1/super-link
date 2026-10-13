@@ -393,10 +393,17 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
 	}
 
 	maxAscent := fixed.Int26_6(0)
+	lineBounds := out.LineBounds
 	collect := func(run shaping.Output, runX float32) {
 		if run.LineBounds.Ascent > maxAscent {
 			maxAscent = run.LineBounds.Ascent
 		}
+		// Texture and widget measurements must cover every resolved face,
+		// not only the primary font used to measure a space. CJK/emoji faces
+		// can have a taller ascent or deeper descent than that primary face.
+		lineBounds.Ascent = max(lineBounds.Ascent, run.LineBounds.Ascent)
+		lineBounds.Descent = min(lineBounds.Descent, run.LineBounds.Descent)
+		lineBounds.Gap = max(lineBounds.Gap, run.LineBounds.Gap)
 		runBuffer = append(runBuffer, shapedRun{out: run, x: runX})
 	}
 
@@ -434,8 +441,11 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
 	runBufferMut.Unlock()
 
 	*advance = x
-	return fyne.NewSize(*advance, fixed266ToFloat32(out.LineBounds.LineThickness())),
-		fixed266ToFloat32(out.LineBounds.Ascent)
+	if maxAscent == 0 { // Empty strings and tabs retain the primary line metrics.
+		maxAscent = out.LineBounds.Ascent
+	}
+	return fyne.NewSize(*advance, fixed266ToFloat32(lineBounds.LineThickness())),
+		fixed266ToFloat32(maxAscent)
 }
 
 func shapeCallback(in shaping.Input, x, scale float32, cb func(shaping.Output, float32)) float32 {

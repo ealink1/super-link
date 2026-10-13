@@ -180,3 +180,18 @@ changes retain them. The manifest and exact patch include `font.go`,
 `parsed_font.go`, `configured_fonts_test.go` and `theme_caches_test.go`. Native
 monitor measurements and verification are recorded in
 `docs/qa/2026-10-12-memory-font-fallback.md`.
+
+### Shared fallback line metrics (2026-10-13)
+
+The reviewed painter used the tallest shaped run's ascent when drawing, but
+returned the primary space font's height and baseline when measuring. With
+desktop Arial/DejaVu and the configured CFF Chinese fallback, text textures
+therefore clipped lower glyph strokes across the notebook and ordinary UI.
+`walkString` now includes the ascent, descent and gap of every used face in
+its line extent, and reports the same shared baseline used for drawing. Empty
+and tab-only lines keep primary metrics, and resolving a fallback does not
+enlarge later Latin-only strings. The existing application monitoring offsets
+that compensated for the old mismatch are removed. The pinned manifest and
+exact patch include `font.go` and `fallback_line_bounds_test.go`; the application
+regression uses independent oversized Harfbuzz rasters for regular, bold, italic,
+monospace and mixed Chinese/Latin text at nine sizes and five scales.

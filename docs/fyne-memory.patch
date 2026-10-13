@@ -249,6 +249,75 @@ index 0000000..a058ced
 +		}
 +	}
 +}
+diff --git a/internal/painter/fallback_line_bounds_test.go b/internal/painter/fallback_line_bounds_test.go
+new file mode 100644
+index 0000000..f7b3c6a
+--- /dev/null
++++ b/internal/painter/fallback_line_bounds_test.go
+@@ -0,0 +1,63 @@
++package painter_test
++
++import (
++	"os"
++	"testing"
++
++	"fyne.io/fyne/v2"
++	"fyne.io/fyne/v2/internal/painter"
++	"fyne.io/fyne/v2/test"
++	"fyne.io/fyne/v2/theme"
++	"github.com/go-text/typesetting/di"
++	"github.com/go-text/typesetting/shaping"
++	"golang.org/x/image/math/fixed"
++)
++
++func TestFallbackLineMetricsCoverUsedFacesAndMatchDrawingBaseline(t *testing.T) {
++	data, err := os.ReadFile("../../../../internal/ui/assets/NaviUI-Regular.otf")
++	if err != nil {
++		t.Fatal(err)
++	}
++	app := test.NewTempApp(t)
++	app.Settings().SetTheme(fallbackTestTheme{Theme: theme.DefaultTheme(), fallback: fyne.NewStaticResource("cjk-line.otf", data)})
++	painter.ClearFontCache()
++	defer painter.ClearFontCache()
++	faces := painter.CachedFontFace(fyne.TextStyle{}, nil, nil).Fonts
++	for _, size := range []float32{11, 16, 32} {
++		latinSize, latinBase := painter.MeasureString(faces, "Agyp", size, fyne.TextStyle{})
++		for _, value := range []string{"中文", "Ag中文yp", "中文Agyp"} {
++			runes := []rune(value)
++			segmenter := shaping.Segmenter{}
++			inputs := segmenter.Split(shaping.Input{Text: runes, RunEnd: len(runes), Direction: di.DirectionLTR, Size: fixed.Int26_6(size * 64)}, faces)
++			shaper := shaping.HarfbuzzShaper{}
++			var ascent fixed.Int26_6
++			var outputs []shaping.Output
++			for _, input := range inputs {
++				output := shaper.Shape(input)
++				ascent = max(ascent, output.LineBounds.Ascent)
++				outputs = append(outputs, output)
++			}
++			measured, baseline := painter.MeasureString(faces, value, size, fyne.TextStyle{})
++			if baseline != float32(ascent)/64 {
++				t.Errorf("%q size %g: measured baseline %g differs from shaped baseline %g", value, size, baseline, float32(ascent)/64)
++			}
++			for _, output := range outputs {
++				bottom := float32(ascent-output.LineBounds.Descent+output.LineBounds.Gap) / 64
++				if measured.Height < bottom {
++					t.Errorf("%q size %g: line height %g clips fallback line extent %g", value, size, measured.Height, bottom)
++				}
++			}
++		}
++		// Resolving a tall fallback must not enlarge later Latin-only strings.
++		afterSize, afterBase := painter.MeasureString(faces, "Agyp", size, fyne.TextStyle{})
++		if afterSize != latinSize || afterBase != latinBase {
++			t.Fatal("fallback resolution changed Latin-only geometry")
++		}
++		for _, value := range []string{"", "\t", "\r"} {
++			measured, baseline := painter.MeasureString(faces, value, size, fyne.TextStyle{})
++			if measured.Height != latinSize.Height || baseline != latinBase {
++				t.Errorf("empty/control text %q lost primary line metrics", value)
++			}
++		}
++	}
++}
 diff --git a/internal/painter/fallback_memory_test.go b/internal/painter/fallback_memory_test.go
 new file mode 100644
 index 0000000..28ef669
@@ -311,7 +380,7 @@ index 0000000..28ef669
 +	}
 +}
 diff --git a/internal/painter/font.go b/internal/painter/font.go
-index 8266686..1a0380a 100644
+index 8266686..186a967 100644
 --- a/internal/painter/font.go
 +++ b/internal/painter/font.go
 @@ -1,11 +1,12 @@
@@ -504,7 +573,39 @@ index 8266686..1a0380a 100644
  	if err != nil {
  		fyne.LogError("font load error", err)
  		return nil
-@@ -513,8 +594,10 @@ type noopLogger struct{}
+@@ -312,10 +393,17 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
+ 	}
+ 
+ 	maxAscent := fixed.Int26_6(0)
++	lineBounds := out.LineBounds
+ 	collect := func(run shaping.Output, runX float32) {
+ 		if run.LineBounds.Ascent > maxAscent {
+ 			maxAscent = run.LineBounds.Ascent
+ 		}
++		// Texture and widget measurements must cover every resolved face,
++		// not only the primary font used to measure a space. CJK/emoji faces
++		// can have a taller ascent or deeper descent than that primary face.
++		lineBounds.Ascent = max(lineBounds.Ascent, run.LineBounds.Ascent)
++		lineBounds.Descent = min(lineBounds.Descent, run.LineBounds.Descent)
++		lineBounds.Gap = max(lineBounds.Gap, run.LineBounds.Gap)
+ 		runBuffer = append(runBuffer, shapedRun{out: run, x: runX})
+ 	}
+ 
+@@ -353,8 +441,11 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
+ 	runBufferMut.Unlock()
+ 
+ 	*advance = x
+-	return fyne.NewSize(*advance, fixed266ToFloat32(out.LineBounds.LineThickness())),
+-		fixed266ToFloat32(out.LineBounds.Ascent)
++	if maxAscent == 0 { // Empty strings and tabs retain the primary line metrics.
++		maxAscent = out.LineBounds.Ascent
++	}
++	return fyne.NewSize(*advance, fixed266ToFloat32(lineBounds.LineThickness())),
++		fixed266ToFloat32(maxAscent)
+ }
+ 
+ func shapeCallback(in shaping.Input, x, scale float32, cb func(shaping.Output, float32)) float32 {
+@@ -513,8 +604,10 @@ type noopLogger struct{}
  func (n noopLogger) Printf(string, ...any) {}
  
  type dynamicFontMap struct {
@@ -517,7 +618,7 @@ index 8266686..1a0380a 100644
  }
  
  func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
-@@ -523,6 +606,32 @@ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
+@@ -523,6 +616,32 @@ func (d *dynamicFontMap) ResolveFace(r rune) *font.Face {
  			return f
  		}
  	}
@@ -1141,7 +1242,7 @@ index 4bc6f14..b75cc2b 100644
  
  func (l *listLayout) offsetUpdated(pos fyne.Position) {
 diff --git a/widget/menu_item.go b/widget/menu_item.go
-index 6d63f3a2..1126db55 100644
+index 6d63f3a..1126db5 100644
 --- a/widget/menu_item.go
 +++ b/widget/menu_item.go
 @@ -351,6 +351,11 @@ func (r *menuItemRenderer) refreshText(text *canvas.Text, shortcut bool) {

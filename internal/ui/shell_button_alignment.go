@@ -2,11 +2,11 @@ package ui
 
 import (
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/widget"
 )
 
-// Keep Fyne button interaction while compensating for the desktop font's
-// line-box whitespace relative to the adjacent icon.
+// Keep Fyne button interaction while aligning its label with the adjacent icon.
 type shellAlignedButton struct {
 	widget.Button
 	bold       bool
@@ -41,11 +41,20 @@ func (r *shellAlignedButtonRenderer) Refresh() {
 	r.Layout(r.button.Size())
 }
 func alignShellButtonText(renderer fyne.WidgetRenderer, size fyne.Size) {
+	// Text-only controls retain their existing optical adjustment; labels
+	// beside icons use the same vertical center as the icon's layout box.
+	textOnlyOffset := float32(-2)
+	for _, object := range renderer.Objects() {
+		if _, ok := object.(*canvas.Image); ok && object.Visible() {
+			textOnlyOffset = 0
+			break
+		}
+	}
 	for _, object := range renderer.Objects() {
 		if _, ok := object.(*widget.RichText); ok {
 			height := object.MinSize().Height
 			object.Resize(fyne.NewSize(object.Size().Width, height))
-			object.Move(fyne.NewPos(object.Position().X, (size.Height-height)/2-2))
+			object.Move(fyne.NewPos(object.Position().X, (size.Height-height)/2+textOnlyOffset))
 		}
 	}
 }
