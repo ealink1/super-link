@@ -55,6 +55,7 @@ type Window struct {
 	shuttingDown                bool
 	closingDocuments            bool
 	stopInputMethods            func()
+	stopApplicationLifecycle    func()
 	onClose                     func() error
 	ready                       chan struct{}
 	startupUpdateScheduled      bool
@@ -93,8 +94,12 @@ func New(app fyne.App, deps Dependencies) *Window {
 	w.buildShell()
 	w.Window.Resize(fyne.NewSize(1320, 860))
 	w.Window.SetMaster()
-	w.Window.SetCloseIntercept(w.shutdown)
+	w.Window.SetCloseIntercept(w.closeWindow)
 	w.Window.SetOnClosed(func() {
+		if w.stopApplicationLifecycle != nil {
+			w.stopApplicationLifecycle()
+			w.stopApplicationLifecycle = nil
+		}
 		if w.stopInputMethods != nil {
 			w.stopInputMethods()
 		}
@@ -103,7 +108,7 @@ func New(app fyne.App, deps Dependencies) *Window {
 			w.switcher.nativeClose()
 		}
 	})
-	quit := fyne.NewMenuItem("退出", w.shutdown)
+	quit := fyne.NewMenuItem("退出", w.requestQuit)
 	quit.IsQuit = true
 	if runtime.GOOS != "windows" {
 		w.Window.SetMainMenu(fyne.NewMainMenu(fyne.NewMenu("文件", fyne.NewMenuItem("新建连接", w.newWorkspaceConnection), fyne.NewMenuItem("SQL 草稿", func() { w.switcher.selectMode(0); w.draftManager() }), quit)))
@@ -117,7 +122,12 @@ func (w *Window) Show() {
 	if w.stopInputMethods == nil {
 		w.stopInputMethods = startInputMethods(w.App, w.jobs.dispatch)
 	}
-	fyne.Do(w.switcher.installNative)
+	fyne.Do(func() {
+		w.switcher.installNative()
+		if w.stopApplicationLifecycle == nil {
+			w.stopApplicationLifecycle = installApplicationLifecycle(w.Window, w.restoreWindow, w.requestQuit)
+		}
+	})
 }
 func (w *Window) Ready() <-chan struct{} { return w.ready }
 func (w *Window) loadProfiles() {
@@ -363,6 +373,7 @@ func (w *Window) shutdown() {
 	w.jobs.closing.Store(true)
 	w.jobs.cancel()
 	dark := w.dark
+	dispatch := w.jobs.dispatch
 	go func() {
 		w.jobs.wg.Wait()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -373,7 +384,7 @@ func (w *Window) shutdown() {
 			err = errors.Join(err, w.Store.SaveDraft(ctx, draft))
 		}
 		if err != nil {
-			fyne.Do(func() {
+			dispatch(func() {
 				w.jobs = newTasks(w.dispatch)
 				w.restartNoteAutosave()
 				w.shuttingDown = false
@@ -390,7 +401,7 @@ func (w *Window) shutdown() {
 		if err == nil && w.pendingUpdate != nil {
 			err = update.Launch(context.Background(), *w.pendingUpdate)
 		}
-		fyne.Do(func() {
+		dispatch(func() {
 			if err != nil {
 				w.Window.SetCloseIntercept(nil)
 				modal := newInformationDialog("关闭时出现问题", err.Error(), w.Window)

@@ -34,7 +34,9 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 **多源接入。** 36 类固定数据源与自定义 Driver / DSN，应用包自带离线 SQLite。
 **可验证更新。** 启动检查稳定版本，下载进度可见；校验签名与哈希后替换应用，健康确认失败时回滚。
 
-## v0.1.20 · 当前版本
+## v0.1.21 · 当前版本
+
+- **macOS 后台运行**：点击主窗口「×」隐藏窗口，保留连接和任务；点击 Dock 恢复，菜单「退出」或 `⌘Q` 保存并真正退出。
 
 - **中文完整显示**：统一中文回退字体的行高和基线，修复笔记正文、标题及普通控件底部笔画裁切。
 - **图标文字对齐**：修正主机分组导航、隐私模式与新建主机按钮的垂直对齐。
@@ -49,11 +51,11 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 - **标签管理**：SQL 与 Shell 标签支持关闭左边、右边、其他及所有标签；SQL 保留草稿保存与逐个确认流程。
 - **显示与内存优化**：修复监控数值及中文菜单底部笔画裁切，复用标签页面、延迟创建表格编辑控件并降低中文字体回退内存占用。
 
-[下载 v0.1.20](https://github.com/ealink1/super-link/releases/tag/v0.1.20) ·
+[下载 v0.1.21](https://github.com/ealink1/super-link/releases/tag/v0.1.21) ·
 [发布与验证记录](docs/releases.md)
 
 以上按当前代码说明功能。已有六平台构建、测试与安装包校验记录对应各自发布版本，
-不作为 v0.1.20 的完整验收结论；具体版本与环境见发布记录。构建通过不等于所有真实服务和桌面环境均已验收。
+不作为 v0.1.21 的完整验收结论；具体版本与环境见发布记录。构建通过不等于所有真实服务和桌面环境均已验收。
 完整功能与界面对齐仍在推进，**JVM 管理连接器不在范围内**；已实现能力与剩余工作见下文。
 
 ## 运行与构建
@@ -63,6 +65,8 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 macOS 使用 Xcode Command Line Tools；Linux 需要 OpenGL / X11 开发库；
 Windows 使用 GCC。其他平台的完整应用尚未在本次机器上运行验收。
 Linux 的系统文件选择器需要 `zenity`（DEB 包会声明此依赖；便携包需系统预先安装）。
+
+macOS 点击主窗口「×」会隐藏窗口，SSH、数据库连接和后台任务继续运行；点击 Dock 图标恢复原工作区。菜单「退出」或 `⌘Q` 才执行保存并退出，未提交修改仍需确认。Windows / Linux 保持关闭窗口退出的行为。
 
 ```sh
 # 默认构建主程序、更新 Helper 和离线 SQLite Agent
@@ -76,13 +80,13 @@ python3 tools/build.py --all-drivers --package
 open bin/SuperLink.app
 ```
 
-开发构建默认版本号为 `0.1.0`；需要显示当前版本时显式传入 `--version 0.1.20`：
+开发构建默认版本号为 `0.1.0`；需要显示当前版本时显式传入 `--version 0.1.21`：
 
 ```sh
-python3 tools/build.py --package --version 0.1.20
+python3 tools/build.py --package --version 0.1.21
 
 # 只生成应用发布资产，SQLite 仍随应用打包
-python3 tools/build.py --application-only --package --version 0.1.20
+python3 tools/build.py --application-only --package --version 0.1.21
 ```
 
 应用下载位于 [SuperLink Releases](https://github.com/ealink1/super-link/releases)，
