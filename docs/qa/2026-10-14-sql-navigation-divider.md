@@ -6,3 +6,5 @@
 - 独立 macOS 原生窗口使用单独数据目录与合成 SQL，通过真实鼠标拖动验证：内置 Retina 截图竖线从 x≈404 移到 x≈604，再回到 x≈404；连接树、工具栏、编辑区及结果区同步改变宽度，完整细线始终可见。未执行 SQL，未修改用户连接配置。
 - 全量 Go 测试、相关 UI 竞态、go vet、Go 源文件尺寸、架构、Fyne 完整性及 diff 检查通过。重新构建并安装最新应用，验证安装代码签名、可执行文件摘要、重启进程与启动健康。
 - 未使用浏览器。Windows/Linux 图形界面未人工验收。未提交、推送或发布新版。
+
+正式发布：相关修复已包含在 [SuperLink v0.1.25](https://github.com/ealink1/super-link/releases/tag/v0.1.25)。[完整 CI](https://github.com/ealink1/super-link/actions/runs/38563558601)与[六平台发布构建](https://github.com/ealink1/super-link/actions/runs/38563559080)全部成功，附件及签名复核通过；正式 macOS arm64 包已安装并启动，版本、健康与运行文件摘要一致。

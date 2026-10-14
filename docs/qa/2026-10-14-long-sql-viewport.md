@@ -7,3 +7,5 @@
 - 实际原生窗口验证了光标导航、滚轮事件及行号偏移一致；诊断通过 Go overlay 加载，未在生产代码或 Fyne 源码中添加测试入口。原生对照截图和尺寸记录在忽略目录 `.cache/long-sql/before.png`、`after.png`、`before.json`、`after.json`。
 - 全量 `go test ./...`、相关 UI 竞态、`go vet ./...`、源文件大小、架构与 Fyne 来源检查通过。软件画布直接驱动滚动通知，避免测试驱动将 macOS 滚动条隐藏定时器放到非 UI 线程；实际滚轮在原生事件循环中验证。
 - 生产构建工具生成并验证原生应用包，安装后重新启动并核对事件循环健康及运行文件 SHA256。未使用浏览器；未发布新版本或提交代码。
+
+正式发布：相关修复已包含在 [SuperLink v0.1.25](https://github.com/ealink1/super-link/releases/tag/v0.1.25)。[完整 CI](https://github.com/ealink1/super-link/actions/runs/38563558601)与[六平台发布构建](https://github.com/ealink1/super-link/actions/runs/38563559080)全部成功，附件及签名复核通过；正式 macOS arm64 包已安装并启动，版本、健康与运行文件摘要一致。
