@@ -59,15 +59,17 @@ func TestSQLNavigationDividerPaintsThinVerticalLine(t *testing.T) {
 		left.FillColor, right.FillColor = background, background
 		left.Refresh()
 		right.Refresh()
-		divider := queryDividerForTest(split)
-		hover := divider.(desktop.Hoverable)
+		w.Canvas().Capture()
 		for _, hovered := range []bool{false, true, false} {
+			divider := queryDividerForTest(split)
+			hover := divider.(desktop.Hoverable)
 			if hovered {
 				hover.MouseIn(&desktop.MouseEvent{})
 			} else {
 				hover.MouseOut()
 			}
 			capture := w.Canvas().Capture()
+			divider = queryDividerForTest(split)
 			position := a.Driver().AbsolutePositionForObject(divider)
 			for _, y := range []int{1, 20, 150, 298} {
 				inkColumns := 0

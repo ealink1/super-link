@@ -153,15 +153,19 @@ func TestQueryDividerPaintsThinLineAcrossItsHitArea(t *testing.T) {
 		top.FillColor, bottom.FillColor = background, background
 		top.Refresh()
 		bottom.Refresh()
-		divider := queryDividerForTest(split)
-		hover := divider.(desktop.Hoverable)
+		// Settings refresh may outlive the renderer cache on slower hosts.
+		// Settle the painted tree before hovering, then measure that same tree.
+		w.Canvas().Capture()
 		for _, hovered := range []bool{false, true, false} {
+			divider := queryDividerForTest(split)
+			hover := divider.(desktop.Hoverable)
 			if hovered {
 				hover.MouseIn(&desktop.MouseEvent{})
 			} else {
 				hover.MouseOut()
 			}
 			capture := w.Canvas().Capture()
+			divider = queryDividerForTest(split)
 			position := a.Driver().AbsolutePositionForObject(divider)
 			for _, x := range []int{1, 20, 200, 398} {
 				inkRows := 0
