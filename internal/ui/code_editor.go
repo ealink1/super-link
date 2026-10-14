@@ -62,6 +62,25 @@ type codeRenderer struct {
 	entry *codeEntry
 }
 
+func (r *codeRenderer) Layout(size fyne.Size) {
+	r.WidgetRenderer.Layout(size)
+	r.syncScroll()
+}
+
+// Cursor navigation and resizing also move Entry's scroll position, without
+// emitting OnScrolled. Keep the line-number viewport aligned in those cases.
+func (r *codeRenderer) syncScroll() {
+	if r.entry.onScroll == nil {
+		return
+	}
+	for _, object := range r.WidgetRenderer.Objects() {
+		if scroll, ok := object.(*container.Scroll); ok {
+			r.entry.onScroll(scroll.Offset)
+			return
+		}
+	}
+}
+
 func (r *codeRenderer) Refresh() {
 	r.entry.colors.unwrapped = r.entry.Wrapping == fyne.TextWrapOff
 	r.WidgetRenderer.Refresh()
@@ -78,6 +97,7 @@ func (r *codeRenderer) Refresh() {
 		r.entry.layer.Hide()
 	}
 	r.entry.layer.Refresh()
+	r.syncScroll()
 }
 
 // A cached theme needs only display state, not the editor and its callbacks.

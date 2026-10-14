@@ -63,14 +63,23 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 	}
 	gutterHost := container.NewScroll(gutter)
 	gutterHost.Direction = container.ScrollNone
-	gutterHost.SetMinSize(fyne.NewSize(52, 0))
-	var code fyne.CanvasObject = container.NewThemeOverride(s.editor, editorTheme{})
+	var code fyne.CanvasObject
 	if s.code != nil {
 		code = container.NewThemeOverride(s.code, codeTheme{state: s.code.colors})
 		s.code.onRun = s.runAdaptive
-		s.code.onScroll = func(position fyne.Position) { gutterHost.Offset.Y = position.Y; gutterHost.Refresh() }
+		s.code.onScroll = func(position fyne.Position) {
+			if gutterHost.Offset.Y != position.Y {
+				gutterHost.Offset.Y = position.Y
+				gutterHost.Refresh()
+			}
+		}
+	} else {
+		code = container.NewThemeOverride(s.editor, editorTheme{})
 	}
-	editor := container.NewBorder(nil, nil, gutterHost, nil, code)
+	// ScrollNone inherits the full label height. Bound the line-number viewport
+	// so its document length cannot enlarge the query/results split or window.
+	gutterViewport := container.New(queryGutterLayout{}, gutterHost)
+	editor := container.NewBorder(nil, nil, gutterViewport, nil, code)
 	query := container.NewBorder(top, s.status, nil, nil, editor)
 	s.logTab = container.NewTabItem("日志", s.logPanel())
 	s.parameterTab = container.NewTabItem("参数", s.parameterPanel())
@@ -85,9 +94,19 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 		}
 	}
 	result := container.NewBorder(nil, nil, nil, nil, s.outputTabs)
-	split := container.NewVSplit(query, result)
-	split.Offset = 0.53
-	return split
+	split := newQuerySplit(query, result)
+	return container.NewThemeOverride(split, querySplitTheme{})
+}
+
+type queryGutterLayout struct{}
+
+func (queryGutterLayout) MinSize([]fyne.CanvasObject) fyne.Size {
+	return fyne.NewSize(52, 0)
+}
+
+func (queryGutterLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	objects[0].Move(fyne.Position{})
+	objects[0].Resize(size)
 }
 
 type editorTheme struct{ Theme }

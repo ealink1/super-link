@@ -30,8 +30,7 @@ func (w *Window) buildSQLWorkspace() fyne.CanvasObject {
 	header.Layout = &toolbarLayout{height: 56}
 	sidebar := container.New(layout.NewCustomPaddedLayout(0, 0, 0, 6), w.sidebar.content())
 	documents := container.New(layout.NewCustomPaddedLayout(0, 0, 6, 0), w.docHost)
-	main := container.NewHSplit(sidebar, documents)
-	main.Offset = 0.18
+	main := newQueryNavigationSplit(sidebar, documents)
 	w.syncDocuments()
 	return container.NewStack(container.NewBorder(container.NewVBox(header, widget.NewSeparator()), nil, nil, nil, main), w.docTooltip.layer)
 }
