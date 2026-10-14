@@ -7,3 +7,5 @@
 - 全量 `go test ./...`、相关 UI 竞态测试、`go vet ./...`、源文件大小、架构与 UI 资源来源检查通过；最后一次纯配色调整重新执行相关测试、UI vet 与原生截图。
 - 使用生产构建工具生成 macOS 应用包，验证签名；安装并启动最新代码，核对启动健康握手及运行文件哈希。
 - 未使用浏览器；未进行 Windows/Linux 原生界面人工验收。
+
+正式发布：v0.1.22 的六平台构建与安装包校验全部成功，[发布工作流](https://github.com/ealink1/super-link/actions/runs/38532677732)及[完整 CI](https://github.com/ealink1/super-link/actions/runs/38532673492)通过。已安装正式 macOS arm64 包，启动健康与运行文件摘要一致。
