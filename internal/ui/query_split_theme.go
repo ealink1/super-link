@@ -29,23 +29,33 @@ func newQueryNavigationSplit(left, right fyne.CanvasObject) *querySplit {
 func (s *querySplit) CreateRenderer() fyne.WidgetRenderer {
 	base := s.Split.CreateRenderer()
 	scope := container.NewThemeOverride(base.Objects()[1], queryDividerTheme{})
-	return &querySplitRenderer{WidgetRenderer: base, split: s, scope: scope, scopeRenderer: scope.CreateRenderer(), line: canvas.NewRectangle(queryDividerLineColor())}
+	// Keep the theme scope in the painted tree so its renderer cannot expire
+	// while the divider remains visible. The split owns the divider's geometry.
+	scope.CreateRenderer().Objects()[0].(*fyne.Container).Layout = queryDividerScopeLayout{}
+	line := canvas.NewRectangle(queryDividerLineColor())
+	r := &querySplitRenderer{WidgetRenderer: base, split: s, scope: scope, line: line,
+		objects: []fyne.CanvasObject{s.Leading, scope, s.Trailing, line}}
+	// Renderer recreation can happen without a subsequent widget resize.
+	r.Layout(s.Size())
+	return r
 }
 
 type querySplitRenderer struct {
 	fyne.WidgetRenderer
-	split         *querySplit
-	scope         *container.ThemeOverride
-	scopeRenderer fyne.WidgetRenderer
-	line          *canvas.Rectangle
+	split   *querySplit
+	scope   *container.ThemeOverride
+	line    *canvas.Rectangle
+	objects []fyne.CanvasObject
 }
 
 func (r *querySplitRenderer) Objects() []fyne.CanvasObject {
-	return append(append([]fyne.CanvasObject{}, r.WidgetRenderer.Objects()...), r.line)
+	return r.objects
 }
 
 func (r *querySplitRenderer) Layout(size fyne.Size) {
 	r.WidgetRenderer.Layout(size)
+	r.scope.Move(fyne.Position{})
+	r.scope.Resize(size)
 	divider := r.scope.Content
 	if r.split.Horizontal {
 		r.line.Move(divider.Position().Add(fyne.NewPos((divider.Size().Width-1)/2, 0)))
@@ -63,15 +73,19 @@ func (r *querySplitRenderer) Layout(size fyne.Size) {
 
 func (r *querySplitRenderer) Refresh() {
 	r.WidgetRenderer.Refresh()
+	r.objects[0], r.objects[2] = r.split.Leading, r.split.Trailing
 	r.scope.Refresh()
 	r.line.FillColor = queryDividerLineColor()
 	r.Layout(r.split.Size())
 	r.line.Refresh()
 }
 
-func (r *querySplitRenderer) Destroy() {
-	r.scopeRenderer.Destroy()
-	r.WidgetRenderer.Destroy()
+type queryDividerScopeLayout struct{}
+
+func (queryDividerScopeLayout) Layout([]fyne.CanvasObject, fyne.Size) {}
+
+func (queryDividerScopeLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	return objects[0].MinSize()
 }
 
 func queryDividerLineColor() color.Color {

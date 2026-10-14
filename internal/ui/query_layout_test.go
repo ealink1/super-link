@@ -110,7 +110,7 @@ func TestQueryDividerCanBeDraggedFromNearbyPixels(t *testing.T) {
 	w.Window.Resize(fyne.NewSize(1100, 740))
 	split := querySplitForTest(s)
 	for _, delta := range []float32{100, -100} {
-		divider := test.WidgetRenderer(split).Objects()[1]
+		divider := queryDividerForTest(split)
 		position := w.App.Driver().AbsolutePositionForObject(divider).Add(fyne.NewPos(divider.Size().Width/2, 3))
 		before := split.Leading.Size().Height
 		test.Drag(w.Window.Canvas(), position, 0, delta)
@@ -126,6 +126,14 @@ func TestQueryDividerCanBeDraggedFromNearbyPixels(t *testing.T) {
 
 func querySplitForTest(s *workspace) *querySplit {
 	return s.item.Content.(*container.ThemeOverride).Content.(*querySplit)
+}
+
+func queryDividerForTest(split fyne.Widget) fyne.CanvasObject {
+	object := test.WidgetRenderer(split).Objects()[1]
+	if scope, ok := object.(*container.ThemeOverride); ok {
+		return scope.Content
+	}
+	return object
 }
 
 func TestQueryDividerPaintsThinLineAcrossItsHitArea(t *testing.T) {
@@ -145,7 +153,7 @@ func TestQueryDividerPaintsThinLineAcrossItsHitArea(t *testing.T) {
 		top.FillColor, bottom.FillColor = background, background
 		top.Refresh()
 		bottom.Refresh()
-		divider := test.WidgetRenderer(split).Objects()[1]
+		divider := queryDividerForTest(split)
 		hover := divider.(desktop.Hoverable)
 		for _, hovered := range []bool{false, true, false} {
 			if hovered {
@@ -167,5 +175,31 @@ func TestQueryDividerPaintsThinLineAcrossItsHitArea(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestQueryDividerRendererRecreationRestoresGeometry(t *testing.T) {
+	a := test.NewApp()
+	defer a.Quit()
+	for _, horizontal := range []bool{false, true} {
+		left, right := canvas.NewRectangle(color.Transparent), canvas.NewRectangle(color.Transparent)
+		split := newQuerySplit(left, right)
+		split.Horizontal = horizontal
+		split.Resize(fyne.NewSize(400, 300))
+		r := split.CreateRenderer()
+		line := r.Objects()[3]
+		want := fyne.NewSize(400, 1)
+		if horizontal {
+			want = fyne.NewSize(1, 300)
+		}
+		if line.Size() != want {
+			t.Fatalf("recreated divider has no full-length line: horizontal=%v size=%v", horizontal, line.Size())
+		}
+		scope := r.Objects()[1].(*container.ThemeOverride)
+		divider := scope.Content
+		if scope.Size() != split.Size() || divider.Size().Width == 0 || divider.Size().Height == 0 {
+			t.Fatal("recreated divider lost its painted scope or drag geometry")
+		}
+		r.Destroy()
 	}
 }

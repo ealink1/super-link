@@ -25,7 +25,7 @@ func TestSQLNavigationDividerDragsFromNearbyPixels(t *testing.T) {
 		t.Fatal("SQL navigation split missing")
 	}
 	for _, delta := range []float32{100, -100} {
-		divider := test.WidgetRenderer(object).Objects()[1]
+		divider := queryDividerForTest(object)
 		position := w.App.Driver().AbsolutePositionForObject(divider).Add(fyne.NewPos(3, divider.Size().Height/2))
 		before := split.Leading.Size().Width
 		test.Drag(w.Window.Canvas(), position, delta, 0)
@@ -59,7 +59,7 @@ func TestSQLNavigationDividerPaintsThinVerticalLine(t *testing.T) {
 		left.FillColor, right.FillColor = background, background
 		left.Refresh()
 		right.Refresh()
-		divider := test.WidgetRenderer(split).Objects()[1]
+		divider := queryDividerForTest(split)
 		hover := divider.(desktop.Hoverable)
 		for _, hovered := range []bool{false, true, false} {
 			if hovered {
