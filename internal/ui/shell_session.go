@@ -30,6 +30,7 @@ type shellPane struct {
 	executable       string
 	host             *domain.ShellHost
 	connection       *shellConnectDialog
+	identity         *sshIdentityDialog
 	indicator        *connectionDot
 	auxKind          string
 	collapsedAuxKind string
@@ -235,6 +236,9 @@ func (p *shellPane) stop() {
 		return
 	}
 	p.closed = true
+	if p.identity != nil {
+		p.identity.finish(false)
+	}
 	if p.connection != nil {
 		p.connection.close()
 	}

@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
@@ -25,19 +24,6 @@ var (
 	aboutChipFill    = shellTone{day: color.NRGBA{R: 15, G: 23, B: 42, A: 14}, night: color.NRGBA{R: 255, G: 255, B: 255, A: 18}}
 	aboutFieldFill   = shellTone{day: color.NRGBA{R: 15, G: 23, B: 42, A: 10}, night: color.NRGBA{R: 255, G: 255, B: 255, A: 14}}
 )
-
-// The mark reuses the bundled link geometry on the gradient tile; a scaled
-// group transform does not survive Fyne's SVG parser, so the tile shares the
-// 24 unit grid and the image widget scales the whole drawing.
-const aboutLogoSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">` +
-	`<defs><linearGradient id="aboutLogo" x1="0" y1="0" x2="1" y2="1">` +
-	`<stop stop-color="#5f97ff"/><stop offset=".58" stop-color="#0a5fe0"/><stop offset="1" stop-color="#8a5bff"/>` +
-	`</linearGradient></defs>` +
-	`<rect width="24" height="24" rx="6.5" fill="url(#aboutLogo)"/>` +
-	`<g fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">` +
-	`<path d="M9.8 14.2a3.6 3.6 0 0 0 5.1 0l3.2-3.2a3.6 3.6 0 0 0-5.1-5.1l-1 1"/>` +
-	`<path d="M14.2 9.8a3.6 3.6 0 0 0-5.1 0L5.9 13a3.6 3.6 0 0 0 5.1 5.1l1-1"/>` +
-	`</g></svg>`
 
 const (
 	aboutLockGlyph   = `<rect x="4.5" y="10.5" width="15" height="9.5" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>`
@@ -69,12 +55,6 @@ var (
 	aboutKeyMark    = aboutGlyph("key", aboutKeyGlyph)
 	aboutFolderMark = aboutGlyph("folder", aboutFolderGlyph)
 )
-
-func aboutLogo() fyne.CanvasObject {
-	image := canvas.NewImageFromResource(fyne.NewStaticResource("about-logo.svg", []byte(aboutLogoSVG)))
-	image.FillMode = canvas.ImageFillContain
-	return container.NewGridWrap(fyne.NewSquareSize(74), image)
-}
 
 func aboutDisplayPath(root string) string {
 	home, err := os.UserHomeDir()
@@ -122,8 +102,6 @@ func (w *Window) about() {
 	})
 	dismiss := shellButton("好", "", true, modal.Hide)
 	content.Add(container.NewVBox(
-		container.NewCenter(aboutLogo()),
-		aboutSpace(11),
 		container.NewCenter(shellText("SuperLink", 22, true, shellTextColor)),
 		aboutSpace(8),
 		container.NewCenter(container.NewHBox(
