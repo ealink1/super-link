@@ -6,3 +6,5 @@
 - 软件 UI 测试覆盖 ALTER、参数化 UPDATE、SELECT、普通写入错误、驱动返回确认类型错误、只读连接、脚本保护以及连接修订冲突。验证按钮和 ⌘R 均直接执行一次，结果上下文不保存一次性授权。
 - 针对性竞态检查、Go 全量测试、`go vet`、源码大小、架构和 Fyne 完整性检查通过。
 - 本机 macOS ARM64 应用重新构建；原生冒烟检查验证事件循环就绪、离线 SQLite 安装、工作区互斥及正常退出。不使用浏览器，不向用户数据库发送测试写入。
+
+正式发布：已包含于 [SuperLink v0.1.26](https://github.com/ealink1/super-link/releases/tag/v0.1.26)。[完整 CI](https://github.com/ealink1/super-link/actions/runs/38699763990)与[六平台构建](https://github.com/ealink1/super-link/actions/runs/38699764289)最终全部通过；两仓附件及更新签名独立复核通过，正式 macOS arm64 包已安装并重启，版本、启动健康与运行文件摘要一致。

@@ -7,3 +7,5 @@
 - 独立 macOS 原生窗口使用正式编辑器及合成 SQL，核验明暗主题下全选和真实鼠标跨行选择；选区中的 SQL 保持可见。探针仅存在于忽略目录的 Go overlay，不包含在正式应用中。
 - 本机重新构建；未使用浏览器，未执行用户数据库 SQL。
 - 原生冒烟的首次退出检查未通过，单独复测通过事件循环就绪、离线 SQLite 安装、工作区互斥和正常退出；首次退出失败未复现。
+
+正式发布：已包含于 [SuperLink v0.1.26](https://github.com/ealink1/super-link/releases/tag/v0.1.26)。[完整 CI](https://github.com/ealink1/super-link/actions/runs/38699763990)与[六平台构建](https://github.com/ealink1/super-link/actions/runs/38699764289)最终全部通过；两仓附件及更新签名独立复核通过，正式 macOS arm64 包已安装并重启，版本、启动健康与运行文件摘要一致。

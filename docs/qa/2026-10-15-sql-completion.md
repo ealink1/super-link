@@ -11,3 +11,5 @@
 - 全量 Go 测试、针对性竞态检查、`go vet`、源码大小、架构和 Fyne 完整性检查通过。
 - 系统窗口采集工具报 ScreenCaptureKit 采集错误，未完成真实鼠标/键盘注入核验。改用独立原生 Fyne 窗口在事件循环中调用真实控件的输入方法，验证关键字、表、别名字段、方向键、Tab/回车及行点击回调和焦点恢复，并导出 OpenGL 绘制图检查候选框的位置和文字。探针仅存在于忽略目录的 Go overlay。
 - 未使用浏览器，未向用户数据库发送测试 SQL；本机应用重新构建。
+
+正式发布：已包含于 [SuperLink v0.1.26](https://github.com/ealink1/super-link/releases/tag/v0.1.26)。[完整 CI](https://github.com/ealink1/super-link/actions/runs/38699763990)与[六平台构建](https://github.com/ealink1/super-link/actions/runs/38699764289)最终全部通过；两仓附件及更新签名独立复核通过，正式 macOS arm64 包已安装并重启，版本、启动健康与运行文件摘要一致。
