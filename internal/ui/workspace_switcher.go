@@ -45,6 +45,11 @@ func (s *workspaceSwitcher) selectMode(mode int) {
 		return
 	}
 	s.owner.docTooltip.hide()
+	for _, space := range s.owner.workspaces {
+		if space.completion != nil {
+			space.completion.view.hide()
+		}
+	}
 	s.owner.Window.Canvas().Unfocus()
 	s.mode = mode
 	s.owner.Window.SetPadded(mode == 0)

@@ -18,7 +18,13 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 	s.editor.TextStyle = fyne.TextStyle{Monospace: true}
 	connection := s.buildConnectionPicker()
 	s.scopePicker.Scroll = container.ScrollNone
-	s.schemaPicker = widget.NewSelect(nil, func(value string) { s.schemaName = value; s.scheduleSave() })
+	s.schemaPicker = widget.NewSelect(nil, func(value string) {
+		s.schemaName = value
+		if s.completion != nil {
+			s.completion.reset()
+		}
+		s.scheduleSave()
+	})
 	s.schemaPicker.PlaceHolder = "Schema"
 	s.schemaPicker.Hide()
 	s.schemaHost = container.NewGridWrap(fyne.NewSize(150, 32), s.schemaPicker)
@@ -88,6 +94,9 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 	s.outputTabs = s.results
 	paramChanged := s.editor.OnChanged
 	s.editor.OnChanged = func(text string) {
+		if s.completion != nil {
+			s.completion.view.hide()
+		}
 		s.syncParameters()
 		if paramChanged != nil {
 			paramChanged(text)
@@ -95,6 +104,7 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 	}
 	result := container.NewBorder(nil, nil, nil, nil, s.outputTabs)
 	split := newQuerySplit(query, result)
+	s.setupCompletion()
 	return container.NewThemeOverride(split, querySplitTheme{})
 }
 

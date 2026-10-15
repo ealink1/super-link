@@ -66,6 +66,9 @@ func (w *Window) removeProfileDocuments(id string) {
 	}
 	for item, s := range w.workspaces {
 		if s.profile.ID == id {
+			if s.completion != nil {
+				s.completion.reset()
+			}
 			s.closed = true
 			s.cancelOperation()
 			if s.saveCancel != nil {

@@ -19,6 +19,7 @@ import (
 
 type workspace struct {
 	code                           *codeEntry
+	completion                     *queryCompletion
 	scopePicker                    *widget.SelectEntry
 	schemaPicker, connectionPicker *widget.Select
 	schemaHost                     *fyne.Container
@@ -84,6 +85,9 @@ func (s *workspace) build(draft domain.Draft) {
 	s.scope.SetText(draft.Scope)
 	s.scope.SetPlaceHolder("数据库 / Namespace / 范围")
 	s.scope.OnChanged = func(value string) {
+		if s.completion != nil {
+			s.completion.reset()
+		}
 		if s.objectScope != value && s.schemaPicker != nil {
 			s.schemaName = ""
 			s.schemaPicker.ClearSelected()
@@ -235,18 +239,32 @@ func (s *workspace) runRequest(request domain.Execution) {
 	if s.closed || s.busy {
 		return
 	}
+	if s.completion != nil {
+		s.completion.reset()
+	}
 	s.begin()
 	generation := s.generation
 	profileID := s.profile.ID
 	profile := s.profile
+	directSQL := s.descriptor.Family == domain.SQL
 	started := time.Now()
-	s.owner.jobs.runWithCancel(&s.cancel, func(ctx context.Context) (any, error) { return s.owner.Engine.Execute(ctx, profileID, request) }, func(value any, err error) {
+	s.owner.jobs.runWithCancel(&s.cancel, func(ctx context.Context) (any, error) {
+		results, err := s.owner.Engine.Execute(ctx, profileID, request)
+		if confirmation, ok := err.(*domain.ConfirmationRequired); directSQL && request.Write && ok {
+			// Clicking Run already authorizes this SQL. Consume only the engine's
+			// pre-execution challenge; never retry an executed or failed write.
+			approved := request
+			approved.Confirmation = confirmation.Fingerprint
+			return s.owner.Engine.Execute(ctx, profileID, approved)
+		}
+		return results, err
+	}, func(value any, err error) {
 		if s.closed || generation != s.generation {
 			return
 		}
 		s.finish()
 		var confirmation *domain.ConfirmationRequired
-		if errors.As(err, &confirmation) {
+		if !directSQL && errors.As(err, &confirmation) {
 			s.status.SetText("等待确认目标和操作…")
 			description := fmt.Sprintf("连接：%s\n环境：%s\n范围：%s\n操作：\n%s\n\n执行后可能修改服务端状态。中断写入不等于回滚。", s.profile.Name, s.profile.Environment, request.Scope, previewValue(request.Text))
 			showConfirmDialog("确认有副作用操作", description, func(ok bool) {
@@ -390,6 +408,9 @@ func (s *workspace) refreshObjects() {
 		s.objects = value.([]domain.Object)
 		s.objectScope = scope
 		s.updateSchemas()
+		if s.completion != nil {
+			s.completion.seed(s.objects)
+		}
 		s.objectList.UnselectAll()
 		s.objectList.Refresh()
 		s.status.SetText(fmt.Sprintf("显示 %d 个对象；Redis 最多 1,000 Key / Nacos 每页 100 配置", len(s.objects)))
@@ -484,6 +505,9 @@ func (w *Window) closeTabThen(item *container.TabItem, done func(bool)) {
 		return
 	}
 	space.cancelOperation()
+	if space.completion != nil {
+		space.completion.reset()
+	}
 	if space.saveCancel != nil {
 		space.saveCancel()
 	}

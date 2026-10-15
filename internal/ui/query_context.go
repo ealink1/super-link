@@ -40,6 +40,9 @@ func (s *workspace) buildConnectionPicker() *widget.Select {
 		}
 		s.profile = p
 		s.descriptor = d
+		if s.completion != nil {
+			s.completion.reset()
+		}
 		s.title, s.savedID, s.savedRevision = "", "", 0
 		s.scope.SetText(p.Config.Database)
 		s.setScopeOptions(nil)

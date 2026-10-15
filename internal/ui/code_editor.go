@@ -16,13 +16,18 @@ import (
 // A display-only token layer shares its scroll content and exact source text.
 type codeEntry struct {
 	widget.Entry
-	layer    *syntaxLayer
-	colors   *codeColorState
-	onScroll func(fyne.Position)
-	onRun    func()
+	layer      *syntaxLayer
+	colors     *codeColorState
+	onScroll   func(fyne.Position)
+	onRun      func()
+	completion *codeCompletion
+	viewport   *container.Scroll
 }
 
 func (e *codeEntry) TypedShortcut(shortcut fyne.Shortcut) {
+	if e.completionShortcut(shortcut) {
+		return
+	}
 	if key, ok := shortcut.(fyne.KeyboardShortcut); ok && key.Key() == fyne.KeyR && (key.Mod() == fyne.KeyModifierSuper || key.Mod() == fyne.KeyModifierControl || key.Mod() == fyne.KeyModifierShortcutDefault) && e.onRun != nil {
 		e.onRun()
 		return
@@ -41,8 +46,11 @@ func (e *codeEntry) CreateRenderer() fyne.WidgetRenderer {
 	e.layer.ExtendBaseWidget(e.layer)
 	for _, object := range base.Objects() {
 		if scroll, ok := object.(*container.Scroll); ok {
+			e.viewport = scroll
 			original := scroll.Content
-			scroll.Content = container.NewStack(e.layer, original)
+			// Entry paints its selection in original. Keep the visible syntax
+			// above that background while retaining native editing and scrolling.
+			scroll.Content = container.NewStack(original, e.layer)
 			scrolled := scroll.OnScrolled
 			scroll.OnScrolled = func(position fyne.Position) {
 				if scrolled != nil {

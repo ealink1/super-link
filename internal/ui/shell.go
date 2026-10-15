@@ -22,7 +22,11 @@ func (w *Window) buildSQLWorkspace() fyne.CanvasObject {
 	w.sidebar = newNavigator(w)
 	w.buildDocuments()
 	w.tabs.OnSelected = func(*container.TabItem) { w.syncDocuments() }
-	w.tabs.OnUnselected = func(*container.TabItem) {}
+	w.tabs.OnUnselected = func(item *container.TabItem) {
+		if s := w.workspaces[item]; s != nil && s.completion != nil {
+			s.completion.view.hide()
+		}
+	}
 	query := headerAction("新建查询", w.newSelectedQuery)
 	connection := headerAction("新建连接", func() { w.editProfile(domain.Profile{}) })
 	header := container.NewHBox(query, connection,
