@@ -64,7 +64,7 @@ func TestCreateTableDispatchesConfirmedStructure(t *testing.T) {
 	for _, overlay := range w.Window.Canvas().Overlays().List() {
 		message.WriteString(shellDialogText(overlay))
 		walkUpdateDialog(overlay, func(object fyne.CanvasObject) {
-			if button, ok := object.(*widget.Button); ok && button.Text == "确定" {
+			if button, ok := object.(*widget.Button); ok && button.Importance == widget.HighImportance {
 				confirm = button
 			}
 		})
