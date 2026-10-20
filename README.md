@@ -34,7 +34,9 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 **多源接入。** 36 类固定数据源与自定义 Driver / DSN，应用包自带离线 SQLite。
 **可验证更新。** 启动检查稳定版本，下载进度可见；校验签名与哈希后替换应用，健康确认失败时回滚。
 
-## v0.1.26 · 当前版本
+## v0.1.27 · 当前版本
+
+- **按主键保存表格修改**：更新与删除仅按主键定位，联合主键使用全部主键字段；修改主键时按原值定位，避免无关时间字段的显示格式导致保存失败。
 
 - **SQL 输入补全**：输入时提示关键字、当前库的表名和字段，支持表别名；方向键选择，Tab / 回车接受，Esc 关闭，Ctrl+Space 手动提示。
 - **选中 SQL 保持可见**：修复选区底色遮住语法高亮文字的问题，选中后仍可阅读和复制。
@@ -60,11 +62,11 @@ macOS · Windows · Linux | ARM64 · x64 | Go + Fyne
 - **标签管理**：SQL 与 Shell 标签支持关闭左边、右边、其他及所有标签；SQL 保留草稿保存与逐个确认流程。
 - **显示与内存优化**：修复监控数值及中文菜单底部笔画裁切，复用标签页面、延迟创建表格编辑控件并降低中文字体回退内存占用。
 
-[下载 v0.1.26](https://github.com/ealink1/super-link/releases/tag/v0.1.26) ·
+[下载 v0.1.27](https://github.com/ealink1/super-link/releases/tag/v0.1.27) ·
 [发布与验证记录](docs/releases.md)
 
-v0.1.26 已完成完整 CI、六平台原生构建、发布附件与更新签名校验；正式 macOS arm64 包
-已完成安装、启动健康检查与重启验证。各平台桌面交互及真实服务的验收范围见
+v0.1.27 已完成完整 CI、六平台原生构建、发布附件与更新签名校验；正式 macOS arm64 包
+通过独立数据目录的启动健康、离线 SQLite、工作区互斥与正常退出验证。各平台桌面交互及真实服务的验收范围见
 [发布与验证记录](docs/releases.md)，构建通过不等于所有真实服务和桌面环境均已验收。
 完整功能与界面对齐仍在推进，**JVM 管理连接器不在范围内**；已实现能力与剩余工作见下文。
 
@@ -90,13 +92,13 @@ python3 tools/build.py --all-drivers --package
 open bin/SuperLink.app
 ```
 
-开发构建默认版本号为 `0.1.0`；需要显示当前版本时显式传入 `--version 0.1.26`：
+开发构建默认版本号为 `0.1.0`；需要显示当前版本时显式传入 `--version 0.1.27`：
 
 ```sh
-python3 tools/build.py --package --version 0.1.26
+python3 tools/build.py --package --version 0.1.27
 
 # 只生成应用发布资产，SQLite 仍随应用打包
-python3 tools/build.py --application-only --package --version 0.1.26
+python3 tools/build.py --application-only --package --version 0.1.27
 ```
 
 应用下载位于 [SuperLink Releases](https://github.com/ealink1/super-link/releases)，
