@@ -116,12 +116,15 @@ func buildRow(kind, name string, row domain.RowChange, info domain.TableInfo, ke
 	if row.Kind == "update" && len(sets) == 0 {
 		return domain.Statement{}, nil
 	}
-	// Original values prevent a concurrent edit from being overwritten silently.
+	// Locate by the original primary key, including when the key itself is edited.
 	where := []string{}
 	for _, c := range info.Columns {
+		if c.Key != "PRI" {
+			continue
+		}
 		value, ok := row.Original[c.Name]
 		if !ok {
-			return statement, errors.New("original row is incomplete")
+			return statement, fmt.Errorf("original primary key field %q is missing", c.Name)
 		}
 		value, err := ConvertValue(c.Type, value)
 		if err != nil {
