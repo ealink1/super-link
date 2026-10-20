@@ -102,7 +102,7 @@ func (n *navigator) createTable(node *navNode) {
 		}
 		d.busy = true
 		d.status.SetText("正在创建表…")
-		n.submitCreateTable(node, p, domain.Execution{Revision: p.Revision, Scope: target.Scope, Schema: target.Schema, Text: sql, Write: true, Action: "structure", MaxRows: 1}, func(err error) {
+		n.submitCreateTable(node, p, target, domain.Execution{Revision: p.Revision, Scope: target.Scope, Schema: target.Schema, Text: sql, Write: true, Action: "structure", MaxRows: 1}, func(err error) {
 			if d.closed {
 				return
 			}
@@ -123,7 +123,7 @@ func (n *navigator) createTable(node *navNode) {
 	n.owner.Window.Canvas().Focus(name)
 }
 
-func (n *navigator) submitCreateTable(node *navNode, p domain.Profile, request domain.Execution, done func(error)) {
+func (n *navigator) submitCreateTable(node *navNode, p domain.Profile, target domain.Object, request domain.Execution, done func(error)) {
 	n.owner.jobs.run(func(ctx context.Context) (any, error) {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
@@ -131,13 +131,17 @@ func (n *navigator) submitCreateTable(node *navNode, p domain.Profile, request d
 	}, func(_ any, err error) {
 		var required *domain.ConfirmationRequired
 		if errors.As(err, &required) {
-			showConfirmDialog("确认创建表", fmt.Sprintf("连接：%s\n%s", p.Name, request.Text), func(ok bool) {
+			name := target.Name
+			if target.Schema != "" {
+				name = target.Schema + "." + name
+			}
+			showConfirmDialog("确认创建表", fmt.Sprintf("数据库：%s\n表名：%s", target.Scope, name), func(ok bool) {
 				if !ok {
 					done(fmt.Errorf("已取消创建表"))
 					return
 				}
 				request.Confirmation = required.Fingerprint
-				n.submitCreateTable(node, p, request, done)
+				n.submitCreateTable(node, p, target, request, done)
 			}, n.owner.Window)
 			return
 		}
