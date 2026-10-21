@@ -58,3 +58,6 @@ Desktop.ini
 /.idea/workspace.xml
 /.idea/tasks.xml
 /.idea/shelf/
+
+# 本地工作区记忆，不进入发布源码
+/.workbuddy/
