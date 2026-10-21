@@ -91,8 +91,11 @@ func TestLongSQLScrollsLineNumbersWithoutGrowingViewport(t *testing.T) {
 	if narrow := gutter.Content.MinSize().Width; narrow >= wideGutter || narrow > 30 {
 		t.Fatalf("single-digit line numbers did not reclaim gutter space: wide=%v narrow=%v", wideGutter, narrow)
 	}
-	if split.MinSize().Height > 400 || gutter.Offset.Y != 0 {
-		t.Fatal("shorter SQL retained document height or a stale line-number offset")
+	if height := split.MinSize().Height; height > 400 {
+		t.Fatalf("shorter SQL retained document height: %v", height)
+	}
+	if offset := gutter.Offset.Y; offset != 0 {
+		t.Fatalf("shorter SQL kept a stale line-number offset: %v", offset)
 	}
 }
 

@@ -449,8 +449,13 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
 	if maxAscent == 0 { // Empty strings and tabs retain the primary line metrics.
 		maxAscent = out.LineBounds.Ascent
 	}
-	height := max(fixed266ToFloat32(lineBounds.LineThickness()), fixed266ToFloat32(textSize)*style.LineHeight,
-		fixed266ToFloat32(maxAscent-lineBounds.Descent+lineBounds.Gap))
+	height := fixed266ToFloat32(lineBounds.LineThickness())
+	if style.LineHeight > 0 || style.LineBaseline > 0 {
+		// Only styles that explicitly reserve a line box opt into the extended
+		// metrics; ordinary text keeps the upstream height exactly.
+		height = max(height, fixed266ToFloat32(textSize)*style.LineHeight,
+			fixed266ToFloat32(maxAscent-lineBounds.Descent+lineBounds.Gap))
+	}
 	return fyne.NewSize(*advance, height),
 		fixed266ToFloat32(maxAscent)
 }
