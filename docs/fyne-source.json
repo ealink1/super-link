@@ -2156,7 +2156,7 @@
     "internal/driver/glfw/loop.go": "5001064750039654f083313ca458550d5ef05e8f04099599fc1f6e2a8ab73f36",
     "internal/painter/configured_fonts_test.go": "1f08e02b04e5bb8886f82afd0eac737d05351aa206345ce6e32b6bd3263c3d36",
     "internal/painter/fallback_memory_test.go": "05881efe8481055debaca9729b467a5328540472f7f2518ff45443eeaec21c20",
-    "internal/painter/font.go": "e2f3afaad853160bbf66fe23591a5e03a2707454bda9fec3e38a169ce9cfc7cc",
+    "internal/painter/font.go": "33f13e0b0a95cfba210a53b5f812c0f7b66f748c2832d5f2a98a856a0a736810",
     "internal/painter/parsed_font.go": "b42a49841040ca2023f2bfc6227a84f922d037dfcaa7300f603b7a28f93c1928",
     "internal/painter/parsed_font_test.go": "eab0b074bf262afaa1fac220f89a3ae6c880e6b788b03f4c431b2d5d44a6ac79",
     "internal/painter/synthetic_italic.go": "db6a25255b5c078e83245ab933d4e2844d02ff06d6a361fdf72a69534416f21d",

@@ -131,6 +131,18 @@ glyph rasters at four scales and includes disabled and mixed-script labels.
 `internal/ui/assets/superlink/sources.json` records hashes and source paths for 63
 UI icons, 21 database SVGs and 13 database PNGs. JSX icon geometry was extracted
 mechanically; PNG/SVG assets were copied, and ICO pixels converted to PNG.
+
+On 2026-10-21, `fyne.TextStyle` gained two SuperLink-only fields, `LineHeight`
+and `LineBaseline`, expressed in ems. `internal/painter.font.walkString` reserves
+the requested baseline and applies the extended height only while either field is
+non-zero, so ordinary text keeps the upstream metrics exactly; `CachedFontFace`
+clears both before its cache lookup so face keys stay compatible with plain
+styles. The SQL editor uses the extension to hold a stable line box while it
+switches between the primary face and fallback faces. Reviewed files are
+`text.go`, `internal/painter/font.go` and
+`internal/painter/fallback_line_bounds_test.go`; their current hashes are in
+`docs/fyne-source.json`. `docs/fyne-memory.patch` remains the memory-work diff;
+this line-box extension is tracked by the manifest hashes and this note only.
 `tools/verify-ui-assets.py` verifies the complete inventory. Fyne applies the
 original frames/scales and brand palette at rendering time, retaining outline
 strokes and explicit fills.
