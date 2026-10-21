@@ -70,7 +70,7 @@ func (d *noteGroupsDialog) build() {
 	info := widget.NewLabel("移除分组不会删除笔记，笔记将归入默认分组。")
 	info.Wrapping = fyne.TextWrapWord
 	footer := shellInset(shellBorder(nil, nil, nil, shellHBox(shellFixed(layout.NewSpacer(), 16, 0), shellFixed(shellButtonView(shellButton("完成", "", true, d.close)), 80, 38)), shellLabel(info, 11)), 24)
-	content := shellPanel(shellBorder(header, shellVBox(shellLine(), footer), nil, nil, container.NewVScroll(shellInset(body, 24))), shellBackground, 14, 0)
+	content := shellPanel(shellBorder(header, shellVBox(shellLine(), footer), nil, nil, container.NewVScroll(shellInset(body, 24))), shellBackground, cardRadius, 0)
 	d.popup = widget.NewModalPopUp(container.NewThemeOverride(content, newShellTheme()), d.note.owner.Window.Canvas())
 	d.scope = container.NewThemeOverride(d.popup, shellModalTheme{shellTheme: newShellTheme()})
 	size := d.note.owner.Window.Canvas().Size()

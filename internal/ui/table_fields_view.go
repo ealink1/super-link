@@ -3,7 +3,6 @@ package ui
 import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"strings"
 )
@@ -125,7 +124,7 @@ func (t *tableWorkspace) editFieldDefinition(row int) {
 	noDefault := widget.NewCheck("无默认值", nil)
 	noDefault.SetChecked(c.Default == nil)
 	form := widget.NewForm(widget.NewFormItem("名称", name), widget.NewFormItem("类型", kind), widget.NewFormItem("默认", def), widget.NewFormItem("注释", comment))
-	modal := dialog.NewCustomConfirm("编辑字段", "暂存", "取消", container.NewVBox(form, container.NewHBox(primary, increment, notNull, noDefault)), func(ok bool) {
+	modal := newCardCustomConfirm("编辑字段", "暂存", "取消", container.NewVBox(form, container.NewHBox(primary, increment, notNull, noDefault)), func(ok bool) {
 		if !ok || !d.canEdit() {
 			return
 		}

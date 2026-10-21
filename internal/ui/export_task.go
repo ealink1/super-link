@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/datafile"
 )
@@ -15,7 +14,7 @@ func (w *Window) startExport(source exportSource, options datafile.Options, path
 	progress := widget.NewProgressBarInfinite()
 	status := widget.NewLabel("正在导出…")
 	var cancel context.CancelFunc
-	modal := dialog.NewCustom("导出数据", "停止", container.NewVBox(progress, status), w.Window)
+	modal := newCardCustom("导出数据", "停止", container.NewVBox(progress, status), w.Window)
 	modal.SetOnClosed(func() {
 		if cancel != nil {
 			cancel()

@@ -52,7 +52,7 @@ func (d *connectionGroups) build() {
 		sideWidth = 220
 	}
 	body := shellBorder(nil, nil, shellFixed(side, sideWidth, 0), nil, main)
-	content := groupPanel(shellBorder(shellVBox(header, shellLine()), nil, nil, nil, body), shellPanelColor, 20, 0)
+	content := groupPanel(shellBorder(shellVBox(header, shellLine()), nil, nil, nil, body), shellPanelColor, cardRadius, 0)
 	d.popup = widget.NewModalPopUp(container.NewThemeOverride(content, colors), d.owner.Window.Canvas())
 	d.scope = container.NewThemeOverride(d.popup, connectionGroupModalTheme{shellModalTheme{shellTheme: newShellTheme()}})
 	d.popup.Resize(fyne.NewSize(min(1180, max(720, size.Width-48)), min(760, max(430, size.Height-48))))

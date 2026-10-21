@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
@@ -36,7 +35,7 @@ func (n *navigator) createDatabase(node *navNode) {
 				n.owner.editProfile(p)
 			}
 		}, n.owner.Window)
-		modal.SetConfirmText("编辑连接")
+		modal.SetActionLabel(1, "编辑连接")
 		modal.Show()
 		return
 	}
@@ -48,7 +47,7 @@ func (n *navigator) createDatabase(node *navNode) {
 	collation := widget.NewSelect([]string{"默认（服务器）"}, nil)
 	collation.SetSelectedIndex(0)
 	content := container.NewVBox(widget.NewLabel("* 数据库名称"), name, widget.NewLabel("字符集"), charset, widget.NewLabel("排序规则"), collation)
-	modal := dialog.NewCustomConfirm("创建数据库", "确定", "取消", content, func(create bool) {
+	modal := newCardCustomConfirm("创建数据库", "确定", "取消", content, func(create bool) {
 		if !create {
 			return
 		}

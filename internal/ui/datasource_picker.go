@@ -45,7 +45,7 @@ func (w *Window) typePicker() {
 		modal.Hide()
 		w.editProfile(domain.Profile{ReadOnly: true, Config: connection.ConnectionConfig{Type: d.Key, Host: "localhost", Port: d.Port, User: "root", Timeout: 30, QueryTimeout: 30}})
 	}, func() { modal.Hide() })
-	modal = widget.NewModalPopUp(picker.content, w.Window.Canvas())
+	modal = widget.NewModalPopUp(cardFrame(picker.content), w.Window.Canvas())
 	container.NewThemeOverride(modal, picker.colors)
 	size := w.Window.Canvas().Size()
 	modal.Resize(fyne.NewSize(min(1180, max(560, size.Width-48)), min(780, max(420, size.Height-64))))

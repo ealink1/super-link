@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 	"github.com/ealink1/super-link/internal/infra/chat"
@@ -35,7 +34,7 @@ type aiPanel struct {
 	visibleText                           []string
 	loading, saving, busy                 bool
 	settingsOpen                          bool
-	settingsDialog                        *dialog.CustomDialog
+	settingsDialog                        *cardDialog
 	generation                            uint64
 	cancel                                context.CancelFunc
 	progress                              atomic.Pointer[aiProgress]

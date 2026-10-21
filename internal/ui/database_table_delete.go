@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -90,7 +89,7 @@ func (p *databaseTables) submitDeleteTables(objects []domain.Object, confirmatio
 			}
 			list := widget.NewLabel(strings.Join(names, "\n"))
 			content := container.NewBorder(widget.NewLabel(fmt.Sprintf("连接：%s / %s\n将删除以下 %d 张表的结构和全部数据，无法在应用中撤销。", p.profile.Name, p.scope, len(objects))), nil, nil, nil, container.NewVScroll(list))
-			modal := dialog.NewCustomConfirm("删除选中的表", "删除", "取消", content, func(ok bool) {
+			modal := newCardCustomConfirm("删除选中的表", "删除", "取消", content, func(ok bool) {
 				if p.closed {
 					return
 				}

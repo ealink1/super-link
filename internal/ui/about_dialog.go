@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
@@ -95,7 +94,7 @@ func aboutGlyphLead(mark fyne.Resource) fyne.CanvasObject {
 
 func (w *Window) about() {
 	content := container.NewStack()
-	modal := dialog.NewCustomWithoutButtons("", content, w.Window)
+	modal := newCardCustomNoButtons("", content, w.Window)
 	updates := shellButton("检查更新", "refresh-cw", false, func() {
 		modal.Hide()
 		w.checkUpdates()
@@ -121,6 +120,6 @@ func (w *Window) about() {
 		shellFixed(container.NewHBox(updates, layout.NewSpacer(), dismiss), 0, 28),
 		aboutSpace(4),
 	))
-	modal.Resize(fyne.NewSize(aboutCardWidth, 1))
+	modal.Resize(fyne.NewSize(aboutCardWidth, 0))
 	modal.Show()
 }

@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -132,7 +131,7 @@ func (d *tableDesigner) addIndex() {
 	form.Add(widget.NewLabel("SQL 预览"))
 	form.Add(preview)
 	form.Add(submit)
-	modal := dialog.NewCustom("新建索引", "取消", container.NewVScroll(form), d.owner.Window)
+	modal := newCardCustom("新建索引", "取消", container.NewVScroll(form), d.owner.Window)
 	submit.OnTapped = func() {
 		if d.stageNewIndex(indexValue()) {
 			modal.Hide()

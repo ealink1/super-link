@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/lang"
 	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -118,9 +117,9 @@ func TestSQLTabMenuWaitsForConfirmationAndStopsOnCancel(t *testing.T) {
 
 func clickDocumentConfirmation(t *testing.T, w *Window, yes bool) {
 	t.Helper()
-	label := lang.L("No")
+	label := "取消"
 	if yes {
-		label = lang.L("Yes")
+		label = "确定"
 	}
 	var found *widget.Button
 	walkUpdateDialog(w.Window.Canvas().Overlays().Top(), func(object fyne.CanvasObject) {

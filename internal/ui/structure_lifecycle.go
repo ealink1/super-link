@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
@@ -41,7 +40,7 @@ func (d *tableDesigner) save(confirmation string) {
 		if errors.As(err, &required) {
 			text := fmt.Sprintf("连接：%s · %s\n表：%s · %d 条 SQL\nMySQL DDL 会逐条生效；中断时需要检查已完成的变更。", d.profile.Name, d.profile.Environment, d.object.Name, len(statements))
 			content := container.NewBorder(widget.NewLabel(text), nil, nil, nil, ddlView(sqlworkbench.PreviewStructure(statements)))
-			modal := dialog.NewCustomConfirm("保存结构变更", "执行", "取消", content, func(ok bool) {
+			modal := newCardCustomConfirm("保存结构变更", "执行", "取消", content, func(ok bool) {
 				if ok {
 					d.save(required.Fingerprint)
 				}

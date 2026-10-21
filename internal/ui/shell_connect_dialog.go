@@ -82,7 +82,7 @@ func newShellConnectDialog(p *shellPane) *shellConnectDialog {
 	logPanel := shellPanel(shellBorder(shellVBox(logHeader, shellLine()), nil, nil, nil, d.scroll), shellColor(theme.ColorNameInputBackground), 8, 0)
 	action := container.NewThemeOverride(d.action, shellConnectActionTheme{shellButtonTheme{shellTheme: newShellTheme()}})
 	footer := shellInset(shellBorder(nil, nil, shellLabel(d.hint, 11), shellHBox(shellButtonView(d.retry), shellFixed(layout.NewSpacer(), 8, 0), action), layout.NewSpacer()), 12)
-	content := shellPanel(shellBorder(top, shellVBox(shellLine(), footer), nil, nil, shellInset(logPanel, 18)), shellBackground, 12, 0)
+	content := shellPanel(shellBorder(top, shellVBox(shellLine(), footer), nil, nil, shellInset(logPanel, 18)), shellBackground, cardRadius, 0)
 	d.popup = widget.NewModalPopUp(container.NewThemeOverride(content, newShellTheme()), p.workspace.owner.Window.Canvas())
 	d.scope = container.NewThemeOverride(d.popup, shellModalTheme{shellTheme: newShellTheme()})
 	size := p.workspace.owner.Window.Canvas().Size()

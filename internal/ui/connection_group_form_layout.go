@@ -28,7 +28,7 @@ func (f *connectionGroupForm) build() {
 	cancel := shellFixed(groupPanel(shellButton("取消", "", false, f.close), shellPanelColor, 11, 0), 72, 40)
 	actions := shellHBox(cancel, shellFixed(layout.NewSpacer(), 12, 0), shellFixed(container.NewThemeOverride(f.confirm, connectionGroupSubmitTheme{connectionGroupFormTheme{newShellTheme()}}), 100, 40))
 	footer := shellBorder(shellFixed(layout.NewSpacer(), 0, 18), shellFixed(layout.NewSpacer(), 0, 24), shellFixed(layout.NewSpacer(), 24, 0), shellFixed(layout.NewSpacer(), 24, 0), shellBorder(nil, nil, nil, actions, layout.NewSpacer()))
-	content := groupPanel(shellBorder(header, footer, nil, nil, container.NewVScroll(body)), shellPanelColor, 20, 0)
+	content := groupPanel(shellBorder(header, footer, nil, nil, container.NewVScroll(body)), shellPanelColor, cardRadius, 0)
 	f.popup = widget.NewModalPopUp(container.NewThemeOverride(content, connectionGroupFormTheme{newShellTheme()}), f.manager.owner.Window.Canvas())
 	f.scope = container.NewThemeOverride(f.popup, connectionGroupFormModalTheme{connectionGroupModalTheme{shellModalTheme{shellTheme: newShellTheme()}}})
 	size := f.manager.owner.Window.Canvas().Size()

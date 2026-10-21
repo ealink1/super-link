@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/datafile"
@@ -34,7 +33,7 @@ type exportForm struct {
 	checks      []*widget.Check
 	status      *widget.Label
 	save        *widget.Button
-	modal       dialog.Dialog
+	modal       *cardDialog
 	closed      bool
 }
 
@@ -67,7 +66,7 @@ func (w *Window) exportDialog(source exportSource) {
 	})
 	form := widget.NewForm(widget.NewFormItem("格式", f.format), widget.NewFormItem("数据范围", f.mode), widget.NewFormItem("目标表", f.table), widget.NewFormItem("输出文件", container.NewBorder(nil, nil, nil, browse, f.path)))
 	content := container.NewBorder(form, container.NewVBox(f.bom, f.status, container.NewHBox(layout.NewSpacer(), f.save)), nil, nil, f.columnPanel())
-	f.modal = dialog.NewCustom("导出查询结果", "取消", content, w.Window)
+	f.modal = newCardCustom("导出查询结果", "取消", content, w.Window)
 	f.modal.SetOnClosed(func() { f.closed = true })
 	f.modal.Resize(fyne.NewSize(760, 530))
 	f.modal.Show()

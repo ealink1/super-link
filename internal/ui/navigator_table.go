@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
@@ -53,7 +52,7 @@ func (n *navigator) createTable(node *navNode) {
 		return
 	}
 	target := n.tableTarget(node, p)
-	d := &tableDesigner{owner: n.owner, profile: p, object: target, selected: map[int]bool{}, body: container.NewStack(), status: widget.NewLabel("双击单元格编辑字段；默认值使用 SQL 字面量，例如 '文本'。")}
+	d := &tableDesigner{owner: n.owner, profile: p, object: target, selected: map[int]bool{}, body: container.NewStack(), status: widget.NewLabel("双击单元格编辑字段；类型与长度分列填写，默认值使用 SQL 字面量，例如 '文本'。")}
 	d.fields = []designColumn{{column: connection.ColumnDefinition{Name: "id", Type: "INTEGER", Key: "PRI", Nullable: "NO"}}}
 	d.rebuildFields()
 	name := widget.NewEntry()
@@ -77,7 +76,7 @@ func (n *navigator) createTable(node *navNode) {
 			d.status.SetText(err.Error())
 			return
 		}
-		modal := dialog.NewCustom("建表 SQL", "关闭", ddlView(sql), n.owner.Window)
+		modal := newCardCustom("建表 SQL", "关闭", ddlView(sql), n.owner.Window)
 		modal.Resize(fyne.NewSize(760, 460))
 		modal.Show()
 	})
@@ -90,7 +89,7 @@ func (n *navigator) createTable(node *navNode) {
 			d.deleteFields()
 		}
 	}), preview)
-	var modal *dialog.CustomDialog
+	var modal *cardDialog
 	create := widget.NewButton("创建表", func() {
 		if d.busy || d.closed {
 			return
@@ -116,7 +115,7 @@ func (n *navigator) createTable(node *navNode) {
 	})
 	header := container.NewVBox(widget.NewLabel("目标："+p.Name+" / "+target.Scope+" / "+target.Schema), name, tools)
 	content := container.NewBorder(header, container.NewVBox(d.status, create), nil, nil, d.body)
-	modal = dialog.NewCustom("新建表", "关闭", content, n.owner.Window)
+	modal = newCardCustom("新建表", "关闭", content, n.owner.Window)
 	modal.SetOnClosed(func() { d.closed = true; d.grid.discardEditors() })
 	modal.Resize(fyne.NewSize(960, 540))
 	modal.Show()

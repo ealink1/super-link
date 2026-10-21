@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/databaseexport"
 	"github.com/ealink1/super-link/internal/domain"
@@ -31,7 +30,7 @@ func (n *navigator) exportDatabase(node *navNode, includeData bool) {
 		})
 	})
 	body := container.NewVBox(widget.NewLabel(description), widget.NewLabel("不包含视图、存储过程、触发器和用户权限。"), widget.NewLabel("导出期间请避免修改结构和数据；此导出不提供一致性快照。"), widget.NewForm(widget.NewFormItem("输出文件", container.NewBorder(nil, nil, nil, browse, path))))
-	modal := dialog.NewCustomConfirm(title+" · "+node.scope, "导出", "取消", body, func(ok bool) {
+	modal := newCardCustomConfirm(title+" · "+node.scope, "导出", "取消", body, func(ok bool) {
 		if ok {
 			n.runDatabaseExport(p, node.scope, path.Text, includeData)
 		}
@@ -64,7 +63,7 @@ func (n *navigator) runDatabaseExport(p domain.Profile, scope, path string, incl
 	bar := widget.NewProgressBar()
 	active := true
 	var cancel context.CancelFunc
-	progress := dialog.NewCustom("导出数据库", "停止", container.NewVBox(label, bar), n.owner.Window)
+	progress := newCardCustom("导出数据库", "停止", container.NewVBox(label, bar), n.owner.Window)
 	progress.Resize(fyne.NewSize(520, 240))
 	progress.SetOnClosed(func() {
 		active = false

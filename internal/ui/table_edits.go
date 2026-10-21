@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
@@ -222,7 +221,7 @@ func (t *tableWorkspace) previewChanges() {
 	entry.TextStyle = fyne.TextStyle{Monospace: true}
 	entry.SetText(sqlworkbench.PreviewChanges(statements))
 	entry.Disable()
-	d := dialog.NewCustom("待提交 SQL", "关闭", entry, t.owner.Window)
+	d := newCardCustom("待提交 SQL", "关闭", entry, t.owner.Window)
 	d.Resize(fyne.NewSize(860, 560))
 	d.Show()
 }
@@ -260,7 +259,7 @@ func (t *tableWorkspace) submitChanges(confirmation string) {
 			entry.SetText(sqlworkbench.PreviewChanges(statements))
 			entry.Disable()
 			content := container.NewBorder(widget.NewLabel(fmt.Sprintf("连接：%s · %s\n表：%s · %d 项修改", t.profile.Name, t.profile.Environment, t.object.Name, len(changes.Rows))), nil, nil, nil, entry)
-			d := dialog.NewCustomConfirm("确认提交数据修改", "提交", "取消", content, func(ok bool) {
+			d := newCardCustomConfirm("确认提交数据修改", "提交", "取消", content, func(ok bool) {
 				if ok {
 					t.submitChanges(required.Fingerprint)
 				}

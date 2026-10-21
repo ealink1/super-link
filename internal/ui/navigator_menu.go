@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/sqlworkbench"
 	"github.com/google/uuid"
@@ -66,7 +65,7 @@ func (n *navigator) objectMenu(node *navNode, refreshAction func()) *fyne.Menu {
 	design.Disabled = node.object.Kind == "view"
 	menu.Items = append(menu.Items[:1], append([]*fyne.MenuItem{design, fyne.NewMenuItem("DDL", func() {
 		n.withObjectInfo(node, func(_ domain.Profile, object domain.Object, info domain.TableInfo) {
-			modal := dialog.NewCustom("DDL · "+object.Name, "关闭", ddlView(info.DDL), n.owner.Window)
+			modal := newCardCustom("DDL · "+object.Name, "关闭", ddlView(info.DDL), n.owner.Window)
 			modal.Resize(fyne.NewSize(900, 560))
 			modal.Show()
 		})

@@ -7,7 +7,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/google/uuid"
@@ -16,7 +15,7 @@ import (
 func (s *workspace) renameQuery() {
 	name := widget.NewEntry()
 	name.SetText(s.title)
-	dialog.ShowForm("重命名查询", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", name)}, func(ok bool) {
+	showCardForm("重命名查询", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", name)}, func(ok bool) {
 		if !ok || s.closed || strings.TrimSpace(name.Text) == "" || len(name.Text) > 256 {
 			return
 		}
@@ -35,7 +34,7 @@ func (s *workspace) saveNamedQuery() {
 	if s.title == "" || s.title == s.profile.Name {
 		name.SetText("新建查询")
 	}
-	dialog.ShowForm("保存查询", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", name)}, func(ok bool) {
+	showCardForm("保存查询", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", name)}, func(ok bool) {
 		if !ok || s.closed || s.saving {
 			return
 		}
@@ -91,7 +90,7 @@ func (w *Window) savedQueryManager() {
 		open.Disable()
 		remove.Disable()
 		closed := false
-		modal := dialog.NewCustom("全部已存查询", "关闭", container.NewBorder(nil, container.NewVBox(status, container.NewHBox(open, remove)), nil, nil, list), w.Window)
+		modal := newCardCustom("全部已存查询", "关闭", container.NewBorder(nil, container.NewVBox(status, container.NewHBox(open, remove)), nil, nil, list), w.Window)
 		modal.SetOnClosed(func() { closed = true })
 		list.OnSelected = func(i int) { selected = i; open.Enable(); remove.Enable() }
 		open.OnTapped = func() {

@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/drivers"
@@ -20,7 +19,7 @@ func (w *Window) driverManager() {
 	label.Wrapping = fyne.TextWrapWord
 	selected := widget.NewSelect([]string{}, nil)
 	view := container.NewVBox(label, selected)
-	modal := dialog.NewCustom("独立驱动管理", "关闭", view, w.Window)
+	modal := newCardCustom("独立驱动管理", "关闭", view, w.Window)
 	modal.Resize(fyne.NewSize(900, 550))
 	modal.Show()
 	w.jobs.run(func(ctx context.Context) (any, error) { return w.Drivers.Statuses(ctx), ctx.Err() }, func(value any, err error) {

@@ -6,7 +6,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 	"github.com/ealink1/super-link/internal/infra/chat"
@@ -31,7 +30,7 @@ func (p *aiPanel) settings() {
 	form := widget.NewForm(widget.NewFormItem("API 基础地址", base), widget.NewFormItem("模型", model), widget.NewFormItem("API Key", key))
 	help := widget.NewLabel("使用 OpenAI 兼容接口。Ollama 示例：http://localhost:11434/v1\n配置加密保存在本机；保存不会发送测试请求。")
 	help.Wrapping = fyne.TextWrapWord
-	var modal *dialog.CustomDialog
+	var modal *cardDialog
 	save := widget.NewButton("保存", func() {
 		config := chat.Config{BaseURL: strings.TrimSpace(base.Text), Model: strings.TrimSpace(model.Text), APIKey: strings.TrimSpace(key.Text), Stream: stream.Checked}
 		if err := config.Validate(); err != nil {
@@ -47,14 +46,14 @@ func (p *aiPanel) settings() {
 		}
 	}), save)
 	body := container.NewVBox(help, form, stream, feedback, buttons)
-	modal = dialog.NewCustomWithoutButtons("AI 设置", body, p.owner.Window)
+	modal = newCardCustomNoButtons("AI 设置", body, p.owner.Window)
 	modal.Resize(fyne.NewSize(570, 340))
 	p.settingsDialog = modal
 	modal.SetOnClosed(func() { p.settingsOpen = false; p.settingsDialog = nil; key.SetText("") })
 	modal.Show()
 }
 
-func (p *aiPanel) persistConfig(config chat.Config, feedback *widget.Label, modal *dialog.CustomDialog) {
+func (p *aiPanel) persistConfig(config chat.Config, feedback *widget.Label, modal *cardDialog) {
 	if p.saving || p.owner.shuttingDown {
 		return
 	}

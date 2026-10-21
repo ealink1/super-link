@@ -9,7 +9,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"github.com/ealink1/super-link/internal/infra/filedialog"
@@ -73,7 +72,7 @@ func (n *noteWorkspace) exportMarkdown() {
 	n.owner.chooseLocalPath("选择 Markdown 导出目录", true, nil, func(directory string) {
 		name := widget.NewEntry()
 		name.SetText(filename)
-		modal := dialog.NewForm("导出 Markdown", "导出", "取消", []*widget.FormItem{widget.NewFormItem("文件名", name)}, func(ok bool) {
+		modal := newCardForm("导出 Markdown", "导出", "取消", []*widget.FormItem{widget.NewFormItem("文件名", name)}, func(ok bool) {
 			if ok {
 				n.saveMarkdownFile(filepath.Join(directory, noteFilename(strings.TrimSuffix(name.Text, ".md"))), body, false)
 			}

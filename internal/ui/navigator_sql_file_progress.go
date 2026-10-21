@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
 	"github.com/ealink1/super-link/internal/domain"
@@ -19,7 +18,7 @@ type sqlFileDialog struct {
 	navigator         *navigator
 	profile           domain.Profile
 	scope, path       string
-	modal             *dialog.CustomDialog
+	modal             *cardDialog
 	label             *widget.Label
 	bar               *widget.ProgressBar
 	confirm, stop     *widget.Button
@@ -44,7 +43,7 @@ func (n *navigator) showSQLFileDialog(p domain.Profile, scope, path string) {
 		d.stop.Disable()
 	})
 	content := container.NewBorder(nil, container.NewHBox(d.confirm, d.stop), nil, nil, container.NewVBox(d.label, d.bar))
-	d.modal = dialog.NewCustom("执行 SQL 文件", "关闭", content, n.owner.Window)
+	d.modal = newCardCustom("执行 SQL 文件", "关闭", content, n.owner.Window)
 	d.modal.Resize(fyne.NewSize(560, 300))
 	d.modal.SetOnClosed(func() {
 		d.active = false

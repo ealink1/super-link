@@ -3,14 +3,13 @@ package ui
 import (
 	"path/filepath"
 
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 )
 
 func (s *workspace) chooseSQLName(directory, text string) {
 	name := widget.NewEntry()
 	name.SetText("query.sql")
-	dialog.ShowForm("导出 SQL 文件", "导出", "取消", []*widget.FormItem{widget.NewFormItem("文件名", name)}, func(ok bool) {
+	showCardForm("导出 SQL 文件", "导出", "取消", []*widget.FormItem{widget.NewFormItem("文件名", name)}, func(ok bool) {
 		if !ok || s.closed {
 			return
 		}

@@ -10,7 +10,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -366,7 +365,7 @@ func (s *workspace) loadScopes() {
 		}
 		selected := widget.NewSelect(labels, nil)
 		selected.SetSelected(labels[0])
-		dialog.ShowForm("选择范围", "选择", "取消", []*widget.FormItem{widget.NewFormItem("范围", selected)}, func(ok bool) {
+		showCardForm("选择范围", "选择", "取消", []*widget.FormItem{widget.NewFormItem("范围", selected)}, func(ok bool) {
 			if !ok {
 				return
 			}
@@ -440,7 +439,7 @@ func (s *workspace) schema() {
 		entry := widget.NewMultiLineEntry()
 		entry.SetText(value.(string))
 		entry.SetMinRowsVisible(16)
-		d := dialog.NewCustom("结构 / 详情", "关闭", entry, s.owner.Window)
+		d := newCardCustom("结构 / 详情", "关闭", entry, s.owner.Window)
 		d.Resize(fyne.NewSize(850, 600))
 		d.Show()
 		s.status.SetText("详情已载入")
@@ -465,9 +464,9 @@ func (s *workspace) history() {
 			entry := widget.NewMultiLineEntry()
 			entry.SetText(history[id].Text)
 			entry.SetMinRowsVisible(10)
-			dialog.ShowCustom("历史（脱敏，不能直接重放）", "关闭", entry, s.owner.Window)
+			newCardCustom("历史（脱敏，不能直接重放）", "关闭", entry, s.owner.Window).Show()
 		}
-		d := dialog.NewCustom("最近 100 条执行记录", "关闭", list, s.owner.Window)
+		d := newCardCustom("最近 100 条执行记录", "关闭", list, s.owner.Window)
 		d.Resize(fyne.NewSize(900, 550))
 		d.Show()
 	})

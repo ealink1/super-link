@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -43,7 +42,7 @@ func (w *Window) resultView(result domain.Result) fyne.CanvasObject {
 		entry.SetMinRowsVisible(12)
 		entry.Wrapping = fyne.TextWrapWord
 		copy := widget.NewButton("复制完整单元格", func() { w.Window.Clipboard().SetContent(value) })
-		d := dialog.NewCustom(result.Columns[id.Col].Name, "关闭", container.NewBorder(nil, copy, nil, nil, entry), w.Window)
+		d := newCardCustom(result.Columns[id.Col].Name, "关闭", container.NewBorder(nil, copy, nil, nil, entry), w.Window)
 		d.Resize(fyne.NewSize(740, 480))
 		d.Show()
 	}

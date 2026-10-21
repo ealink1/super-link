@@ -14,7 +14,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/infra/filedialog"
 	transport "github.com/ealink1/super-link/internal/infra/shell"
@@ -68,7 +67,7 @@ func (f *shellFiles) rename(file transport.File, source string) {
 		}
 		return nil
 	}
-	d := dialog.NewForm("重命名", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", entry)}, func(ok bool) {
+	d := newCardForm("重命名", "保存", "取消", []*widget.FormItem{widget.NewFormItem("名称", entry)}, func(ok bool) {
 		if !ok || entry.Text == file.Name {
 			return
 		}
@@ -104,7 +103,7 @@ func (f *shellFiles) permissions(file transport.File, source string) {
 	entry := widget.NewEntry()
 	entry.SetText(shellFilePermissions(file.Mode))
 	entry.Validator = func(raw string) error { _, err := parseShellPermissions(raw); return err }
-	dialog.NewForm("修改权限 · "+file.Name, "保存", "取消", []*widget.FormItem{widget.NewFormItem("权限", entry)}, func(ok bool) {
+	newCardForm("修改权限 · "+file.Name, "保存", "取消", []*widget.FormItem{widget.NewFormItem("权限", entry)}, func(ok bool) {
 		if !ok {
 			return
 		}

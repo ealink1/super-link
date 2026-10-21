@@ -115,7 +115,7 @@ func TestConnectionGroupsTableControls(t *testing.T) {
 	var confirm *widget.Button
 	for _, overlay := range w.Window.Canvas().Overlays().List() {
 		walkUpdateDialog(overlay, func(object fyne.CanvasObject) {
-			if button, ok := object.(*widget.Button); ok && (button.Text == "Yes" || button.Text == "是") {
+			if button, ok := object.(*widget.Button); ok && button.Text == "确定" {
 				confirm = button
 			}
 		})

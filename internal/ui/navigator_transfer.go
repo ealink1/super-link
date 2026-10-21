@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 	"time"
@@ -65,7 +64,7 @@ func (n *navigator) tableTransfer(node *navNode, importing bool) {
 			}
 		})
 		picker.SetSelectedIndex(0)
-		modal := dialog.NewForm(title+" · "+node.scope, "下一步", "取消", []*widget.FormItem{widget.NewFormItem("数据表", picker)}, func(ok bool) {
+		modal := newCardForm(title+" · "+node.scope, "下一步", "取消", []*widget.FormItem{widget.NewFormItem("数据表", picker)}, func(ok bool) {
 			if !ok {
 				return
 			}

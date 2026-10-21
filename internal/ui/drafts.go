@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"fyne.io/fyne/v2"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
 )
@@ -29,7 +28,7 @@ func (w *Window) draftManager() {
 			}
 			item.(*widget.Label).SetText(fmt.Sprintf("%s · %s · %s", profiles[draft.ProfileID].Name, status, previewValue(draft.Text)))
 		})
-		modal := dialog.NewCustom("本地草稿 · 单击重新打开", "关闭", list, w.Window)
+		modal := newCardCustom("本地草稿 · 单击重新打开", "关闭", list, w.Window)
 		list.OnSelected = func(id widget.ListItemID) {
 			draft := drafts[id]
 			for item, space := range w.workspaces {

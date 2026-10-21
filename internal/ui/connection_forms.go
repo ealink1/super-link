@@ -60,7 +60,7 @@ func (e *connectionEditor) show() {
 	saveButton.Importance = widget.HighImportance
 	buttons := container.NewHBox(testButton, widget.NewButton("取消", e.close), saveButton)
 	footer := container.NewVBox(e.hint, container.NewBorder(nil, nil, action("上一步", "undo", func() { e.close(); e.owner.typePicker() }), buttons, nil))
-	content := container.NewPadded(container.NewBorder(header, footer, nil, nil, tabs))
+	content := cardFrame(container.NewBorder(header, footer, nil, nil, tabs))
 	e.modal = widget.NewModalPopUp(content, e.owner.Window.Canvas())
 	size := e.owner.Window.Canvas().Size()
 	e.modal.Resize(fyne.NewSize(min(920, size.Width-32), min(640, size.Height-48)))

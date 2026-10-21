@@ -7,7 +7,6 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -77,7 +76,7 @@ func (w *Window) showCell(name string, value any) {
 	entry.SetText(displayValue(value))
 	entry.SetMinRowsVisible(12)
 	copy := widget.NewButton("复制", func() { w.Window.Clipboard().SetContent(displayValue(value)) })
-	d := dialog.NewCustom(name, "关闭", container.NewBorder(nil, copy, nil, nil, entry), w.Window)
+	d := newCardCustom(name, "关闭", container.NewBorder(nil, copy, nil, nil, entry), w.Window)
 	d.Resize(fyne.NewSize(740, 480))
 	d.Show()
 }

@@ -36,7 +36,7 @@ func (t shellModalTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVaria
 func (s *shellWorkspace) newModal(title string, body, footer fyne.CanvasObject, close func()) *shellModal {
 	m := &shellModal{onClose: close}
 	header := shellInset(shellBorder(nil, nil, shellText(title, 14, true, shellTextColor), shellButtonView(shellButton("", "x", false, m.hide)), layout.NewSpacer()), 11)
-	content := shellPanel(shellBorder(shellVBox(header, shellLine()), shellVBox(shellLine(), shellInset(footer, 16)), nil, nil, container.NewVScroll(shellInset(body, 24))), shellBackground, 12, 0)
+	content := shellPanel(shellBorder(shellVBox(header, shellLine()), shellVBox(shellLine(), shellInset(footer, 16)), nil, nil, container.NewVScroll(shellInset(body, 24))), shellBackground, cardRadius, 0)
 	m.popup = widget.NewModalPopUp(container.NewThemeOverride(content, shellFormTheme{shellTheme: newShellTheme()}), s.owner.Window.Canvas())
 	m.scope = container.NewThemeOverride(m.popup, shellModalTheme{shellTheme: newShellTheme()})
 	m.popup.Resize(fyne.NewSize(min(672, s.owner.Window.Canvas().Size().Width-48), min(776, s.owner.Window.Canvas().Size().Height-48)))

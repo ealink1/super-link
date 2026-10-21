@@ -69,7 +69,7 @@ func newSSHIdentityDialog(parent fyne.Window, host domain.ShellHost, fingerprint
 	body := shellVBox(d.target(), sshIdentityGap(16), d.fingerprintCard(), sshIdentityGap(16), d.warning(), sshIdentityGap(14), d.remember,
 		sshIdentityGap(4), d.label("将指纹保存在 SuperLink 本地主机记录中，后续连接不再提示。", 11, shellMutedColor, false), sshIdentityGap(14))
 	scroll := container.NewVScroll(shellInset(body, 24))
-	content := shellBorder(shellVBox(d.header(), shellLine()), shellVBox(shellLine(), d.footer()), nil, nil, scroll)
+	content := cardFrame(shellBorder(shellVBox(d.header(), shellLine()), shellVBox(shellLine(), d.footer()), nil, nil, scroll))
 	palette := sshIdentityTheme{shellModalTheme{shellTheme: newShellTheme()}}
 	d.popup = widget.NewModalPopUp(container.NewThemeOverride(content, palette), parent.Canvas())
 	d.scope = container.NewThemeOverride(d.popup, palette)
