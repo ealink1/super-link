@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	uv "github.com/charmbracelet/ultraviolet"
 	"github.com/charmbracelet/x/ansi"
@@ -29,6 +30,7 @@ type terminalSurface struct {
 	scroll            int
 	rejectPaste       func()
 	textSize          float32
+	selection         terminalSelection
 }
 
 func newTerminalSurface(resize func(int, int)) *terminalSurface {
@@ -41,6 +43,10 @@ func newTerminalSurface(resize func(int, int)) *terminalSurface {
 
 func (t *terminalSurface) feed(output []byte) {
 	if !t.closed {
+		// Application mouse gestures must survive the redraw they trigger.
+		if !t.selection.down || !t.selection.remote {
+			t.clearSelection()
+		}
 		before := t.emulator.ScrollbackLen()
 		_, _ = t.emulator.Write(output)
 		if t.scroll > 0 {
@@ -56,6 +62,7 @@ func (t *terminalSurface) dispose() {
 	if t.closed {
 		return
 	}
+	t.endSelectionDrag()
 	t.closed = true
 	t.resize = nil
 	t.active = nil
@@ -85,7 +92,7 @@ func (t *terminalSurface) Tapped(*fyne.PointEvent) {
 }
 func (t *terminalSurface) AcceptsTab() bool { return true }
 func (t *terminalSurface) FocusGained()     { t.focused = true; t.Refresh() }
-func (t *terminalSurface) FocusLost()       { t.focused = false; t.Refresh() }
+func (t *terminalSurface) FocusLost()       { t.endSelectionDrag(); t.focused = false; t.Refresh() }
 
 func (t *terminalSurface) CreateRenderer() fyne.WidgetRenderer {
 	background := canvas.NewRectangle(resolveShellColor(terminalBackground))
@@ -120,6 +127,7 @@ func (t *terminalSurface) setTextSize(size float32) {
 	if t.textSize == size || t.closed {
 		return
 	}
+	t.clearSelection()
 	t.textSize = size
 	cell := t.cellSize()
 	width, height := t.Size().Width, t.Size().Height
@@ -142,6 +150,7 @@ func (r *terminalRenderer) Layout(size fyne.Size) {
 		return
 	}
 	if cols != e.Width() || rows != e.Height() {
+		r.terminal.clearSelection()
 		e.Resize(cols, rows)
 		if r.terminal.resize != nil {
 			r.terminal.resize(cols, rows)
@@ -171,12 +180,16 @@ func (r *terminalRenderer) Refresh() {
 	for y := 0; y < e.Height(); y++ {
 		for x := 0; x < e.Width(); {
 			start := x
+			selected := r.terminal.selectedCell(x, y)
 			var style uv.Style
 			if cell := r.terminal.cellAt(x, y); cell != nil {
 				style = cell.Style
 			}
 			var value strings.Builder
 			for x < e.Width() {
+				if r.terminal.selectedCell(x, y) != selected {
+					break
+				}
 				cell := r.terminal.cellAt(x, y)
 				if cell == nil {
 					if !style.IsZero() {
@@ -197,7 +210,7 @@ func (r *terminalRenderer) Refresh() {
 				x += max(1, cell.Width)
 			}
 			content := value.String()
-			if style.IsZero() {
+			if style.IsZero() && !selected {
 				content = strings.TrimRight(content, " ")
 				if content == "" {
 					continue
@@ -220,6 +233,10 @@ func (r *terminalRenderer) Refresh() {
 			}
 			if style.Attrs&uv.AttrReverse != 0 {
 				text.Color, bg = bg, text.Color
+			}
+			if selected {
+				bg = theme.SelectionColor()
+				text.Color = resolveShellColor(terminalForeground)
 			}
 			text.Color = terminalInkColor(text.Color, bg)
 			r.backgrounds[used].FillColor = bg

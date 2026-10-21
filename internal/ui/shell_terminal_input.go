@@ -12,6 +12,7 @@ import (
 
 func (t *terminalSurface) TypedRune(value rune) {
 	if !t.closed {
+		t.clearSelection()
 		t.scroll = 0
 		t.emulator.SendText(string(value))
 	}
@@ -30,6 +31,7 @@ var terminalKeys = map[fyne.KeyName]rune{
 
 func (t *terminalSurface) TypedKey(key *fyne.KeyEvent) {
 	if code, ok := terminalKeys[key.Name]; ok && !t.closed {
+		t.clearSelection()
 		t.scroll = 0
 		t.sendTerminalKey(code, terminalDesktopModifiers())
 	}
@@ -53,6 +55,7 @@ func (t *terminalSurface) TypedShortcut(shortcut fyne.Shortcut) {
 		}
 		text := shortcut.Clipboard.Content()
 		if len(text) <= 64<<10 {
+			t.clearSelection()
 			t.scroll = 0
 			t.emulator.Paste(text)
 		} else if t.rejectPaste != nil {
@@ -63,7 +66,7 @@ func (t *terminalSurface) TypedShortcut(shortcut fyne.Shortcut) {
 			t.sendKey(fyne.KeyC, fyne.KeyModifierControl)
 			return
 		}
-		shortcut.Clipboard.SetContent(t.emulator.String())
+		shortcut.Clipboard.SetContent(t.copyText())
 	case *fyne.ShortcutCut:
 		t.sendKey(fyne.KeyX, fyne.KeyModifierControl)
 	case *fyne.ShortcutSelectAll:
@@ -74,7 +77,7 @@ func (t *terminalSurface) TypedShortcut(shortcut fyne.Shortcut) {
 		t.sendKey(fyne.KeyY, fyne.KeyModifierControl)
 	case fyne.KeyboardShortcut:
 		if shortcut.Mod() == fyne.KeyModifierControl|fyne.KeyModifierShift && shortcut.Key() == fyne.KeyC {
-			fyne.CurrentApp().Clipboard().SetContent(t.emulator.String())
+			fyne.CurrentApp().Clipboard().SetContent(t.copyText())
 			return
 		}
 		if shortcut.Mod() == fyne.KeyModifierControl|fyne.KeyModifierShift && shortcut.Key() == fyne.KeyV {
