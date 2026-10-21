@@ -106,7 +106,7 @@ func (c *codeCompletion) show(q sqlworkbench.CompletionQuery, items []sqlworkben
 	if e.viewport != nil {
 		position = position.Subtract(e.viewport.Offset)
 	}
-	line := fyne.MeasureText("M", theme.TextSize(), e.TextStyle).Height
+	line := fyne.MeasureText("M", e.Theme().Size(theme.SizeNameText), e.TextStyle).Height
 	position.Y += line + 4
 	if position.Y+height > canvas.Size().Height {
 		position.Y -= height + line + 8

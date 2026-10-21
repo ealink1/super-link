@@ -61,3 +61,37 @@ func TestFallbackLineMetricsCoverUsedFacesAndMatchDrawingBaseline(t *testing.T) 
 		}
 	}
 }
+
+func TestReservedLineMetricsKeepMixedScriptsStableWithoutChangingAdvances(t *testing.T) {
+	data, err := os.ReadFile("../../../../internal/ui/assets/NaviUI-Regular.otf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app := test.NewTempApp(t)
+	app.Settings().SetTheme(fallbackTestTheme{Theme: theme.DefaultTheme(), fallback: fyne.NewStaticResource("cjk-fixed-line.otf", data)})
+	painter.ClearFontCache()
+	defer painter.ClearFontCache()
+	style := fyne.TextStyle{Monospace: true}
+	faces := painter.CachedFontFace(style, nil, nil).Fonts
+	for _, size := range []float32{11, 16, 32} {
+		box, base := painter.MeasureString(faces, "M国", size, style)
+		reserved := style
+		reserved.LineHeight, reserved.LineBaseline = box.Height/size, base/size
+		if painter.CachedFontFace(reserved, nil, nil).Fonts != faces {
+			t.Fatal("reserved line metrics changed the font face or its cache key")
+		}
+		raised := style
+		raised.LineBaseline = (base + 5) / size
+		raisedBox, raisedBase := painter.MeasureString(faces, "M国", size, raised)
+		if raisedBox.Height < box.Height+5 || raisedBase < base+5 {
+			t.Fatal("a reserved baseline clipped the fallback descent")
+		}
+		for _, value := range []string{"", "\t", "select * from items", "select 中文", "中文 English", "select 方法 房东发送到"} {
+			plain, _ := painter.MeasureString(faces, value, size, style)
+			got, baseline := painter.MeasureString(faces, value, size, reserved)
+			if got.Width != plain.Width || got.Height != box.Height || baseline != base {
+				t.Fatalf("reserved geometry differs for %q at %v: got=%v/%v wantWidth=%v box=%v/%v", value, size, got, baseline, plain.Width, box, base)
+			}
+		}
+	}
+}

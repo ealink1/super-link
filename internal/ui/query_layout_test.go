@@ -27,7 +27,7 @@ func TestLongSQLKeepsQueryAndResultViewportBounded(t *testing.T) {
 			for _, wrap := range []fyne.TextWrap{fyne.TextWrapOff, fyne.TextWrapWord, fyne.TextWrapOff} {
 				s.editor.Wrapping = wrap
 				s.editor.Refresh()
-				if got := split.MinSize(); got != original {
+				if got := split.MinSize(); got.Height != original.Height || got.Width < original.Width || got.Width > original.Width+40 {
 					t.Fatalf("SQL text changed workspace minimum from %v to %v (wrap=%v)", original, got, wrap)
 				}
 				test.WidgetRenderer(split).Layout(size)
@@ -62,6 +62,10 @@ func TestLongSQLScrollsLineNumbersWithoutGrowingViewport(t *testing.T) {
 		t.Fatal("native editor scroll missing")
 	}
 	viewport := gutter.Size()
+	wideGutter := gutter.Content.MinSize().Width
+	if wideGutter > 50 {
+		t.Fatalf("three-digit line numbers leave excessive gutter space: %v", wideGutter)
+	}
 	// Drive the user-scroll notification without native scrollbar-hide timers,
 	// which the software test driver's DoFromGoroutine runs outside this thread.
 	codeScroll.ScrollToOffset(fyne.NewPos(0, 600))
@@ -84,6 +88,9 @@ func TestLongSQLScrollsLineNumbersWithoutGrowingViewport(t *testing.T) {
 		}
 	}
 	s.editor.SetText("SELECT 2;")
+	if narrow := gutter.Content.MinSize().Width; narrow >= wideGutter || narrow > 30 {
+		t.Fatalf("single-digit line numbers did not reclaim gutter space: wide=%v narrow=%v", wideGutter, narrow)
+	}
 	if split.MinSize().Height > 400 || gutter.Offset.Y != 0 {
 		t.Fatal("shorter SQL retained document height or a stale line-number offset")
 	}

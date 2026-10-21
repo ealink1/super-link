@@ -65,6 +65,12 @@ type TextStyle struct {
 	Underline bool // Should text be underlined.
 	// Since: 2.8
 	Strikethrough bool // Should text be struck through.
+
+	// LineHeight and LineBaseline reserve minimum vertical metrics in ems.
+	// SuperLink extension: editors can keep a stable line box while switching
+	// between primary and fallback fonts. Zero retains the default metrics.
+	LineHeight   float32
+	LineBaseline float32
 }
 
 // MeasureText uses the current driver to calculate the size of text when rendered.

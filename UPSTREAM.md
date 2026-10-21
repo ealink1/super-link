@@ -195,3 +195,18 @@ that compensated for the old mismatch are removed. The pinned manifest and
 exact patch include `font.go` and `fallback_line_bounds_test.go`; the application
 regression uses independent oversized Harfbuzz rasters for regular, bold, italic,
 monospace and mixed Chinese/Latin text at nine sizes and five scales.
+
+### Stable SQL editor line boxes (2026-10-15)
+
+The SQL editor reserves the combined Latin/CJK font height and baseline before
+input begins. The reviewed Fyne `TextStyle` extension adds optional minimum
+`LineHeight` and `LineBaseline` values in ems; the painter uses those values for
+both measurement and raster placement. Zero preserves ordinary widget behavior,
+and larger fallback extents still expand rather than clip. SuperLink enables the
+reservation only on SQL editor text and its line numbers. Native caret, selection,
+wrapping and syntax rendering consequently share stable vertical metrics while
+Chinese characters are inserted or deleted. Painter regressions check empty,
+Latin and mixed-script lines at multiple sizes and unchanged horizontal advances;
+the application checks that consecutive line and caret positions remain stable.
+The pinned manifest and exact patch include `text.go`, `font.go` and
+`fallback_line_bounds_test.go`.

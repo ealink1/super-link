@@ -9,3 +9,6 @@
 
 # 保留固定依赖许可证的原始字节，确保来源哈希可复验。
 third_party/fyne/theme/font/LICENSE.txt -text
+
+# Unified diff context intentionally contains spaces before source tabs.
+docs/fyne-memory.patch whitespace=-blank-at-eol,-space-before-tab

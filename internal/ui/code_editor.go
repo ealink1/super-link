@@ -36,7 +36,7 @@ func (e *codeEntry) TypedShortcut(shortcut fyne.Shortcut) {
 }
 
 func newCodeEntry() *codeEntry {
-	e := &codeEntry{Entry: widget.Entry{MultiLine: true, Wrapping: fyne.TextWrapOff, TextStyle: fyne.TextStyle{Monospace: true}}, colors: &codeColorState{unwrapped: true}}
+	e := &codeEntry{Entry: widget.Entry{MultiLine: true, Wrapping: fyne.TextWrapOff, TextStyle: queryEditorStyle()}, colors: &codeColorState{unwrapped: true}}
 	e.ExtendBaseWidget(e)
 	return e
 }
@@ -119,6 +119,9 @@ func (t codeTheme) Icon(name fyne.ThemeIconName) fyne.Resource {
 	return fyne.CurrentApp().Settings().Theme().Icon(name)
 }
 func (t codeTheme) Size(name fyne.ThemeSizeName) float32 {
+	if name == theme.SizeNameText {
+		return queryEditorTextSize
+	}
 	return fyne.CurrentApp().Settings().Theme().Size(name)
 }
 func (t codeTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
@@ -149,12 +152,13 @@ func (s *syntaxLayer) CreateRenderer() fyne.WidgetRenderer {
 }
 
 type syntaxRenderer struct {
-	layer   *syntaxLayer
-	source  string
-	dark    bool
-	pieces  []syntaxPiece
-	objects []fyne.CanvasObject
-	min     fyne.Size
+	layer    *syntaxLayer
+	source   string
+	dark     bool
+	textSize float32
+	pieces   []syntaxPiece
+	objects  []fyne.CanvasObject
+	min      fyne.Size
 }
 type syntaxPiece struct {
 	text *canvas.Text
@@ -163,43 +167,58 @@ type syntaxPiece struct {
 
 func (r *syntaxRenderer) update() {
 	text := r.layer.entry.Text
+	size := r.layer.entry.Theme().Size(theme.SizeNameText)
 	dark := false
 	if t, ok := fyne.CurrentApp().Settings().Theme().(Theme); ok {
 		dark = t.Dark
 	}
-	if r.source == text && r.dark == dark && r.objects != nil {
+	if r.source == text && r.dark == dark && r.textSize == size && r.objects != nil {
 		return
 	}
 	r.source = text
 	r.dark = dark
+	r.textSize = size
 	r.pieces = nil
 	r.objects = nil
-	font := fyne.TextStyle{Monospace: true}
-	size := theme.TextSize()
-	letter := fyne.MeasureText("M", size, font)
-	lineHeight := letter.Height
-	x, y := float32(6), float32(4)
+	font := r.layer.entry.TextStyle
+	driver := fyne.CurrentApp().Driver()
+	lines := strings.Split(text, "\n")
+	baselines := make([]float32, len(lines))
+	positions := make([]float32, len(lines))
+	y := float32(4)
 	maxWidth := float32(0)
+	for i, line := range lines {
+		metrics, baseline := driver.RenderedTextSize(line, size, font, nil)
+		baselines[i], positions[i] = baseline, y
+		y += metrics.Height
+		maxWidth = max(maxWidth, metrics.Width)
+	}
+	row, offset := 0, 0
 	for _, token := range sqlworkbench.Lex(text) {
 		parts := strings.Split(token.Text, "\n")
 		for i, part := range parts {
 			if i > 0 {
-				maxWidth = max(maxWidth, x)
-				x = 6
-				y += lineHeight
+				row++
+				offset = 0
 			}
-			if part == "" {
+			start := offset
+			offset += len(part)
+			if strings.TrimSpace(part) == "" {
 				continue
 			}
+			// Measure the actual line prefix, as Entry does for its caret. In
+			// mixed scripts a space may use the preceding CJK face; adding the
+			// separately shaped token widths would drift from native editing.
+			prefix, _ := driver.RenderedTextSize(lines[row][:start], size, font, nil)
+			_, baseline := driver.RenderedTextSize(part, size, font, nil)
 			object := canvas.NewText(part, tokenColor(token.Kind, dark))
 			object.TextStyle = font
 			object.TextSize = size
-			r.pieces = append(r.pieces, syntaxPiece{text: object, x: x, y: y})
+			r.pieces = append(r.pieces, syntaxPiece{text: object, x: 6 + prefix.Width, y: positions[row] + baselines[row] - baseline})
 			r.objects = append(r.objects, object)
-			x += fyne.MeasureText(part, size, font).Width
 		}
 	}
-	r.min = fyne.NewSize(max(maxWidth, x)+6, y+lineHeight+6)
+	r.min = fyne.NewSize(maxWidth+12, y+6)
 }
 func (r *syntaxRenderer) MinSize() fyne.Size { return r.min }
 func (r *syntaxRenderer) Layout(fyne.Size) {

@@ -120,6 +120,9 @@ func lookupFaces(theme, fallback fyne.Resource, additional []fyne.Resource, fami
 
 // CachedFontFace returns a Font face held in memory. These are loaded from the current theme.
 func CachedFontFace(style fyne.TextStyle, source fyne.Resource, o fyne.CanvasObject) *FontCacheItem {
+	// Line boxes affect shaping geometry, not the selected font face. Keep
+	// theme font lookups and face-cache keys compatible with ordinary styles.
+	style.LineHeight, style.LineBaseline = 0, 0
 	if source != nil {
 		val, ok := fontCustomCache.Load(source)
 		if !ok {
@@ -432,6 +435,8 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
 		x = shapeCallback(in, x, scale, collect)
 	}
 
+	reservedBaseline := fixed266ToFloat32(textSize) * style.LineBaseline
+	maxAscent = max(maxAscent, float32ToFixed266(reservedBaseline))
 	y := fixed266ToFloat32(maxAscent) * scale
 	for _, run := range runBuffer {
 		cb(run.out, run.x, y)
@@ -444,7 +449,9 @@ func walkString(faces shaping.Fontmap, s string, textSize fixed.Int26_6, style f
 	if maxAscent == 0 { // Empty strings and tabs retain the primary line metrics.
 		maxAscent = out.LineBounds.Ascent
 	}
-	return fyne.NewSize(*advance, fixed266ToFloat32(lineBounds.LineThickness())),
+	height := max(fixed266ToFloat32(lineBounds.LineThickness()), fixed266ToFloat32(textSize)*style.LineHeight,
+		fixed266ToFloat32(maxAscent-lineBounds.Descent+lineBounds.Gap))
+	return fyne.NewSize(*advance, height),
 		fixed266ToFloat32(maxAscent)
 }
 

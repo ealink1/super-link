@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/application"
@@ -16,6 +15,9 @@ import (
 
 func (s *workspace) queryContent() fyne.CanvasObject {
 	s.editor.TextStyle = fyne.TextStyle{Monospace: true}
+	if s.code != nil {
+		s.editor.TextStyle = queryEditorStyle()
+	}
 	connection := s.buildConnectionPicker()
 	s.scopePicker.Scroll = container.ScrollNone
 	s.schemaPicker = widget.NewSelect(nil, func(value string) {
@@ -32,7 +34,7 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 	limit := widget.NewSelect([]string{"100", "1000", "5000", "10000"}, func(value string) { s.rowLimit, _ = strconv.Atoi(value) })
 	limit.SetSelected("5000")
 	s.execute.SetText("")
-	s.execute.SetIcon(whiteIcon("send"))
+	s.execute.SetIcon(theme.MediaPlayIcon())
 	s.execute.Importance = widget.HighImportance
 	s.execute.OnTapped = s.runAdaptive
 	s.stop.SetText("")
@@ -49,8 +51,8 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 		s.editor.Refresh()
 	}), toolbarAction("", "settings", s.owner.settingsPage))
 	gutter := widget.NewLabel("1")
-	gutter.TextStyle = fyne.TextStyle{Monospace: true}
-	gutter.Alignment = fyne.TextAlignLeading
+	gutter.TextStyle = s.editor.TextStyle
+	gutter.Alignment = fyne.TextAlignTrailing
 	changed := s.editor.OnChanged
 	updateGutter := func(text string) {
 		count := strings.Count(text, "\n") + 1
@@ -67,7 +69,7 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 			changed(text)
 		}
 	}
-	gutterHost := container.NewScroll(gutter)
+	gutterHost := container.NewScroll(container.NewThemeOverride(gutter, editorTheme{}))
 	gutterHost.Direction = container.ScrollNone
 	var code fyne.CanvasObject
 	if s.code != nil {
@@ -110,8 +112,9 @@ func (s *workspace) queryContent() fyne.CanvasObject {
 
 type queryGutterLayout struct{}
 
-func (queryGutterLayout) MinSize([]fyne.CanvasObject) fyne.Size {
-	return fyne.NewSize(52, 0)
+func (queryGutterLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	scroll := objects[0].(*container.Scroll)
+	return fyne.NewSize(scroll.Content.MinSize().Width, 0)
 }
 
 func (queryGutterLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
@@ -119,16 +122,34 @@ func (queryGutterLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	objects[0].Resize(size)
 }
 
+const queryEditorTextSize float32 = 18
+
+func queryEditorStyle() fyne.TextStyle {
+	style := fyne.TextStyle{Monospace: true}
+	metrics, baseline := fyne.CurrentApp().Driver().RenderedTextSize("M国", queryEditorTextSize, style, nil)
+	style.LineHeight = metrics.Height / queryEditorTextSize
+	style.LineBaseline = baseline / queryEditorTextSize
+	return style
+}
+
 type editorTheme struct{ Theme }
 
+func (t editorTheme) Size(name fyne.ThemeSizeName) float32 {
+	if name == theme.SizeNameText {
+		return queryEditorTextSize
+	}
+	return fyne.CurrentApp().Settings().Theme().Size(name)
+}
+
 func (t editorTheme) Color(name fyne.ThemeColorName, variant fyne.ThemeVariant) color.Color {
+	base := fyne.CurrentApp().Settings().Theme()
 	if name == theme.ColorNameInputBackground {
-		return t.Theme.Color(theme.ColorNameBackground, variant)
+		return base.Color(theme.ColorNameBackground, variant)
 	}
 	if name == theme.ColorNameInputBorder || name == theme.ColorNamePrimary {
 		return color.Transparent
 	}
-	return t.Theme.Color(name, variant)
+	return base.Color(name, variant)
 }
 
 func (s *workspace) runAdaptive() {
@@ -155,7 +176,7 @@ func (s *workspace) queryMenu() {
 }
 func (s *workspace) findText() {
 	needle := widget.NewEntry()
-	dialog.ShowForm("查找", "查找", "取消", []*widget.FormItem{widget.NewFormItem("文本", needle)}, func(ok bool) {
+	showCardForm("查找", "查找", "取消", []*widget.FormItem{widget.NewFormItem("文本", needle)}, func(ok bool) {
 		if ok {
 			if index := strings.Index(s.editor.Text, needle.Text); index >= 0 {
 				prefix := s.editor.Text[:index]
