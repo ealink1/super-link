@@ -48,6 +48,13 @@ func TestLongSQLScrollsLineNumbersWithoutGrowingViewport(t *testing.T) {
 	waitUI(t, w)
 	split := querySplitForTest(s)
 	split.Resize(fyne.NewSize(1100, 650))
+	// A 300-line document must not enlarge the split beyond the resized viewport.
+	// Compare against the viewport instead of a pixel budget so the assertion
+	// stays valid where platform fonts use taller line boxes.
+	longMin := split.MinSize()
+	if longMin.Height > 650 {
+		t.Fatalf("long document grew beyond the viewport: %v", longMin.Height)
+	}
 	gutter := queryGutterForTest(split.Leading)
 	if gutter == nil {
 		t.Fatal("line-number viewport missing")
@@ -91,8 +98,8 @@ func TestLongSQLScrollsLineNumbersWithoutGrowingViewport(t *testing.T) {
 	if narrow := gutter.Content.MinSize().Width; narrow >= wideGutter || narrow > 30 {
 		t.Fatalf("single-digit line numbers did not reclaim gutter space: wide=%v narrow=%v", wideGutter, narrow)
 	}
-	if height := split.MinSize().Height; height > 400 {
-		t.Fatalf("shorter SQL retained document height: %v", height)
+	if height := split.MinSize().Height; height > longMin.Height {
+		t.Fatalf("shorter SQL grew document height: %v > %v", height, longMin.Height)
 	}
 	if offset := gutter.Offset.Y; offset != 0 {
 		t.Fatalf("shorter SQL kept a stale line-number offset: %v", offset)
