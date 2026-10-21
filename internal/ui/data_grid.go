@@ -31,6 +31,8 @@ type gridModel struct {
 	changed      func(int) string
 	choices      map[int][]string
 	boolColumns  map[int]bool
+	// widths overrides the default column width for dense editors.
+	widths map[int]float32
 	pending      func()
 	current      func() bool
 }
@@ -65,7 +67,7 @@ func newDataGrid(model gridModel) *dataGrid {
 	g.SetRowHeight(-1, 52)
 	g.SetColumnWidth(0, 28)
 	for i := range model.columns {
-		g.SetColumnWidth(i+2, 140)
+		g.SetColumnWidth(i+2, model.columnWidth(i))
 	}
 	g.Refresh()
 	return g
@@ -84,10 +86,20 @@ func (g *dataGrid) Refresh() {
 }
 func (g *dataGrid) Resize(size fyne.Size) {
 	if len(g.model.columns) > 0 {
-		width := size.Width - 28 - g.rowNumberWidth - float32(len(g.model.columns)-1)*144 - 16
+		width := size.Width - 28 - g.rowNumberWidth - 16
+		for i := 0; i < len(g.model.columns)-1; i++ {
+			width -= g.model.columnWidth(i) + 4
+		}
 		g.SetColumnWidth(len(g.model.columns)+1, max(140, width))
 	}
 	g.Table.Resize(size)
+}
+
+func (m gridModel) columnWidth(index int) float32 {
+	if width, ok := m.widths[index]; ok && width > 0 {
+		return width
+	}
+	return 140
 }
 
 type gridCell struct {

@@ -9,7 +9,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/ealink1/super-link/internal/domain"
@@ -81,8 +80,8 @@ func (d *tableDesigner) reset(info domain.TableInfo) {
 }
 func (d *tableDesigner) rebuildFields() {
 	var grid *dataGrid
-	columns := []domain.Column{{Name: "名称"}, {Name: "类型"}, {Name: "主键"}, {Name: "自增"}, {Name: "非空"}, {Name: "默认值"}, {Name: "注释"}}
-	model := gridModel{columns: columns, length: func() int { return len(d.fields) }, value: d.fieldValue, selected: d.selected, selectRow: func(row int, v bool) { d.selected[row] = v }, copyValue: d.owner.Window.Clipboard().SetContent, boolColumns: map[int]bool{2: true, 3: true, 4: true}, changed: func(row int) string {
+	columns := []domain.Column{{Name: "名称"}, {Name: "类型"}, {Name: "长度"}, {Name: "主键"}, {Name: "自增"}, {Name: "非空"}, {Name: "默认值"}, {Name: "注释"}}
+	model := gridModel{columns: columns, widths: map[int]float32{0: 140, 1: 110, 2: 76, 3: 52, 4: 52, 5: 52, 6: 120}, length: func() int { return len(d.fields) }, value: d.fieldValue, selected: d.selected, selectRow: func(row int, v bool) { d.selected[row] = v }, copyValue: d.owner.Window.Clipboard().SetContent, boolColumns: map[int]bool{3: true, 4: true, 5: true}, changed: func(row int) string {
 		f := d.fields[row]
 		if f.deleted {
 			return "delete"
@@ -105,18 +104,21 @@ func (d *tableDesigner) rebuildFields() {
 }
 func (d *tableDesigner) fieldValue(row, col int) any {
 	c := d.fields[row].column
+	base, args, _ := splitColumnType(c.Type)
 	switch col {
 	case 0:
 		return c.Name
 	case 1:
-		return c.Type
+		return base
 	case 2:
-		return c.Key == "PRI"
+		return args
 	case 3:
-		return strings.Contains(c.Extra, "auto_increment")
+		return c.Key == "PRI"
 	case 4:
-		return c.Nullable == "NO"
+		return strings.Contains(c.Extra, "auto_increment")
 	case 5:
+		return c.Nullable == "NO"
+	case 6:
 		if c.Default != nil {
 			return *c.Default
 		}
@@ -134,37 +136,51 @@ func (d *tableDesigner) editField(row, col int, text string, isNull bool) error 
 		return fmt.Errorf("column is staged for deletion")
 	}
 	flag, err := strconv.ParseBool(text)
-	if col >= 2 && col <= 4 && err != nil {
+	if col >= 3 && col <= 5 && err != nil {
 		return err
 	}
+	base, args, suffix := splitColumnType(f.column.Type)
 	switch col {
 	case 0:
 		f.column.Name = text
 	case 1:
-		f.column.Type = text
+		if !columnTypeAcceptsLength(text) {
+			args = ""
+		} else if args == "" {
+			args = columnTypeDefaultArgs(text)
+		}
+		if !columnTypeKeepsSuffix(text) {
+			suffix = ""
+		}
+		f.column.Type = joinColumnType(text, args, suffix)
 	case 2:
+		if !validColumnTypeArgs(text) {
+			return fmt.Errorf("长度应为 100 或 10,2 这样的数字")
+		}
+		f.column.Type = joinColumnType(base, text, suffix)
+	case 3:
 		f.column.Key = ""
 		if flag {
 			f.column.Key = "PRI"
 		}
-	case 3:
+	case 4:
 		f.column.Extra = ""
 		if flag {
 			f.column.Extra = "auto_increment"
 		}
-	case 4:
+	case 5:
 		f.column.Nullable = "YES"
 		if flag {
 			f.column.Nullable = "NO"
 		}
-	case 5:
+	case 6:
 		f.column.Default = nil
 		f.column.HasDefault = false
 		if !isNull {
 			f.column.Default = &text
 			f.column.HasDefault = true
 		}
-	case 6:
+	case 7:
 		f.column.Comment = text
 	}
 	d.status.SetText("结构修改已暂存，保存前请查看 SQL 预览。")
@@ -215,7 +231,7 @@ func (d *tableDesigner) preview() {
 		d.status.SetText(err.Error())
 		return
 	}
-	modal := dialog.NewCustom("结构变更 SQL", "关闭", ddlView(sqlworkbench.PreviewStructure(statements)), d.owner.Window)
+	modal := newCardCustom("结构变更 SQL", "关闭", ddlView(sqlworkbench.PreviewStructure(statements)), d.owner.Window)
 	modal.Resize(fyne.NewSize(920, 600))
 	modal.Show()
 }

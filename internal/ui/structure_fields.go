@@ -17,7 +17,7 @@ func (d *tableDesigner) addField() {
 	}
 	d.fields = append(d.fields, designColumn{column: connection.ColumnDefinition{Type: "TEXT", Nullable: "YES"}})
 	d.rebuildFields()
-	d.status.SetText("新增字段已暂存，请填写名称和类型。")
+	d.status.SetText("新增字段已暂存，请填写名称、类型与长度。")
 }
 func (d *tableDesigner) deleteFields() {
 	if !d.canEdit() {
