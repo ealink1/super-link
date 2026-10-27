@@ -109,9 +109,9 @@ impl Theme {
             accent: rgb(0x16803d).into(),
             accent_soft: rgb(0xe8f5ec).into(),
             success: rgb(0x16803d).into(),
-            warning_bg: rgb(0xfff4e0).into(),
-            warning_border: rgb(0xf0c36b).into(),
-            warning_text: rgb(0x8a5a00).into(),
+            warning_bg: rgb(0xfff1d6).into(),
+            warning_border: rgb(0xe0a94a).into(),
+            warning_text: rgb(0x7a4a00).into(),
         }
     }
 

@@ -339,15 +339,17 @@ impl QueryPage {
             .py_2()
             .bg(theme.warning_bg)
             .border_b_1()
+            .border_l_2()
             .border_color(theme.warning_border)
             .child(icons::icon(
                 "shell/circle-help.svg",
-                14.0,
+                15.0,
                 theme.warning_text,
             ))
             .child(
                 div()
-                    .text_xs()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
                     .text_color(theme.warning_text)
                     .child(format!(
                         "该语句来自历史记录，{count} 处字面量已被替换为 ?，执行前请手动补值"
@@ -448,14 +450,12 @@ impl QueryPage {
                         .to_string()
                 })
                 .unwrap_or_default();
-            let text: String = entry
-                .text
-                .lines()
-                .next()
-                .unwrap_or("")
-                .chars()
-                .take(48)
-                .collect();
+            let line = entry.text.lines().next().unwrap_or("");
+            let text = if line.chars().count() > 48 {
+                format!("{}…", line.chars().take(48).collect::<String>())
+            } else {
+                line.to_string()
+            };
             let entry_id = entry.id;
             let redacted = entry.text.clone();
             panel = panel.child(
