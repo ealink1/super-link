@@ -70,6 +70,14 @@ pub fn redact(sql: &str) -> String {
     output.trim().to_string()
 }
 
+/// Number of literals that were replaced by the redaction marker.
+pub fn placeholder_count(text: &str) -> usize {
+    tokenize(text)
+        .into_iter()
+        .filter(|token| token.kind == TokenKind::Plain && token.text == "?")
+        .count()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,6 +90,13 @@ mod tests {
         assert!(!redacted.contains("30"));
         assert!(redacted.contains("SELECT"));
         assert!(redacted.contains("?"));
+    }
+
+    #[test]
+    fn counts_placeholders_in_redacted_text() {
+        let redacted = redact("SELECT * FROM t WHERE a = 'x' AND b = 2");
+        assert_eq!(placeholder_count(&redacted), 2);
+        assert_eq!(placeholder_count("SELECT 1"), 0);
     }
 
     #[test]

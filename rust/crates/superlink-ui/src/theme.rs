@@ -92,6 +92,9 @@ pub struct Theme {
     pub accent: Hsla,
     pub accent_soft: Hsla,
     pub success: Hsla,
+    pub warning_bg: Hsla,
+    pub warning_border: Hsla,
+    pub warning_text: Hsla,
 }
 
 impl Theme {
@@ -106,6 +109,9 @@ impl Theme {
             accent: rgb(0x16803d).into(),
             accent_soft: rgb(0xe8f5ec).into(),
             success: rgb(0x16803d).into(),
+            warning_bg: rgb(0xfff4e0).into(),
+            warning_border: rgb(0xf0c36b).into(),
+            warning_text: rgb(0x8a5a00).into(),
         }
     }
 
@@ -120,6 +126,9 @@ impl Theme {
             accent: rgb(0x4ade80).into(),
             accent_soft: rgb(0x1f3327).into(),
             success: rgb(0x4ade80).into(),
+            warning_bg: rgb(0x3a2e1a).into(),
+            warning_border: rgb(0x5c4a2a).into(),
+            warning_text: rgb(0xe8c07a).into(),
         }
     }
 }

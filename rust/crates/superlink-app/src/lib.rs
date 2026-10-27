@@ -11,7 +11,7 @@ pub mod query;
 pub mod settings;
 pub mod shell_hosts;
 
-pub use history::{HistoryService, redact};
+pub use history::{HistoryService, placeholder_count, redact};
 pub use notebook::{NotebookError, NotebookService};
 pub use profiles::{Credentials, ProfileService};
 pub use queries::{DraftService, QueryLibrary};

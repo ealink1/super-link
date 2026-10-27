@@ -7,6 +7,7 @@ use gpui::{Context, Entity, FontWeight, Render, SharedString, Window, div, prelu
 use serde_json::Value;
 use superlink_app::{
     Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
+    placeholder_count,
 };
 use superlink_domain::{Draft, History, Profile, ResultSet};
 
@@ -44,6 +45,8 @@ pub struct QueryPage {
     entries: Vec<History>,
     /// Unredacted statements from this session, keyed by history row id.
     recent_sql: HashMap<i64, String>,
+    /// Some(count) while a redacted statement is loaded and needs literals.
+    redacted_notice: Option<usize>,
 }
 
 impl QueryPage {
@@ -74,6 +77,7 @@ impl QueryPage {
             history_open: false,
             entries: Vec::new(),
             recent_sql: HashMap::new(),
+            redacted_notice: None,
         }
     }
 
@@ -84,6 +88,7 @@ impl QueryPage {
 
     pub fn select_profile(&mut self, profile: Profile, cx: &mut Context<Self>) {
         let supported = self.queries.supports(profile.sql_dialect());
+        self.redacted_notice = None;
         self.tabs = self.load_tabs(&profile);
         self.active = 0;
         let text = self
@@ -144,6 +149,7 @@ impl QueryPage {
         }
         self.save_active(cx);
         self.active = index;
+        self.redacted_notice = None;
         let text = self.tabs[index].text.clone();
         self.editor
             .update(cx, |editor, cx| editor.set_text(text, cx));
@@ -155,6 +161,7 @@ impl QueryPage {
             return;
         };
         self.save_active(cx);
+        self.redacted_notice = None;
         let tab = Self::new_tab(&profile, self.tabs.len() + 1);
         self.tabs.push(tab);
         self.active = self.tabs.len() - 1;
@@ -265,6 +272,8 @@ impl QueryPage {
                 this.running = false;
                 match outcome {
                     Ok(result) => {
+                        // A successful run means the literals were supplied.
+                        this.redacted_notice = None;
                         this.status = format!(
                             "{} 行 · {} 列{} · {:.1} ms",
                             result.rows.len(),
@@ -309,11 +318,55 @@ impl QueryPage {
     /// Clicking a row restores this session's exact statement, or the redacted
     /// template for entries recorded before this window opened.
     fn load_history(&mut self, id: i64, redacted: String, cx: &mut Context<Self>) {
-        let (text, note) = resolve_history_text(self.recent_sql.get(&id).cloned(), redacted);
+        let from_session = self.recent_sql.get(&id).cloned();
+        let placeholders = placeholder_count(&redacted);
+        let (text, note) = resolve_history_text(from_session.clone(), redacted);
+        self.redacted_notice = from_session.is_none().then_some(placeholders);
         self.editor
             .update(cx, |editor, cx| editor.set_text(text, cx));
         self.status = note.into();
         cx.notify();
+    }
+
+    fn redacted_banner(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let count = self.redacted_notice.unwrap_or(0);
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .py_2()
+            .bg(theme.warning_bg)
+            .border_b_1()
+            .border_color(theme.warning_border)
+            .child(icons::icon(
+                "shell/circle-help.svg",
+                14.0,
+                theme.warning_text,
+            ))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.warning_text)
+                    .child(format!(
+                        "该语句来自历史记录，{count} 处字面量已被替换为 ?，执行前请手动补值"
+                    )),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .id("dismiss-redacted")
+                    .px_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(theme.warning_border))
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.redacted_notice = None;
+                        cx.notify();
+                    }))
+                    .child(icons::icon("shell/x.svg", 12.0, theme.warning_text)),
+            )
     }
 
     fn toggle_history(&mut self, cx: &mut Context<Self>) {
@@ -867,6 +920,7 @@ impl Render for QueryPage {
             .bg(theme.surface)
             .child(self.tab_strip(cx))
             .child(self.toolbar(cx))
+            .children(self.redacted_notice.map(|_| self.redacted_banner(cx)))
             .child(
                 div()
                     .flex()
