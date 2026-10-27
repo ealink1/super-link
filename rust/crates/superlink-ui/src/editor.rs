@@ -26,6 +26,8 @@ pub struct SqlEditor {
     enabled: bool,
     /// Invoked by Cmd+R so the editor can run without a toolbar click.
     on_run: Option<Box<dyn Fn(&mut Window, &mut App) + 'static>>,
+    /// Fires after the text changed, used by search boxes.
+    on_change: Option<Box<dyn Fn(&str, &mut App) + 'static>>,
 }
 
 impl SqlEditor {
@@ -41,6 +43,27 @@ impl SqlEditor {
             last_bounds: None,
             enabled: true,
             on_run: None,
+            on_change: None,
+        }
+    }
+
+    pub fn set_on_change(
+        &mut self,
+        handler: impl Fn(&str, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
+        self.on_change = Some(Box::new(handler));
+    }
+
+    pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, cx: &mut Context<Self>) {
+        self.placeholder = placeholder.into();
+        cx.notify();
+    }
+
+    fn emit_change(&self, cx: &mut Context<Self>) {
+        if let Some(handler) = self.on_change.as_ref() {
+            let text = self.content.to_string();
+            handler(&text, cx);
         }
     }
 
@@ -62,6 +85,7 @@ impl SqlEditor {
         self.selected_range = end..end;
         self.marked_range = None;
         cx.notify();
+        self.emit_change(cx);
     }
 
     pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
@@ -266,6 +290,7 @@ impl EntityInputHandler for SqlEditor {
         self.selected_range = range.start + new_text.len()..range.start + new_text.len();
         self.marked_range.take();
         cx.notify();
+        self.emit_change(cx);
     }
 
     fn replace_and_mark_text_in_range(

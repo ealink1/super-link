@@ -11,6 +11,7 @@ use superlink_app::{
 };
 use superlink_domain::Profile;
 
+use crate::editor::SqlEditor;
 use crate::icons;
 use crate::note_page::NotePage;
 use crate::query_page::QueryPage;
@@ -45,6 +46,8 @@ pub struct SuperLinkApp {
     settings: Arc<SettingsService>,
     mode: ThemeMode,
     settings_open: bool,
+    sql_filter: String,
+    sql_search: Entity<SqlEditor>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -79,6 +82,22 @@ impl SuperLinkApp {
                 cx,
             )
         });
+        let weak_app = cx.entity().downgrade();
+        let sql_search = cx.new(SqlEditor::new);
+        sql_search.update(cx, move |editor, cx| {
+            editor.set_placeholder("搜索连接…", cx);
+            let weak_app = weak_app.clone();
+            editor.set_on_change(
+                move |text, app| {
+                    let weak_app = weak_app.clone();
+                    let _ = weak_app.update(app, |page, cx| {
+                        page.sql_filter = text.to_string();
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
         let note_page = cx.new(|_cx| NotePage::new(notebook, theme));
         let terminal_page = cx.new(|cx| TerminalPage::new(hosts, theme, cx));
         let mut app = Self {
@@ -92,6 +111,8 @@ impl SuperLinkApp {
             settings,
             mode,
             settings_open: false,
+            sql_filter: String::new(),
+            sql_search: sql_search.clone(),
             workspace: Workspace::Sql,
             theme,
             error,
@@ -316,6 +337,71 @@ impl SuperLinkApp {
                 ),
         );
 
+        column = column.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .px_2()
+                .pb_2()
+                .child(
+                    div()
+                        .id("new-query-side")
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(theme.accent_soft))
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.query_page.update(cx, |page, cx| page.add_tab(cx));
+                            this.workspace = Workspace::Sql;
+                            cx.notify();
+                        }))
+                        .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
+                        .child(div().text_xs().text_color(theme.muted).child("新建查询")),
+                )
+                .child(
+                    div()
+                        .id("history-side")
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(theme.accent_soft))
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.workspace = Workspace::Sql;
+                            this.query_page
+                                .update(cx, |page, cx| page.toggle_history(cx));
+                            cx.notify();
+                        }))
+                        .child(icons::icon("superlink/history.svg", 14.0, theme.muted))
+                        .child(div().text_xs().text_color(theme.muted).child("执行历史")),
+                ),
+        );
+
+        column = column.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_1()
+                .mx_2()
+                .mb_2()
+                .px_2()
+                .h(px(28.0))
+                .rounded_md()
+                .border_1()
+                .border_color(theme.border)
+                .bg(theme.surface)
+                .child(icons::icon("shell/search.svg", 13.0, theme.muted))
+                .child(self.sql_search.clone()),
+        );
+
         if self.profiles.is_empty() {
             column = column.child(
                 div()
@@ -327,8 +413,16 @@ impl SuperLinkApp {
             );
         }
 
+        let needle = self.sql_filter.to_lowercase();
         let mut groups: BTreeMap<String, Vec<(usize, &Profile)>> = BTreeMap::new();
         for (index, profile) in self.profiles.iter().enumerate() {
+            if !needle.is_empty()
+                && !profile.name.to_lowercase().contains(&needle)
+                && !profile.sql_dialect().to_lowercase().contains(&needle)
+                && !profile.group.to_lowercase().contains(&needle)
+            {
+                continue;
+            }
             let key = if profile.group.trim().is_empty() {
                 "未分组".to_string()
             } else {
@@ -550,7 +644,7 @@ impl Render for SuperLinkApp {
             )
             .child(if self.settings_open {
                 self.settings_view(cx).into_any_element()
-            } else {
+            } else if self.workspace == Workspace::Sql {
                 div()
                     .flex()
                     .flex_1()
@@ -569,6 +663,17 @@ impl Render for SuperLinkApp {
                                 Workspace::Shell => self.terminal_page.clone().into_any_element(),
                             }),
                     )
+                    .into_any_element()
+            } else {
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .child(match self.workspace {
+                        Workspace::Shell => self.terminal_page.clone().into_any_element(),
+                        Workspace::Note => self.note_page.clone().into_any_element(),
+                        Workspace::Sql => div().into_any_element(),
+                    })
                     .into_any_element()
             })
             .child(

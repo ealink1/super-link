@@ -173,7 +173,7 @@ impl QueryPage {
         cx.notify();
     }
 
-    fn add_tab(&mut self, cx: &mut Context<Self>) {
+    pub fn add_tab(&mut self, cx: &mut Context<Self>) {
         let Some(profile) = self.profile.clone() else {
             return;
         };
@@ -470,7 +470,7 @@ impl QueryPage {
             )
     }
 
-    fn toggle_history(&mut self, cx: &mut Context<Self>) {
+    pub fn toggle_history(&mut self, cx: &mut Context<Self>) {
         self.history_open = !self.history_open;
         if self.history_open {
             self.reload_history();

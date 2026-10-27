@@ -13,7 +13,7 @@ use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, InspectorElementId, KeyDownEvent,
     LayoutId, MouseButton, PaintQuad, Pixels, Render, ShapedLine, SharedString, Style, TextRun,
-    UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size,
+    UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size, FontWeight,
 };
 use superlink_app::HostService;
 use superlink_domain::ShellHost;
@@ -24,6 +24,7 @@ use superlink_terminal::{
 
 use superlink_terminal::Session;
 
+use crate::editor::SqlEditor;
 use crate::icons;
 use crate::theme::Theme;
 use crate::vt::{Color, Screen};
@@ -80,6 +81,8 @@ pub struct TerminalPage {
     focus: FocusHandle,
     running: Arc<AtomicBool>,
     scroll_offset: usize,
+    filter: String,
+    search: Entity<SqlEditor>,
     error: Option<SharedString>,
     /// IME preedit text, shown locally and never sent before commit.
     composing: Composition,
@@ -94,6 +97,22 @@ pub struct TerminalPage {
 impl TerminalPage {
     pub fn new(hosts: Arc<HostService>, theme: Theme, cx: &mut Context<Self>) -> Self {
         let host_list = hosts.list().unwrap_or_default();
+        let weak_page = cx.entity().downgrade();
+        let search = cx.new(SqlEditor::new);
+        search.update(cx, move |editor, cx| {
+            editor.set_placeholder("搜索主机…", cx);
+            let weak_page = weak_page.clone();
+            editor.set_on_change(
+                move |text, app| {
+                    let weak_page = weak_page.clone();
+                    let _ = weak_page.update(app, |page, cx| {
+                        page.filter = text.to_string();
+                        cx.notify();
+                    });
+                },
+                cx,
+            );
+        });
         Self {
             hosts,
             theme,
@@ -107,6 +126,8 @@ impl TerminalPage {
             focus: cx.focus_handle(),
             running: Arc::new(AtomicBool::new(false)),
             scroll_offset: 0,
+            filter: String::new(),
+            search,
             error: None,
             composing: Composition::default(),
             target: None,
@@ -126,6 +147,13 @@ impl TerminalPage {
         if self.selected >= self.host_list.len() {
             self.selected = self.host_list.len().saturating_sub(1);
         }
+        cx.notify();
+    }
+
+    fn connect_host_at(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.selected = index;
+        self.connect_selected(cx);
+        self.focus.focus(window);
         cx.notify();
     }
 
@@ -510,76 +538,176 @@ impl TerminalPage {
             })
     }
 
-    fn host_list(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Card grid shown while no session is open, mirroring the Go layout.
+    fn host_cards(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
-        let mut column = div()
+        let needle = self.filter.to_lowercase();
+        let matches: Vec<(usize, &ShellHost)> = self
+            .host_list
+            .iter()
+            .enumerate()
+            .filter(|(_, host)| {
+                needle.is_empty()
+                    || host.name.to_lowercase().contains(&needle)
+                    || host.host.to_lowercase().contains(&needle)
+                    || host.user.to_lowercase().contains(&needle)
+            })
+            .collect();
+
+        let area = div()
             .flex()
             .flex_col()
-            .w(px(220.0))
-            .h_full()
-            .bg(theme.sidebar)
-            .border_r_1()
+            .flex_1()
+            .min_h(px(0.0))
+            .px_3()
+            .pt_3()
+            .gap_2()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .w(px(300.0))
+                    .px_2()
+                    .h(px(28.0))
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(self.search.clone()),
+                    )
+            )
+            .child(
+                div()
+                    .id("reload-hosts")
+                    .flex()
+                    .items_center()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)))
+                    .child(icons::icon("shell/refresh-cw.svg", 13.0, theme.muted)),
+            );
+
+        if matches.is_empty() {
+            return area.child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .items_center()
+                    .justify_center()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(if self.host_list.is_empty() {
+                        "还没有 SSH 主机。可以先打开本地终端。"
+                    } else {
+                        "没有匹配的主机"
+                    }),
+            );
+        }
+
+        area.child(
+            div()
+                .id("host-cards")
+                .flex()
+                .flex_wrap()
+                .gap_2()
+                .overflow_y_scroll()
+                .children(matches.into_iter().map(|(index, host)| {
+                    self.host_card(index, host, cx)
+                })),
+        )
+    }
+
+    fn host_card(
+        &self,
+        index: usize,
+        host: &ShellHost,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        let name = SharedString::from(host.name.clone());
+        let endpoint = SharedString::from(format!("{}@{}:{}", host.user, host.host, host.port));
+        div()
+            .w(px(280.0))
+            .flex()
+            .flex_col()
+            .gap_2()
+            .p_3()
+            .rounded_md()
+            .bg(theme.surface)
+            .border_1()
             .border_color(theme.border)
             .child(
                 div()
                     .flex()
                     .items_center()
-                    .justify_between()
-                    .px_3()
-                    .h(px(40.0))
-                    .child(div().text_xs().text_color(theme.muted).child("主机"))
+                    .gap_2()
                     .child(
                         div()
-                            .id("reload-hosts")
-                            .cursor_pointer()
-                            .text_xs()
-                            .text_color(theme.muted)
-                            .on_click(
-                                cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)),
-                            )
-                            .child(format!("{}", self.host_list.len())),
-                    ),
-            );
-        if self.host_list.is_empty() {
-            column = column.child(
-                div()
-                    .px_3()
-                    .py_2()
-                    .text_xs()
-                    .text_color(theme.muted)
-                    .child("还没有 SSH 主机。可以先打开本地终端。"),
-            );
-        }
-        for (index, host) in self.host_list.iter().enumerate() {
-            let active = index == self.selected;
-            let label = format!("{}@{}", host.user, host.host);
-            column = column.child(
-                div()
-                    .id(("host", index))
-                    .mx_2()
-                    .px_2()
-                    .py_2()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(if active {
-                        theme.accent_soft
-                    } else {
-                        theme.sidebar
-                    })
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.selected = index;
-                        cx.notify();
-                    }))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(34.0))
+                            .rounded_md()
+                            .bg(theme.accent_soft)
+                            .child(icons::icon("shell/terminal.svg", 16.0, theme.accent)),
+                    )
                     .child(
                         div()
                             .text_sm()
-                            .text_color(if active { theme.accent } else { theme.text })
-                            .child(SharedString::from(host.name.clone())),
-                    )
-                    .child(div().text_xs().text_color(theme.muted).child(label)),
-            );
-        }
-        column
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child(name),
+                    ),
+            )
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(endpoint),
+            )
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(if host.notes.is_empty() {
+                        SharedString::from("暂无备注")
+                    } else {
+                        SharedString::from(host.notes.clone())
+                    }),
+            )
+            .child(
+                div()
+                    .id(("quick-connect", index))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .h(px(28.0))
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(theme.canvas)
+                    .border_1()
+                    .border_color(theme.border)
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, window, cx| {
+                        this.connect_host_at(index, window, cx)
+                    }))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.text)
+                            .child("快速连接"),
+                    ),
+            )
     }
 
     fn terminal_area(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1117,14 +1245,23 @@ impl Render for TerminalPage {
             .size_full()
             .bg(theme.canvas)
             .child(self.header(cx))
-            .child(
+            .child(if self.session.is_some() {
                 div()
                     .flex()
                     .flex_1()
                     .min_h(px(0.0))
-                    .child(self.host_list(cx))
-                    .child(self.terminal_area(cx)),
-            )
+                    .child(self.terminal_area(cx))
+                    .into_any_element()
+            } else {
+                div()
+                    .flex()
+                    .flex_col()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .bg(theme.canvas)
+                    .child(self.host_cards(cx))
+                    .into_any_element()
+            })
     }
 }
 
