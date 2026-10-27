@@ -24,6 +24,8 @@ pub struct SqlEditor {
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
     enabled: bool,
+    /// Invoked by Cmd+R so the editor can run without a toolbar click.
+    on_run: Option<Box<dyn Fn(&mut Window, &mut App) + 'static>>,
 }
 
 impl SqlEditor {
@@ -38,7 +40,16 @@ impl SqlEditor {
             last_layout: None,
             last_bounds: None,
             enabled: true,
+            on_run: None,
         }
+    }
+
+    pub fn set_on_run(
+        &mut self,
+        handler: impl Fn(&mut Window, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
+        self.on_run = Some(Box::new(handler));
     }
 
     pub fn text(&self) -> &str {
@@ -128,6 +139,11 @@ impl SqlEditor {
             "right" => self.move_to(self.next_boundary(self.cursor_offset()), cx),
             "home" => self.move_to(0, cx),
             "end" => self.move_to(self.content.len(), cx),
+            "r" if modifiers.platform => {
+                if let Some(handler) = self.on_run.as_ref() {
+                    handler(window, cx);
+                }
+            }
             "a" if modifiers.platform => self.select_all(cx),
             "c" if modifiers.platform => self.copy(cx),
             "x" if modifiers.platform => {

@@ -47,6 +47,8 @@ pub struct QueryPage {
     recent_sql: HashMap<i64, String>,
     /// Some(count) while a redacted statement is loaded and needs literals.
     redacted_notice: Option<usize>,
+    /// Waiting for the user to confirm running a statement with placeholders.
+    confirm_run: bool,
 }
 
 impl QueryPage {
@@ -59,7 +61,7 @@ impl QueryPage {
         theme: Theme,
         cx: &mut Context<Self>,
     ) -> Self {
-        Self {
+        let page = Self {
             profiles,
             queries,
             drafts,
@@ -78,7 +80,20 @@ impl QueryPage {
             entries: Vec::new(),
             recent_sql: HashMap::new(),
             redacted_notice: None,
-        }
+            confirm_run: false,
+        };
+        // Cmd+R in the editor runs the statement, matching the toolbar label.
+        let weak = cx.entity().downgrade();
+        page.editor.update(cx, move |editor, cx| {
+            editor.set_on_run(
+                move |_window, app| {
+                    let weak = weak.clone();
+                    let _ = weak.update(app, |page, cx| page.run(cx));
+                },
+                cx,
+            );
+        });
+        page
     }
 
     pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
@@ -89,6 +104,7 @@ impl QueryPage {
     pub fn select_profile(&mut self, profile: Profile, cx: &mut Context<Self>) {
         let supported = self.queries.supports(profile.sql_dialect());
         self.redacted_notice = None;
+        self.confirm_run = false;
         self.tabs = self.load_tabs(&profile);
         self.active = 0;
         let text = self
@@ -150,6 +166,7 @@ impl QueryPage {
         self.save_active(cx);
         self.active = index;
         self.redacted_notice = None;
+        self.confirm_run = false;
         let text = self.tabs[index].text.clone();
         self.editor
             .update(cx, |editor, cx| editor.set_text(text, cx));
@@ -162,6 +179,7 @@ impl QueryPage {
         };
         self.save_active(cx);
         self.redacted_notice = None;
+        self.confirm_run = false;
         let tab = Self::new_tab(&profile, self.tabs.len() + 1);
         self.tabs.push(tab);
         self.active = self.tabs.len() - 1;
@@ -213,6 +231,10 @@ impl QueryPage {
     }
 
     fn run(&mut self, cx: &mut Context<Self>) {
+        self.run_impl(false, cx);
+    }
+
+    fn run_impl(&mut self, force: bool, cx: &mut Context<Self>) {
         if self.running {
             return;
         }
@@ -228,6 +250,14 @@ impl QueryPage {
             cx.notify();
             return;
         }
+        if !force
+            && needs_execution_confirmation(self.redacted_notice.is_some(), placeholder_count(&sql))
+        {
+            self.confirm_run = true;
+            cx.notify();
+            return;
+        }
+        self.confirm_run = false;
         let credentials = self
             .profiles
             .credentials(&profile)
@@ -307,6 +337,16 @@ impl QueryPage {
             .update(cx, |editor, cx| editor.set_enabled(false, cx));
     }
 
+    fn cancel_execution(&mut self, cx: &mut Context<Self>) {
+        self.confirm_run = false;
+        cx.notify();
+    }
+
+    /// Re-reads the editor so edits made while the prompt was open are kept.
+    fn confirm_execution(&mut self, cx: &mut Context<Self>) {
+        self.run_impl(true, cx);
+    }
+
     fn reload_history(&mut self) {
         self.entries = self
             .profile
@@ -368,6 +408,59 @@ impl QueryPage {
                         cx.notify();
                     }))
                     .child(icons::icon("shell/x.svg", 12.0, theme.warning_text)),
+            )
+    }
+
+    fn confirm_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let placeholders = placeholder_count(self.editor.read(cx).text());
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .px_3()
+            .py_2()
+            .bg(theme.warning_bg)
+            .border_b_1()
+            .border_l_2()
+            .border_color(theme.warning_border)
+            .child(icons::icon(
+                "shell/circle-help.svg",
+                15.0,
+                theme.warning_text,
+            ))
+            .child(
+                div()
+                    .text_sm()
+                    .font_weight(FontWeight::MEDIUM)
+                    .text_color(theme.warning_text)
+                    .child(format!(
+                        "语句仍有 {placeholders} 处 ? 占位符，直接执行大概率失败。仍要执行吗？"
+                    )),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .id("cancel-run")
+                    .px_3()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .border_1()
+                    .border_color(theme.warning_border)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.cancel_execution(cx)))
+                    .child(div().text_xs().text_color(theme.warning_text).child("取消")),
+            )
+            .child(
+                div()
+                    .id("confirm-run")
+                    .px_3()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(theme.warning_border)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.confirm_execution(cx)))
+                    .child(div().text_xs().text_color(theme.surface).child("仍然执行")),
             )
     }
 
@@ -891,6 +984,11 @@ impl QueryPage {
     }
 }
 
+/// Only a redacted statement that still has placeholders needs a confirmation.
+fn needs_execution_confirmation(redacted: bool, placeholders: usize) -> bool {
+    redacted && placeholders > 0
+}
+
 /// Entries recorded in this window keep their exact text; older ones only have
 /// the redacted copy that was persisted.
 fn resolve_history_text(recent: Option<String>, redacted: String) -> (String, &'static str) {
@@ -921,6 +1019,7 @@ impl Render for QueryPage {
             .child(self.tab_strip(cx))
             .child(self.toolbar(cx))
             .children(self.redacted_notice.map(|_| self.redacted_banner(cx)))
+            .children(self.confirm_run.then(|| self.confirm_bar(cx)))
             .child(
                 div()
                     .flex()
@@ -956,5 +1055,17 @@ mod history_tests {
         let (text, note) = resolve_history_text(None, "SELECT ?".into());
         assert_eq!(text, "SELECT ?");
         assert!(note.contains("脱敏"));
+    }
+}
+
+#[cfg(test)]
+mod confirm_tests {
+    use super::needs_execution_confirmation;
+
+    #[test]
+    fn only_redacted_statements_with_placeholders_are_guarded() {
+        assert!(needs_execution_confirmation(true, 2));
+        assert!(!needs_execution_confirmation(false, 2));
+        assert!(!needs_execution_confirmation(true, 0));
     }
 }
