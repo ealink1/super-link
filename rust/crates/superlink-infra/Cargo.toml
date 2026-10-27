@@ -1,0 +1,18 @@
+[package]
+name = "superlink-infra"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+superlink-domain = { path = "../superlink-domain" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+rusqlite.workspace = true
+aes-gcm.workspace = true
+getrandom.workspace = true
+zeroize.workspace = true

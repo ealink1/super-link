@@ -1,0 +1,11 @@
+[package]
+name = "superlink-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+superlink-domain = { path = "../superlink-domain" }
+superlink-app = { path = "../superlink-app" }
+gpui.workspace = true

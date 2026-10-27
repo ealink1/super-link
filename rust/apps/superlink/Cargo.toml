@@ -1,0 +1,16 @@
+[package]
+name = "superlink"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "superlink"
+path = "src/main.rs"
+
+[dependencies]
+superlink-domain = { path = "../../crates/superlink-domain" }
+superlink-app = { path = "../../crates/superlink-app" }
+superlink-infra = { path = "../../crates/superlink-infra" }
+superlink-ui = { path = "../../crates/superlink-ui" }
