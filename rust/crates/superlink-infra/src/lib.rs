@@ -6,6 +6,6 @@ pub mod ipc;
 pub mod secrets;
 pub mod state;
 
-pub use ipc::{AgentError, DriverAgent};
+pub use ipc::{AgentError, AgentFrame, DriverAgent};
 pub use secrets::{LocalVault, SecretError};
 pub use state::{Store, StoreError};

@@ -5,6 +5,11 @@ members = [
     "crates/superlink-app",
     "crates/superlink-infra",
     "crates/superlink-ui",
+    "crates/superlink-drivers",
+    "crates/superlink-sql",
+    "crates/superlink-files",
+    "crates/superlink-update",
+    "crates/superlink-terminal",
     "apps/superlink",
 ]
 

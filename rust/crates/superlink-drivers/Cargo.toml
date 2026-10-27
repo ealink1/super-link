@@ -1,0 +1,16 @@
+[package]
+name = "superlink-drivers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+superlink-domain = { path = "../superlink-domain" }
+superlink-infra = { path = "../superlink-infra" }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+sha2.workspace = true
+hex.workspace = true
+object = { version = "0.36", default-features = false, features = ["read_core", "elf", "macho", "pe", "std"] }

@@ -40,7 +40,9 @@ cargo run -p superlink
 
 ## 当前状态
 
-已完成领域层、基础设施层、应用层与 GPUI 外壳，32 个测试通过。
-驱动接入、SQL 编辑器与结果表格、终端、笔记编辑器、更新器仍在后续阶段。
+- 9 个 crate：domain / infra / app / drivers / sql / files / update / terminal / ui
+- 267 个测试通过（2 个真实 SSH 测试默认忽略）
+- 已接通：SQL 查询（含中文输入法与结果表）、加密笔记预览、驱动校验与执行
+- 未接通：终端工作区 UI、笔记编辑、表目录浏览、更新网络客户端、打包
 
 详见 `docs/plans/2026-10-27-rust-gpui-rewrite.md`。

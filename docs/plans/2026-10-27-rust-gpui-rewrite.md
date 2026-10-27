@@ -35,27 +35,42 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
    原样保留，新版本仍可写回。
 4. 驱动协议：一行一个 JSON 对象，id 关联，成功时读取 data 字段。
 
-## 已完成（M1）
+## 已完成（M1 + M2）
 
 - 领域层全量移植：数据源目录（36 项与别名）、连接配置与可见性过滤、
   结果集/草稿/历史/保存查询、表结构与结构哈希、笔记与笔记本校验、SSH 主机校验。
 - 基础设施层：SQLite 元数据存储（含迁移与乐观并发）、AES-256-GCM 凭据保险库、
-  driver-agent JSON-lines 客户端。
-- 应用层：ProfileService（凭据与元数据分离）、DraftService、QueryLibrary。
-- UI 层：GPUI 主窗口、SQL / Shell / Note 三个工作区切换、连接侧栏、状态栏。
-- 测试：cargo test 覆盖可见性、校验边界、加密往返与篡改检测、修订冲突。
+  driver-agent JSON-lines 客户端（含完整响应帧）。
+- 应用层：ProfileService（凭据与元数据分离）、DraftService、QueryLibrary、
+  NotebookService（加密快照 + 修订冲突）、QueryService（真实执行）。
+- 驱动层（M2）：bundle.json 校验、SHA256、Mach-O/ELF/PE 架构检查、
+  metadata 身份核对、connect/query/close，行预算与列序映射。
+  已用仓库自带的 sqlite agent 跑通端到端查询。
+- UI 层（M2）：GPUI 主窗口、SQL / Shell / Note 工作区切换、连接侧栏；
+  SQL 工作区含支持中文输入法的编辑器、运行按钮、虚拟行数上限的结果表；
+  Note 工作区读取加密笔记本并预览。
+- 测试：cargo test 覆盖可见性、校验边界、加密往返与篡改检测、修订冲突、
+  驱动校验与真实 SQLite 查询、查询服务与笔记本快照。
 
 ## 后续阶段
 
-1. 驱动接入：agent 发现、架构/哈希校验、connect/query/close 方法绑定，
-   把结果集映射到 domain::ResultSet。
-2. SQL 工作区：代码编辑器（GPUI EntityInputHandler）、语法高亮、补全、
-   虚拟化结果表格、分页与写回。
-3. 终端工作区：russh + portable-pty + alacritty_terminal，SSH 指纹确认、
-   SFTP、Linux 监控。
-4. 笔记工作区：Markdown 编辑与预览、分组、全文搜索、回收站、加密快照。
-5. 桌面集成：托盘、后台驻留、多窗口、系统菜单、自动更新（Ed25519 校验）。
-6. 打包与发布：六平台构建、签名/公证、与现有 release 流水线对接。
+1. SQL 工作区完善：多行编辑器、语法高亮、补全弹窗、表目录浏览、分页与写回、结构设计器。
+2. 终端工作区接入：superlink-terminal 已实现 SSH/PTY/SFTP/监控，但尚未接入 GPUI 会话视图与主机表单。
+3. 笔记工作区完善：Markdown 编辑、分组、全文搜索、回收站。
+4. 桌面集成：托盘、后台驻留、多窗口、系统菜单、更新网络客户端。
+5. 打包与发布：六平台构建、签名/公证、与现有 release 流水线对接。
+
+## crate 进度
+
+- superlink-domain：完成，17 个测试
+- superlink-infra：完成，12 个测试
+- superlink-app：完成（含查询与加密笔记本），13 个测试
+- superlink-drivers：完成（bundle/架构/哈希/会话），9 个测试
+- superlink-sql：完成（词法/补全/DDL/变更/分页），40 个测试
+- superlink-files：完成（导入导出/SQL 文档），39 个测试
+- superlink-update：完成（验签/校验/解压/回滚），74 个测试
+- superlink-terminal：完成（SSH/SFTP/PTY/监控），63 个测试
+- superlink-ui：SQL 与 Note 已接通，Shell 未接通
 
 ## 验证
 

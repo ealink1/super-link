@@ -60,6 +60,7 @@ impl Store {
             "PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON;",
         )?;
         migrate(&connection)?;
+        ensure_optional_tables(&connection)?;
         Ok(Self {
             path: path.to_path_buf(),
             db: Arc::new(Mutex::new(connection)),
@@ -273,6 +274,99 @@ impl Store {
         Ok(())
     }
 
+    pub fn shell_hosts(&self) -> StoreResult<Vec<superlink_domain::ShellHost>> {
+        let db = self.lock();
+        let mut statement =
+            db.prepare("SELECT metadata,secret_ref,revision FROM shell_hosts ORDER BY rowid")?;
+        let rows = statement.query_map([], read_shell_host_row)?;
+        let mut hosts = Vec::new();
+        for row in rows {
+            hosts.push(row?);
+        }
+        Ok(hosts)
+    }
+
+    /// Creates or updates a host under the same revision discipline as profiles.
+    pub fn save_shell_host(
+        &self,
+        host: &superlink_domain::ShellHost,
+    ) -> StoreResult<superlink_domain::ShellHost> {
+        let mut saved = host.clone();
+        if saved.revision == 0 {
+            saved.secret_ref = new_secret_ref();
+        }
+        if saved.secret_ref.is_empty() {
+            return Err(StoreError::MissingSecretRef);
+        }
+        let metadata = serde_json::to_string(&saved)?;
+        let db = self.lock();
+        let changed = if saved.revision == 0 {
+            db.execute(
+                "INSERT INTO shell_hosts(id,metadata,secret_ref,revision) VALUES(?,?,?,1)
+                 ON CONFLICT(id) DO NOTHING",
+                params![saved.id, metadata, saved.secret_ref],
+            )?
+        } else {
+            db.execute(
+                "UPDATE shell_hosts SET metadata=?,secret_ref=?,revision=revision+1
+                 WHERE id=? AND revision=?",
+                params![metadata, saved.secret_ref, saved.id, saved.revision],
+            )?
+        };
+        if changed != 1 {
+            return Err(StoreError::Domain(DomainError::Conflict));
+        }
+        saved.revision += 1;
+        Ok(saved)
+    }
+
+    pub fn delete_shell_host(&self, id: &str, revision: i64) -> StoreResult<()> {
+        let db = self.lock();
+        let changed = db.execute(
+            "DELETE FROM shell_hosts WHERE id=? AND revision=?",
+            params![id, revision],
+        )?;
+        if changed != 1 {
+            return Err(StoreError::Domain(DomainError::Conflict));
+        }
+        Ok(())
+    }
+
+    /// The notebook is one encrypted snapshot; only its reference and revision
+    /// live in the metadata database.
+    pub fn notebook_ref(&self) -> StoreResult<Option<(String, i64)>> {
+        let db = self.lock();
+        db.query_row(
+            "SELECT secret_ref,revision FROM notebook WHERE id=1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()
+        .map_err(StoreError::from)
+    }
+
+    /// Publishes a new snapshot reference only when the caller saw the latest
+    /// revision, so two windows cannot silently drop notes.
+    pub fn save_notebook_ref(&self, secret_ref: &str, expected_revision: i64) -> StoreResult<i64> {
+        let db = self.lock();
+        let changed = if expected_revision == 0 {
+            db.execute(
+                "INSERT INTO notebook(id,secret_ref,revision) VALUES(1,?,1)
+                 ON CONFLICT(id) DO NOTHING",
+                [secret_ref],
+            )?
+        } else {
+            db.execute(
+                "UPDATE notebook SET secret_ref=?,revision=revision+1 WHERE id=1 AND revision=?",
+                params![secret_ref, expected_revision],
+            )?
+        };
+        if changed != 1 {
+            return Err(StoreError::Domain(DomainError::Conflict));
+        }
+        Ok(expected_revision + 1)
+    }
+
     pub fn setting(&self, key: &str) -> StoreResult<Option<Value>> {
         let db = self.lock();
         let raw: Option<String> = db
@@ -297,6 +391,18 @@ impl Store {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
+}
+
+fn read_shell_host_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<superlink_domain::ShellHost> {
+    let raw: String = row.get(0)?;
+    let secret_ref: String = row.get(1)?;
+    let revision: i64 = row.get(2)?;
+    let mut host: superlink_domain::ShellHost = serde_json::from_str(&raw).map_err(|err| {
+        rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(err))
+    })?;
+    host.secret_ref = secret_ref;
+    host.revision = revision;
+    Ok(host)
 }
 
 fn read_profile_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Profile> {
@@ -346,6 +452,16 @@ fn migrate(connection: &Connection) -> StoreResult<()> {
             Err(err)
         }
     }
+}
+
+/// Tables the Go build creates on first use. Keeping them idempotent lets both
+/// implementations share one workspace without a migration bump.
+fn ensure_optional_tables(connection: &Connection) -> StoreResult<()> {
+    connection.execute_batch(
+        "CREATE TABLE IF NOT EXISTS notebook(id INTEGER PRIMARY KEY CHECK(id=1), secret_ref TEXT NOT NULL, revision INTEGER NOT NULL);
+         CREATE TABLE IF NOT EXISTS shell_hosts(id TEXT PRIMARY KEY, metadata TEXT NOT NULL, secret_ref TEXT NOT NULL, revision INTEGER NOT NULL);",
+    )?;
+    Ok(())
 }
 
 fn new_secret_ref() -> String {

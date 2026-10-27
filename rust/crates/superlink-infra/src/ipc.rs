@@ -24,6 +24,19 @@ pub enum AgentError {
 
 pub type AgentResult<T> = Result<T, AgentError>;
 
+/// One decoded response frame. Query rows and their column order travel
+/// separately on the wire, so the envelope is kept intact.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct AgentFrame {
+    pub data: Value,
+    pub fields: Vec<String>,
+    pub messages: Vec<String>,
+    pub rows_affected: i64,
+    pub truncated: bool,
+    pub budget_exhausted: bool,
+    pub outcome_unknown: bool,
+}
+
 /// One database driver running out of process. The wire format is the same
 /// JSON-lines protocol the Go agents already speak: one request object per
 /// line, exactly one response object per line, correlated by an integer id.
@@ -63,6 +76,16 @@ impl DriverAgent {
     /// Sends one request and waits for its response. The caller owns timeouts
     /// and cancellation; the agent serialises business requests internally.
     pub fn call(&mut self, method: &str, fields: Map<String, Value>) -> AgentResult<Value> {
+        Ok(self.call_frame(method, fields)?.data)
+    }
+
+    /// Returns the full envelope: column order, messages and budget flags live
+    /// beside the rows rather than inside them.
+    pub fn call_frame(
+        &mut self,
+        method: &str,
+        fields: Map<String, Value>,
+    ) -> AgentResult<AgentFrame> {
         let id = self.next_id;
         self.next_id += 1;
         let mut request = fields;
@@ -101,7 +124,27 @@ impl DriverAgent {
                 .to_string();
             return Err(AgentError::Remote(message));
         }
-        Ok(object.get("data").cloned().unwrap_or(Value::Null))
+        Ok(AgentFrame {
+            data: object.get("data").cloned().unwrap_or(Value::Null),
+            fields: string_list(object.get("fields")),
+            messages: string_list(object.get("messages")),
+            rows_affected: object
+                .get("rowsAffected")
+                .and_then(Value::as_i64)
+                .unwrap_or(0),
+            truncated: object
+                .get("truncated")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            budget_exhausted: object
+                .get("budgetExhausted")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            outcome_unknown: object
+                .get("outcomeUnknown")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+        })
     }
 
     pub fn shutdown(mut self) {
@@ -109,6 +152,19 @@ impl DriverAgent {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+fn string_list(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 impl Drop for DriverAgent {

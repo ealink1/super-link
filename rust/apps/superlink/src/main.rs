@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use superlink_app::ProfileService;
+use superlink_app::{DraftService, NotebookService, ProfileService, QueryService};
 use superlink_infra::{LocalVault, Store};
 
 fn main() {
@@ -18,8 +18,28 @@ fn main() {
         }
     };
     let vault = Arc::new(LocalVault::new(&root));
-    let service = Arc::new(ProfileService::new(store, vault));
-    superlink_ui::run(service);
+    let service = Arc::new(ProfileService::new(store.clone(), vault.clone()));
+    let queries = Arc::new(QueryService::new(drivers_dir()));
+    let drafts = Arc::new(DraftService::new(store.clone()));
+    let notebook = Arc::new(NotebookService::new(store, vault));
+    superlink_ui::run(service, queries, drafts, notebook);
+}
+
+/// Agent binaries live beside the application in release builds and in the
+/// repository during development.
+fn drivers_dir() -> PathBuf {
+    if let Some(dir) = std::env::var_os("SUPERLINK_DRIVERS_DIR") {
+        return PathBuf::from(dir);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        for candidate in ["../../../bin/drivers", "../../bin/drivers"] {
+            let dir = exe.join(candidate);
+            if dir.is_dir() {
+                return dir;
+            }
+        }
+    }
+    PathBuf::from("bin/drivers")
 }
 
 /// Same precedence as the Go build: an explicit root wins, otherwise the

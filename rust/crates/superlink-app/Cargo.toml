@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 superlink-domain = { path = "../superlink-domain" }
 superlink-infra = { path = "../superlink-infra" }
+superlink-drivers = { path = "../superlink-drivers" }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

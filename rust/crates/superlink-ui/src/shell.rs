@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use gpui::{
-    App, Application, Bounds, Context, FontWeight, SharedString, Window, WindowBounds,
-    WindowOptions, div, prelude::*, px, size,
+    App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString, Window,
+    WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
-use superlink_app::ProfileService;
+use superlink_app::{DraftService, NotebookService, ProfileService, QueryService};
 use superlink_domain::Profile;
 
+use crate::note_page::NotePage;
+use crate::query_page::QueryPage;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,6 +38,8 @@ impl Workspace {
 
 pub struct SuperLinkApp {
     service: Arc<ProfileService>,
+    query_page: Entity<QueryPage>,
+    note_page: Entity<NotePage>,
     profiles: Vec<Profile>,
     selected: usize,
     workspace: Workspace,
@@ -44,7 +48,14 @@ pub struct SuperLinkApp {
 }
 
 impl SuperLinkApp {
-    pub fn new(service: Arc<ProfileService>, window: &mut Window) -> Self {
+    pub fn new(
+        service: Arc<ProfileService>,
+        queries: Arc<QueryService>,
+        drafts: Arc<DraftService>,
+        notebook: Arc<NotebookService>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let theme = if window.appearance() == gpui::WindowAppearance::Dark {
             Theme::dark()
         } else {
@@ -54,13 +65,26 @@ impl SuperLinkApp {
             Ok(profiles) => (profiles, None),
             Err(err) => (Vec::new(), Some(SharedString::from(err.to_string()))),
         };
-        Self {
+        let query_page = cx.new(|cx| QueryPage::new(service.clone(), queries, drafts, theme, cx));
+        let note_page = cx.new(|_cx| NotePage::new(notebook, theme));
+        let mut app = Self {
             service,
+            query_page,
+            note_page,
             profiles,
             selected: 0,
             workspace: Workspace::Sql,
             theme,
             error,
+        };
+        app.sync_selection(cx);
+        app
+    }
+
+    fn sync_selection(&mut self, cx: &mut Context<Self>) {
+        if let Some(profile) = self.profiles.get(self.selected).cloned() {
+            self.query_page
+                .update(cx, |page, cx| page.select_profile(profile, cx));
         }
     }
 
@@ -153,6 +177,7 @@ impl SuperLinkApp {
                 .on_click(cx.listener(move |this, _event, _window, cx| {
                     this.selected = index;
                     this.workspace = Workspace::Sql;
+                    this.sync_selection(cx);
                     cx.notify();
                 }))
                 .child(
@@ -280,7 +305,11 @@ impl Render for SuperLinkApp {
                             .flex_1()
                             .min_w(px(0.0))
                             .bg(theme.canvas)
-                            .child(self.empty_state()),
+                            .child(match self.workspace {
+                                Workspace::Sql => self.query_page.clone().into_any_element(),
+                                Workspace::Note => self.note_page.clone().into_any_element(),
+                                Workspace::Shell => self.empty_state().into_any_element(),
+                            }),
                     ),
             )
             .child(
@@ -299,7 +328,12 @@ impl Render for SuperLinkApp {
     }
 }
 
-pub fn run(service: Arc<ProfileService>) {
+pub fn run(
+    service: Arc<ProfileService>,
+    queries: Arc<QueryService>,
+    drafts: Arc<DraftService>,
+    notebook: Arc<NotebookService>,
+) {
     Application::new().run(move |cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
         let handle = cx
@@ -313,7 +347,13 @@ pub fn run(service: Arc<ProfileService>) {
                     focus: true,
                     ..Default::default()
                 },
-                |window, cx| cx.new(|_cx| SuperLinkApp::new(service.clone(), window)),
+                |window, cx| {
+                    let service = service.clone();
+                    let queries = queries.clone();
+                    let drafts = drafts.clone();
+                    let notebook = notebook.clone();
+                    cx.new(|cx| SuperLinkApp::new(service, queries, drafts, notebook, window, cx))
+                },
             )
             .expect("failed to open the SuperLink window");
         let _ = handle;
