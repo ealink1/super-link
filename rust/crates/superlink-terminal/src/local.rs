@@ -6,12 +6,14 @@
 
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use portable_pty::{Child, CommandBuilder, MasterPty, PtySize, native_pty_system};
 use tokio::sync::mpsc;
 
 use crate::error::{Result, TerminalError};
+use crate::handle::SessionHandle;
 use crate::session::{OutputQueue, Session, SessionState};
 use crate::ssh::TerminalGeometry;
 
@@ -20,9 +22,9 @@ const READ_BUFFER_BYTES: usize = 8 << 10;
 
 /// A login shell running in a local PTY.
 pub struct LocalSession {
-    master: Option<Box<dyn MasterPty + Send>>,
-    writer: Option<Box<dyn Write + Send>>,
-    child: Option<Box<dyn Child + Send>>,
+    master: Arc<Mutex<Option<Box<dyn MasterPty + Send>>>>,
+    writer: Arc<Mutex<Option<Box<dyn Write + Send>>>>,
+    child: Arc<Mutex<Option<Box<dyn Child + Send>>>>,
     output: OutputQueue,
     state: SessionState,
     geometry: TerminalGeometry,
@@ -52,9 +54,9 @@ impl LocalSession {
             .spawn(move || pump(reader.as_mut(), output_tx))
             .map_err(TerminalError::Io)?;
         Ok(Self {
-            master: Some(pair.master),
-            writer: Some(writer),
-            child: Some(child),
+            master: Arc::new(Mutex::new(Some(pair.master))),
+            writer: Arc::new(Mutex::new(Some(writer))),
+            child: Arc::new(Mutex::new(Some(child))),
             output: OutputQueue::new(output_rx),
             state: SessionState::Open,
             geometry,
@@ -67,6 +69,39 @@ impl LocalSession {
 
     pub fn is_open(&self) -> bool {
         self.state == SessionState::Open
+    }
+
+    /// Write side that can be cloned and used while another thread blocks in
+    /// read. This is what the UI needs: reading must never hold the writer.
+    pub fn handle(&self) -> SessionHandle {
+        let writer = Arc::clone(&self.writer);
+        let master = Arc::clone(&self.master);
+        let child = Arc::clone(&self.child);
+        SessionHandle::new(
+            move |data| {
+                let mut guard = writer.lock().map_err(|_| closed())?;
+                let Some(writer) = guard.as_mut() else {
+                    return Err(closed());
+                };
+                writer.write_all(data).map_err(TerminalError::Io)
+            },
+            move |cols, rows| {
+                let geometry = TerminalGeometry::new(cols, rows);
+                let guard = master.lock().map_err(|_| closed())?;
+                let Some(master) = guard.as_ref() else {
+                    return Err(closed());
+                };
+                master.resize(pty_size(geometry)).map_err(pty_error)
+            },
+            move || {
+                let mut guard = child.lock().map_err(|_| closed())?;
+                if let Some(mut child) = guard.take() {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                }
+                Ok(())
+            },
+        )
     }
 }
 
@@ -82,11 +117,9 @@ impl Session for LocalSession {
                 "终端已关闭",
             )));
         }
-        let Some(writer) = self.writer.as_mut() else {
-            return Err(TerminalError::Io(io::Error::new(
-                io::ErrorKind::BrokenPipe,
-                "终端已关闭",
-            )));
+        let mut guard = self.writer.lock().map_err(|_| closed())?;
+        let Some(writer) = guard.as_mut() else {
+            return Err(closed());
         };
         writer.write_all(data).map_err(TerminalError::Io)
     }
@@ -102,11 +135,9 @@ impl Session for LocalSession {
         if geometry == self.geometry {
             return Ok(());
         }
-        let Some(master) = self.master.as_ref() else {
-            return Err(TerminalError::Io(io::Error::new(
-                io::ErrorKind::BrokenPipe,
-                "终端已关闭",
-            )));
+        let guard = self.master.lock().map_err(|_| closed())?;
+        let Some(master) = guard.as_ref() else {
+            return Err(closed());
         };
         master.resize(pty_size(geometry)).map_err(pty_error)?;
         self.geometry = geometry;
@@ -119,12 +150,18 @@ impl Session for LocalSession {
         }
         self.state = SessionState::Closed;
         self.output.close();
-        if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
-            let _ = child.wait();
+        if let Ok(mut guard) = self.child.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
         }
-        self.writer.take();
-        self.master.take();
+        if let Ok(mut guard) = self.writer.lock() {
+            guard.take();
+        }
+        if let Ok(mut guard) = self.master.lock() {
+            guard.take();
+        }
         Ok(())
     }
 
@@ -137,6 +174,10 @@ impl Drop for LocalSession {
     fn drop(&mut self) {
         let _ = self.close();
     }
+}
+
+fn closed() -> TerminalError {
+    TerminalError::Io(io::Error::new(io::ErrorKind::BrokenPipe, "终端已关闭"))
 }
 
 fn pump(reader: &mut dyn Read, output: mpsc::Sender<Vec<u8>>) {

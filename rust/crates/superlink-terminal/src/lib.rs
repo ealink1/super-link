@@ -26,6 +26,7 @@ pub mod connect_progress;
 pub mod error;
 pub mod files;
 pub mod fingerprint;
+pub mod handle;
 pub mod host_key;
 pub mod local;
 pub mod monitor;
@@ -38,6 +39,7 @@ pub mod transfer;
 pub use connect_progress::{ConnectEvent, ConnectStage, ConnectState};
 pub use error::{Result, TerminalError};
 pub use files::{RemoteFile, format_mode, normalize_remote_path, validate_remote_path};
+pub use handle::SessionHandle;
 pub use fingerprint::{
     fingerprint_from_bytes, fingerprint_from_openssh, fingerprint_sha256, fingerprints_match,
 };

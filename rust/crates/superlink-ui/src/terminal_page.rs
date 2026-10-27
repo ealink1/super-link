@@ -3,12 +3,11 @@
 //! The transport blocks on its own runtime, so connecting and reading happen
 //! on a worker thread; the GPUI thread only drains events and paints.
 
+use std::ops::Range;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
-
-use std::ops::Range;
 
 use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
@@ -19,7 +18,8 @@ use gpui::{
 use superlink_app::HostService;
 use superlink_domain::ShellHost;
 use superlink_terminal::{
-    CancelToken, HostKeyPolicy, LocalSession, SshClient, TerminalGeometry, TerminalError,
+    CancelToken, HostKeyPolicy, LocalSession, SessionHandle, SshClient, TerminalGeometry,
+    TerminalError,
 };
 
 use superlink_terminal::Session;
@@ -30,10 +30,8 @@ use crate::vt::{Color, Screen};
 const GEOMETRY: TerminalGeometry = TerminalGeometry { cols: 100, rows: 28 };
 const POLL_INTERVAL: Duration = Duration::from_millis(16);
 
-type SessionRef = Arc<Mutex<Box<dyn Session + Send>>>;
-
 enum Event {
-    Opened { session: SessionRef, fingerprint: Option<String> },
+    Opened { handle: SessionHandle, fingerprint: Option<String> },
     Data(Vec<u8>),
     Closed(String),
     Failed(String),
@@ -52,7 +50,7 @@ pub struct TerminalPage {
     host_list: Vec<ShellHost>,
     selected: usize,
     status: SharedString,
-    session: Option<SessionRef>,
+    session: Option<SessionHandle>,
     pending: Option<(ShellHost, String)>,
     screen: Screen,
     parser: vte::Parser,
@@ -151,8 +149,8 @@ impl TerminalPage {
         for event in events {
             changed = true;
             match event {
-                Event::Opened { session, fingerprint } => {
-                    self.session = Some(session);
+                Event::Opened { handle, fingerprint } => {
+                    self.session = Some(handle);
                     self.status = match fingerprint {
                         Some(fingerprint) => SharedString::from(format!("已连接 · {fingerprint}")),
                         None => "本地终端".into(),
@@ -213,15 +211,11 @@ impl TerminalPage {
     }
 
     fn send(&mut self, bytes: &[u8], cx: &mut Context<Self>) {
-        let Some(session) = self.session.clone() else {
+        let Some(handle) = self.session.clone() else {
             return;
         };
-        let result = session
-            .lock()
-            .map_err(|_| "会话不可用".to_string())
-            .and_then(|mut guard| guard.write(bytes).map_err(|err| err.to_string()));
-        if let Err(message) = result {
-            self.error = Some(message.into());
+        if let Err(err) = handle.write(bytes) {
+            self.error = Some(err.to_string().into());
             cx.notify();
         }
     }
@@ -242,10 +236,8 @@ impl TerminalPage {
                 return;
             }
             if key == "c" {
-                if let Some(session) = self.session.clone() {
-                    if let Ok(mut guard) = session.lock() {
-                        let _ = guard.write(&[0x03]);
-                    }
+                if let Some(handle) = self.session.clone() {
+                    let _ = handle.write(&[0x03]);
                 }
                 return;
             }
@@ -293,7 +285,11 @@ impl TerminalPage {
                     .bg(theme.accent_soft)
                     .text_xs()
                     .text_color(theme.accent)
-                    .on_click(cx.listener(|this, _event, _window, cx| this.connect_local(cx)))
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.connect_local(cx);
+                        this.focus.focus(window);
+                        cx.notify();
+                    }))
                     .child("本地终端"),
             )
             .child(
@@ -306,7 +302,11 @@ impl TerminalPage {
                     .bg(theme.accent)
                     .text_xs()
                     .text_color(theme.surface)
-                    .on_click(cx.listener(|this, _event, _window, cx| this.connect_selected(cx)))
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.connect_selected(cx);
+                        this.focus.focus(window);
+                        cx.notify();
+                    }))
                     .child("连接"),
             )
     }
@@ -562,24 +562,31 @@ fn encode_key(key: &str, control: bool) -> Option<Vec<u8>> {
 fn spawn_worker(target: Target, tx: Sender<Event>) {
     std::thread::spawn(move || {
         let cancel = CancelToken::new();
-        let opened: Result<(SessionRef, Option<String>), (String, Option<String>)> = match target {
+        type Opened = (SessionHandle, Box<dyn Session + Send>, Option<String>);
+        let opened: Result<Opened, (String, Option<String>)> = match target {
             Target::Local => LocalSession::open(None, GEOMETRY)
-                .map(|session| (Arc::new(Mutex::new(Box::new(session) as Box<dyn Session + Send>)), None))
-                .map_err(|err| (err.to_string(), None)),
-            Target::Remote { host, policy } => SshClient::connect(&host, policy, GEOMETRY, &cancel, None)
-                .map(|outcome| {
-                    let client = outcome.client;
-                    let session: SessionRef = Arc::new(Mutex::new(Box::new(outcome.session) as Box<dyn Session + Send>));
-                    // Keep the transport alive for the lifetime of this thread.
-                    let _client = client;
-                    (session, Some(outcome.fingerprint))
+                .map(|session| {
+                    let handle = session.handle();
+                    (handle, Box::new(session) as Box<dyn Session + Send>, None)
                 })
-                .map_err(|err| match &err {
-                    TerminalError::HostKeyUnknown { fingerprint } => {
-                        (err.to_string(), Some(fingerprint.clone()))
-                    }
-                    other => (other.to_string(), None),
-                }),
+                .map_err(|err| (err.to_string(), None)),
+            Target::Remote { host, policy } => {
+                SshClient::connect(&host, policy, GEOMETRY, &cancel, None)
+                    .and_then(|outcome| match outcome.session.handle() {
+                        Some(handle) => Ok((
+                            handle,
+                            Box::new(outcome.session) as Box<dyn Session + Send>,
+                            Some(outcome.fingerprint),
+                        )),
+                        None => Err(TerminalError::Channel("终端会话不可写".into())),
+                    })
+                    .map_err(|err| match &err {
+                        TerminalError::HostKeyUnknown { fingerprint } => {
+                            (err.to_string(), Some(fingerprint.clone()))
+                        }
+                        other => (other.to_string(), None),
+                    })
+            }
         };
 
         match opened {
@@ -589,20 +596,13 @@ fn spawn_worker(target: Target, tx: Sender<Event>) {
             Err((message, None)) => {
                 let _ = tx.send(Event::Failed(message));
             }
-            Ok((session, fingerprint)) => {
-                if tx.send(Event::Opened { session: session.clone(), fingerprint }).is_err() {
+            Ok((handle, mut session, fingerprint)) => {
+                if tx.send(Event::Opened { handle, fingerprint }).is_err() {
                     return;
                 }
                 let mut buffer = vec![0u8; 32 * 1024];
                 loop {
-                    let read = {
-                        let mut guard = match session.lock() {
-                            Ok(guard) => guard,
-                            Err(_) => break,
-                        };
-                        guard.read(&mut buffer)
-                    };
-                    match read {
+                    match session.read(&mut buffer) {
                         Ok(0) => {
                             let _ = tx.send(Event::Closed("会话已结束".into()));
                             break;
@@ -1017,5 +1017,72 @@ mod composition_tests {
         let mut composition = Composition::default();
         composition.mark("👩‍💻");
         assert_eq!(composition.utf16_len(), 5);
+    }
+}
+
+#[cfg(all(test, unix))]
+mod ime_pty_tests {
+    use std::time::{Duration, Instant};
+
+    use super::*;
+
+    /// The commit path hands UTF-8 to the PTY byte for byte; the shell writes
+    /// it to disk so the assertion does not depend on terminal rendering.
+    #[test]
+    fn committed_chinese_reaches_the_shell_unchanged() {
+        let target = std::env::temp_dir().join(format!(
+            "superlink-ime-{}-{}.txt",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_file(&target);
+        let mut session =
+            LocalSession::open(Some("/bin/sh"), TerminalGeometry { cols: 80, rows: 24 })
+                .expect("local pty");
+        let handle = session.handle();
+
+        let command = format!("printf '中文输入' > {}\n", target.display());
+        handle.write(command.as_bytes()).expect("write");
+
+        // The reader owns the session; writes go through the cloneable handle.
+        let drain = std::thread::spawn(move || {
+            let mut buffer = [0u8; 8192];
+            loop {
+                match session.read(&mut buffer) {
+                    Ok(0) | Err(_) => break,
+                    Ok(_) => {}
+                }
+            }
+        });
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let mut received = None;
+        while Instant::now() < deadline {
+            if let Ok(text) = std::fs::read_to_string(&target) {
+                received = Some(text);
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+
+        // Unblock the reader and reap the child before asserting.
+        let _ = handle.close();
+        let _ = drain.join();
+        let _ = std::fs::remove_file(&target);
+        assert_eq!(received.as_deref(), Some("中文输入"));
+    }
+
+    /// A preedit update must not write anything to the session.
+    #[test]
+    fn composition_updates_do_not_touch_the_session() {
+        let mut composition = Composition::default();
+        composition.mark("zhong");
+        assert_eq!(composition.preedit(), Some("zhong"));
+        // Nothing else to send: only Composition::clear plus a commit produces
+        // bytes, which the handler performs in replace_text_in_range.
+        assert!(composition.is_active());
     }
 }

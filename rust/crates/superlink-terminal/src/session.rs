@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
 
 use crate::error::{Result, TerminalError};
+use crate::handle::SessionHandle;
 use crate::ssh::{ClientHandler, TerminalGeometry};
 use crate::transfer::CancelToken;
 
@@ -143,6 +144,38 @@ impl ShellSession {
             Ok(Err(error)) => Err(error),
             Err(_) => Err(TerminalError::Channel("终端启动任务意外结束".into())),
         }
+    }
+
+    /// Cloneable write side. Reads stay on their own thread and never hold
+    /// this path, so typing is not blocked by a pending read.
+    pub fn handle(&self) -> Option<SessionHandle> {
+        let commands = self.commands.clone()?;
+        let write = commands.clone();
+        let resize = commands.clone();
+        let close = commands.clone();
+        Some(SessionHandle::new(
+            move |data| {
+                if data.is_empty() {
+                    return Ok(());
+                }
+                write
+                    .blocking_send(SessionCommand::Write(data.to_vec()))
+                    .map_err(|_| TerminalError::Channel("终端已关闭".into()))
+            },
+            move |cols, rows| {
+                let geometry = TerminalGeometry::new(cols, rows);
+                resize
+                    .blocking_send(SessionCommand::Resize {
+                        cols: geometry.cols,
+                        rows: geometry.rows,
+                    })
+                    .map_err(|_| TerminalError::Channel("终端已关闭".into()))
+            },
+            move || {
+                let _ = close.blocking_send(SessionCommand::Close);
+                Ok(())
+            },
+        ))
     }
 
     pub fn geometry(&self) -> TerminalGeometry {
