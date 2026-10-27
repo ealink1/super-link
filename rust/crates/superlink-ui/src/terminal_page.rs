@@ -8,11 +8,13 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use std::ops::Range;
+
 use gpui::{
-    App, Bounds, Context, CursorStyle, Element, ElementId, Entity, FocusHandle, Focusable,
-    GlobalElementId, InspectorElementId, KeyDownEvent, LayoutId, MouseButton, PaintQuad, Pixels,
-    Render, SharedString, ShapedLine, Style, TextRun, Window, div, fill, point, prelude::*, px,
-    relative, rgb, size,
+    App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
+    EntityInputHandler, FocusHandle, Focusable, GlobalElementId, InspectorElementId, KeyDownEvent,
+    LayoutId, MouseButton, PaintQuad, Pixels, Render, SharedString, ShapedLine, Style, TextRun,
+    UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size,
 };
 use superlink_app::HostService;
 use superlink_domain::ShellHost;
@@ -58,6 +60,8 @@ pub struct TerminalPage {
     running: Arc<AtomicBool>,
     scroll_offset: usize,
     error: Option<SharedString>,
+    /// IME preedit text, shown locally and never sent before commit.
+    composing: Composition,
 }
 
 impl TerminalPage {
@@ -77,6 +81,7 @@ impl TerminalPage {
             running: Arc::new(AtomicBool::new(false)),
             scroll_offset: 0,
             error: None,
+            composing: Composition::default(),
         }
     }
 
@@ -222,6 +227,11 @@ impl TerminalPage {
     }
 
     fn on_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
+        // While an IME owns the composition, its keys belong to the candidate
+        // window: forwarding Enter or arrows here would corrupt the input.
+        if self.composing.is_active() {
+            return;
+        }
         let modifiers = event.keystroke.modifiers;
         let key = event.keystroke.key.as_str();
         if modifiers.platform {
@@ -461,12 +471,57 @@ impl TerminalPage {
             );
         }
 
+        if let Some(composing) = self.composing.preedit().map(str::to_string) {
+            area = area.child(
+                div()
+                    .px_3()
+                    .py_1()
+                    .bg(rgb(0x1b2028))
+                    .border_b_1()
+                    .border_color(rgb(0x2a313b))
+                    .text_xs()
+                    .text_color(rgb(0xd19a66))
+                    .child(SharedString::from(format!("输入中：{composing}"))),
+            );
+        }
+
         area.child(ScreenElement {
             page: cx.entity(),
             rows: GEOMETRY.rows as usize,
             scroll_offset: self.scroll_offset,
             focused: self.session.is_some(),
         })
+    }
+}
+
+/// IME preedit state. Nothing here reaches the PTY: only a commit does.
+#[derive(Debug, Default, PartialEq)]
+struct Composition {
+    text: Option<String>,
+}
+
+impl Composition {
+    fn mark(&mut self, text: &str) {
+        self.text = (!text.is_empty()).then(|| text.to_string());
+    }
+
+    fn clear(&mut self) -> Option<String> {
+        self.text.take()
+    }
+
+    fn preedit(&self) -> Option<&str> {
+        self.text.as_deref()
+    }
+
+    fn is_active(&self) -> bool {
+        self.text.is_some()
+    }
+
+    fn utf16_len(&self) -> usize {
+        self.text
+            .as_ref()
+            .map(|text| text.encode_utf16().count())
+            .unwrap_or(0)
     }
 }
 
@@ -487,7 +542,6 @@ fn encode_key(key: &str, control: bool) -> Option<Vec<u8>> {
         "backspace" => b"\x7f",
         "tab" => b"\t",
         "escape" => b"\x1b",
-        "space" => b" ",
         "up" => b"\x1b[A",
         "down" => b"\x1b[B",
         "right" => b"\x1b[C",
@@ -498,12 +552,9 @@ fn encode_key(key: &str, control: bool) -> Option<Vec<u8>> {
         "insert" => b"\x1b[2~",
         "pageup" => b"\x1b[5~",
         "pagedown" => b"\x1b[6~",
-        _ => {
-            if key.chars().count() == 1 {
-                return Some(key.as_bytes().to_vec());
-            }
-            return None;
-        }
+        // Printable text arrives through the input handler so an IME can
+        // compose it first; sending it here would duplicate every character.
+        _ => return None,
     };
     Some(bytes.to_vec())
 }
@@ -677,6 +728,12 @@ impl Element for ScreenElement {
         window: &mut Window,
         cx: &mut App,
     ) {
+        let focus = self.page.read(cx).focus.clone();
+        window.handle_input(
+            &focus,
+            ElementInputHandler::new(bounds, self.page.clone()),
+            cx,
+        );
         let line_height = window.line_height();
         for (row, line) in prepaint.lines.iter().enumerate() {
             let origin = point(bounds.left(), bounds.top() + line_height * row as f32);
@@ -730,6 +787,103 @@ impl Focusable for TerminalPage {
     }
 }
 
+impl EntityInputHandler for TerminalPage {
+    fn text_for_range(
+        &mut self,
+        range_utf16: Range<usize>,
+        actual_range: &mut Option<Range<usize>>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<String> {
+        let text = self.composing.preedit().unwrap_or_default().to_string();
+        let utf16: Vec<u16> = text.encode_utf16().collect();
+        let start = range_utf16.start.min(utf16.len());
+        let end = range_utf16.end.min(utf16.len());
+        actual_range.replace(start..end);
+        String::from_utf16(&utf16[start..end]).ok()
+    }
+
+    fn selected_text_range(
+        &mut self,
+        _ignore_disabled_input: bool,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<UTF16Selection> {
+        let end = self.composing.utf16_len();
+        Some(UTF16Selection { range: end..end, reversed: false })
+    }
+
+    fn marked_text_range(
+        &self,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<Range<usize>> {
+        self.composing.is_active().then(|| 0..self.composing.utf16_len())
+    }
+
+    fn unmark_text(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.composing.clear().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// A commit, not a keystroke: this is the only path that reaches the PTY.
+    fn replace_text_in_range(
+        &mut self,
+        _range_utf16: Option<Range<usize>>,
+        new_text: &str,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.composing.clear();
+        if !new_text.is_empty() {
+            self.send(new_text.as_bytes(), cx);
+        }
+        cx.notify();
+    }
+
+    /// Composition updates stay local until the IME commits.
+    fn replace_and_mark_text_in_range(
+        &mut self,
+        _range_utf16: Option<Range<usize>>,
+        new_text: &str,
+        _new_selected_range_utf16: Option<Range<usize>>,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.composing.mark(new_text);
+        cx.notify();
+    }
+
+    /// Anchors the candidate window on the terminal cursor cell.
+    fn bounds_for_range(
+        &mut self,
+        _range_utf16: Range<usize>,
+        bounds: Bounds<Pixels>,
+        window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<Bounds<Pixels>> {
+        let (row, col) = self.screen.cursor();
+        let cell = bounds.size.width / self.screen.cols() as f32;
+        Some(Bounds::new(
+            point(
+                bounds.left() + cell * col as f32,
+                bounds.top() + window.line_height() * row as f32,
+            ),
+            size(cell, window.line_height()),
+        ))
+    }
+
+    fn character_index_for_point(
+        &mut self,
+        _point: gpui::Point<Pixels>,
+        _window: &mut Window,
+        _cx: &mut Context<Self>,
+    ) -> Option<usize> {
+        Some(0)
+    }
+}
+
 impl Render for TerminalPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
@@ -764,9 +918,10 @@ mod tests {
     }
 
     #[test]
-    fn passes_printable_and_multibyte_text() {
-        assert_eq!(encode_key("a", false).unwrap(), b"a");
-        assert_eq!(encode_key("中", false).unwrap(), "中".as_bytes());
+    fn leaves_printable_text_to_the_input_handler() {
+        assert!(encode_key("a", false).is_none());
+        assert!(encode_key("中", false).is_none());
+        assert!(encode_key("space", false).is_none());
         assert!(encode_key("f1", false).is_none());
     }
 
@@ -822,5 +977,45 @@ mod pty_tests {
             }
         }
         panic!("shell output did not reach the screen");
+    }
+}
+
+#[cfg(test)]
+mod composition_tests {
+    use super::Composition;
+
+    #[test]
+    fn preedit_is_visible_but_not_committed() {
+        let mut composition = Composition::default();
+        composition.mark("zhong");
+        assert!(composition.is_active());
+        assert_eq!(composition.preedit(), Some("zhong"));
+        assert_eq!(composition.utf16_len(), 5);
+    }
+
+    #[test]
+    fn clearing_returns_the_previous_preedit_once() {
+        let mut composition = Composition::default();
+        composition.mark("中文");
+        assert_eq!(composition.utf16_len(), 2);
+        assert_eq!(composition.clear().as_deref(), Some("中文"));
+        assert!(!composition.is_active());
+        assert_eq!(composition.clear(), None);
+    }
+
+    #[test]
+    fn empty_mark_cancels_the_composition() {
+        let mut composition = Composition::default();
+        composition.mark("a");
+        composition.mark("");
+        assert!(!composition.is_active());
+        assert_eq!(composition.utf16_len(), 0);
+    }
+
+    #[test]
+    fn surrogate_pairs_count_as_two_units() {
+        let mut composition = Composition::default();
+        composition.mark("👩‍💻");
+        assert_eq!(composition.utf16_len(), 5);
     }
 }
