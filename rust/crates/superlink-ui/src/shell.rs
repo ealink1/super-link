@@ -82,6 +82,18 @@ impl SuperLinkApp {
                 cx,
             )
         });
+        let weak_shell = cx.entity().downgrade();
+        query_page.update(cx, |page, cx| {
+            page.set_on_saved(
+                move |id, app| {
+                    let weak_shell = weak_shell.clone();
+                    let _ = weak_shell.update(app, |shell, cx| {
+                        shell.select_profile_by_id(id, cx)
+                    });
+                },
+                cx,
+            );
+        });
         let weak_app = cx.entity().downgrade();
         let sql_search = cx.new(SqlEditor::new);
         sql_search.update(cx, move |editor, cx| {
@@ -269,6 +281,17 @@ impl SuperLinkApp {
                             .child(limit_row),
                     ),
             )
+    }
+
+    /// A connection was saved in the form: refresh, select it, open its query.
+    fn select_profile_by_id(&mut self, id: &str, cx: &mut Context<Self>) {
+        self.refresh();
+        if let Some(index) = self.profiles.iter().position(|profile| profile.id == id) {
+            self.selected = index;
+        }
+        self.workspace = Workspace::Sql;
+        self.sync_selection(cx);
+        cx.notify();
     }
 
     fn sync_selection(&mut self, cx: &mut Context<Self>) {

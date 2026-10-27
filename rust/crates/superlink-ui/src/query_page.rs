@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px};
+use gpui::{
+    App, Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px,
+};
 use serde_json::Value;
 use superlink_app::{
     Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
@@ -51,6 +53,8 @@ pub struct QueryPage {
     confirm_run: bool,
     /// New-connection form.
     form_open: bool,
+    /// Notifies the shell after a connection is saved so it can refresh.
+    on_saved: Option<Box<dyn Fn(&str, &mut App) + 'static>>,
     form_kind: String,
     form_name: Entity<SqlEditor>,
     form_host: Entity<SqlEditor>,
@@ -92,6 +96,7 @@ impl QueryPage {
             redacted_notice: None,
             confirm_run: false,
             form_open: false,
+            on_saved: None,
             form_kind: "sqlite".into(),
             form_name: cx.new(SqlEditor::new),
             form_host: cx.new(SqlEditor::new),
@@ -621,6 +626,14 @@ impl QueryPage {
         panel
     }
 
+    pub fn set_on_saved(
+        &mut self,
+        handler: impl Fn(&str, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
+        self.on_saved = Some(Box::new(handler));
+    }
+
     pub fn open_connection_form(&mut self, cx: &mut Context<Self>) {
         self.form_open = true;
         self.form_kind = "sqlite".into();
@@ -727,6 +740,9 @@ impl QueryPage {
             Ok(saved) => {
                 self.form_open = false;
                 self.status = format!("已保存连接「{}」", saved.name).into();
+                if let Some(handler) = self.on_saved.as_ref() {
+                    handler(&saved.id, cx);
+                }
             }
             Err(err) => self.form_error = Some(err.to_string().into()),
         }
