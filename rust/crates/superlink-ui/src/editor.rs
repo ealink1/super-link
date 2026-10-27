@@ -28,6 +28,8 @@ pub struct SqlEditor {
     on_run: Option<Box<dyn Fn(&mut Window, &mut App) + 'static>>,
     /// Fires after the text changed, used by search boxes.
     on_change: Option<Box<dyn Fn(&str, &mut App) + 'static>>,
+    /// Password fields render one dot per byte instead of the characters.
+    masked: bool,
 }
 
 impl SqlEditor {
@@ -44,6 +46,7 @@ impl SqlEditor {
             enabled: true,
             on_run: None,
             on_change: None,
+            masked: false,
         }
     }
 
@@ -55,7 +58,20 @@ impl SqlEditor {
         self.on_change = Some(Box::new(handler));
     }
 
-    pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_masked(&mut self, masked: bool, cx: &mut Context<Self>) {
+        self.masked = masked;
+        cx.notify();
+    }
+
+    pub fn text(&self) -> &str {
+        &self.content
+    }
+
+    pub fn set_placeholder(
+        &mut self,
+        placeholder: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
         self.placeholder = placeholder.into();
         cx.notify();
     }
@@ -73,10 +89,6 @@ impl SqlEditor {
         _cx: &mut Context<Self>,
     ) {
         self.on_run = Some(Box::new(handler));
-    }
-
-    pub fn text(&self) -> &str {
-        &self.content
     }
 
     pub fn set_text(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
@@ -413,6 +425,9 @@ impl Element for EditorElement {
 
         let (display_text, text_color) = if content.is_empty() {
             (editor.placeholder.clone(), rgba(0x8a8a8a55).into())
+        } else if editor.masked {
+            // One dot per byte keeps caret math identical to the real text.
+            ("*".repeat(content.len()).into(), style.color)
         } else {
             (content, style.color)
         };

@@ -6027,6 +6027,7 @@ dependencies = [
  "superlink-domain",
  "superlink-terminal",
  "unicode-segmentation",
+ "uuid",
  "vte",
 ]
 

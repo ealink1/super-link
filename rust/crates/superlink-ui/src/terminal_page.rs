@@ -11,9 +11,9 @@ use std::time::Duration;
 
 use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
-    EntityInputHandler, FocusHandle, Focusable, GlobalElementId, InspectorElementId, KeyDownEvent,
-    LayoutId, MouseButton, PaintQuad, Pixels, Render, ShapedLine, SharedString, Style, TextRun,
-    UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size, FontWeight,
+    EntityInputHandler, FocusHandle, Focusable, FontWeight, GlobalElementId, InspectorElementId,
+    KeyDownEvent, LayoutId, MouseButton, PaintQuad, Pixels, Render, ShapedLine, SharedString,
+    Style, TextRun, UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size,
 };
 use superlink_app::HostService;
 use superlink_domain::ShellHost;
@@ -83,6 +83,15 @@ pub struct TerminalPage {
     scroll_offset: usize,
     filter: String,
     search: Entity<SqlEditor>,
+    /// New-host form.
+    form_open: bool,
+    form_name: Entity<SqlEditor>,
+    form_host: Entity<SqlEditor>,
+    form_port: Entity<SqlEditor>,
+    form_user: Entity<SqlEditor>,
+    form_password: Entity<SqlEditor>,
+    form_notes: Entity<SqlEditor>,
+    form_error: Option<SharedString>,
     error: Option<SharedString>,
     /// IME preedit text, shown locally and never sent before commit.
     composing: Composition,
@@ -128,6 +137,14 @@ impl TerminalPage {
             scroll_offset: 0,
             filter: String::new(),
             search,
+            form_open: false,
+            form_name: cx.new(SqlEditor::new),
+            form_host: cx.new(SqlEditor::new),
+            form_port: cx.new(SqlEditor::new),
+            form_user: cx.new(SqlEditor::new),
+            form_password: cx.new(SqlEditor::new),
+            form_notes: cx.new(SqlEditor::new),
+            form_error: None,
             error: None,
             composing: Composition::default(),
             target: None,
@@ -140,6 +157,74 @@ impl TerminalPage {
     pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
         self.theme = theme;
         cx.notify();
+    }
+
+    pub fn open_host_form(&mut self, cx: &mut Context<Self>) {
+        self.form_open = true;
+        self.form_error = None;
+        for editor in [
+            &self.form_name,
+            &self.form_host,
+            &self.form_port,
+            &self.form_user,
+            &self.form_password,
+            &self.form_notes,
+        ] {
+            editor.update(cx, |editor, cx| {
+                editor.set_text(String::new(), cx);
+                editor.set_masked(false, cx);
+            });
+        }
+        self.form_password
+            .update(cx, |editor, cx| editor.set_masked(true, cx));
+        self.form_port
+            .update(cx, |editor, cx| editor.set_text("22", cx));
+        cx.notify();
+    }
+
+    pub fn close_host_form(&mut self, cx: &mut Context<Self>) {
+        self.form_open = false;
+        cx.notify();
+    }
+
+    pub fn save_host(&mut self, cx: &mut Context<Self>) {
+        use superlink_app::HostCredentials;
+
+        self.form_error = None;
+        let name = Self::editor_text(&self.form_name, cx);
+        let host = Self::editor_text(&self.form_host, cx);
+        let port_text = Self::editor_text(&self.form_port, cx);
+        let user = Self::editor_text(&self.form_user, cx);
+        let password = Self::editor_text(&self.form_password, cx);
+        let notes = Self::editor_text(&self.form_notes, cx);
+
+        let port: u16 = port_text.trim().parse().unwrap_or(0);
+        let record = ShellHost {
+            id: uuid::Uuid::new_v4().to_string(),
+            name: name.trim().to_string(),
+            host: host.trim().to_string(),
+            user: user.trim().to_string(),
+            port: if port == 0 { 22 } else { port },
+            notes: notes.trim().to_string(),
+            ..Default::default()
+        };
+        let credentials = HostCredentials {
+            password: password.trim().to_string(),
+            ..Default::default()
+        };
+        match self.hosts.save(record, &credentials) {
+            Ok(saved) => {
+                self.form_open = false;
+                self.status = format!("已保存主机「{}」", saved.name).into();
+                self.reload_hosts(cx);
+            }
+            Err(err) => self.form_error = Some(err.to_string().into()),
+        }
+        cx.notify();
+    }
+
+    fn editor_text(entity: &Entity<SqlEditor>, cx: &Context<Self>) -> String {
+        entity.read(cx).text().to_string()
     }
 
     fn reload_hosts(&mut self, cx: &mut Context<Self>) {
@@ -478,6 +563,22 @@ impl TerminalPage {
             )
             .child(
                 div()
+                    .id("new-host")
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(theme.accent_soft)
+                    .text_xs()
+                    .text_color(theme.accent)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.open_host_form(cx)))
+                    .child("新建主机"),
+            )
+            .child(
+                div()
                     .id("connect-host")
                     .px_2()
                     .py_1()
@@ -538,6 +639,141 @@ impl TerminalPage {
             })
     }
 
+    #[allow(clippy::too_many_lines)]
+    fn host_form(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        div()
+            .flex()
+            .flex_1()
+            .items_start()
+            .justify_center()
+            .bg(theme.canvas)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .p_6()
+                    .mt_6()
+                    .w(px(560.0))
+                    .rounded_md()
+                    .bg(theme.surface)
+                    .border_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(icons::icon("shell/server.svg", 16.0, theme.muted))
+                                    .child(
+                                        div()
+                                            .text_sm()
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.text)
+                                            .child("新建主机"),
+                                    ),
+                            )
+                            .child(
+                                div()
+                                    .id("close-host-form")
+                                    .px_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .hover(move |style| style.bg(theme.accent_soft))
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.close_host_form(cx)
+                                    }))
+                                    .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
+                            ),
+                    )
+                    .child(self.form_row("名称", &self.form_name))
+                    .child(self.form_row("主机", &self.form_host))
+                    .child(self.form_row("端口", &self.form_port))
+                    .child(self.form_row("用户名", &self.form_user))
+                    .child(self.form_row("密码", &self.form_password))
+                    .child(self.form_row("备注", &self.form_notes))
+                    .children(
+                        self.form_error.clone().map(|error| {
+                            div().text_xs().text_color(gpui::rgb(0xb42318)).child(error)
+                        }),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .justify_end()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .id("cancel-host")
+                                    .px_3()
+                                    .py_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.close_host_form(cx)
+                                    }))
+                                    .child(div().text_xs().text_color(theme.text).child("取消")),
+                            )
+                            .child(
+                                div()
+                                    .id("save-host")
+                                    .px_3()
+                                    .py_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .bg(theme.accent)
+                                    .on_click(
+                                        cx.listener(|this, _event, _window, cx| this.save_host(cx)),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.surface)
+                                            .child("保存"),
+                                    ),
+                            ),
+                    ),
+            )
+    }
+
+    fn form_row(&self, label: &str, editor: &Entity<SqlEditor>) -> impl IntoElement {
+        let theme = self.theme;
+        div()
+            .flex()
+            .items_center()
+            .gap_2()
+            .child(
+                div()
+                    .w(px(64.0))
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(label.to_string()),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .flex_1()
+                    .px_2()
+                    .h(px(30.0))
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.canvas)
+                    .text_color(theme.text)
+                    .child(editor.clone()),
+            )
+    }
+
     /// Card grid shown while no session is open, mirroring the Go layout.
     fn host_cards(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
@@ -574,12 +810,7 @@ impl TerminalPage {
                     .border_1()
                     .border_color(theme.border)
                     .bg(theme.surface)
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .child(self.search.clone()),
-                    )
+                    .child(div().flex_1().min_w(px(0.0)).child(self.search.clone())),
             )
             .child(
                 div()
@@ -621,9 +852,11 @@ impl TerminalPage {
                 .flex_wrap()
                 .gap_2()
                 .overflow_y_scroll()
-                .children(matches.into_iter().map(|(index, host)| {
-                    self.host_card(index, host, cx)
-                })),
+                .children(
+                    matches
+                        .into_iter()
+                        .map(|(index, host)| self.host_card(index, host, cx)),
+                ),
         )
     }
 
@@ -669,12 +902,7 @@ impl TerminalPage {
                             .child(name),
                     ),
             )
-            .child(
-                div()
-                    .text_xs()
-                    .text_color(theme.muted)
-                    .child(endpoint),
-            )
+            .child(div().text_xs().text_color(theme.muted).child(endpoint))
             .child(
                 div()
                     .text_xs()
@@ -701,12 +929,7 @@ impl TerminalPage {
                     .on_click(cx.listener(move |this, _event, window, cx| {
                         this.connect_host_at(index, window, cx)
                     }))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.text)
-                            .child("快速连接"),
-                    ),
+                    .child(div().text_xs().text_color(theme.text).child("快速连接")),
             )
     }
 
@@ -1245,7 +1468,9 @@ impl Render for TerminalPage {
             .size_full()
             .bg(theme.canvas)
             .child(self.header(cx))
-            .child(if self.session.is_some() {
+            .child(if self.form_open {
+                self.host_form(cx).into_any_element()
+            } else if self.session.is_some() {
                 div()
                     .flex()
                     .flex_1()

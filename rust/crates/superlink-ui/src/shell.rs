@@ -365,6 +365,30 @@ impl SuperLinkApp {
                 )
                 .child(
                     div()
+                        .id("new-connection-side")
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(theme.accent_soft))
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            this.query_page
+                                .update(cx, |page, cx| page.open_connection_form(cx));
+                            this.workspace = Workspace::Sql;
+                            cx.notify();
+                        }))
+                        .child(icons::icon(
+                            "superlink/new-connection.svg",
+                            14.0,
+                            theme.muted,
+                        ))
+                        .child(div().text_xs().text_color(theme.muted).child("新建连接")),
+                )
+                .child(
+                    div()
                         .id("history-side")
                         .flex()
                         .items_center()
