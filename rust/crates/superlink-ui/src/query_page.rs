@@ -458,9 +458,15 @@ impl QueryPage {
                     .py_1()
                     .rounded_md()
                     .cursor_pointer()
-                    .bg(theme.warning_border)
+                    .bg(theme.warning_text)
                     .on_click(cx.listener(|this, _event, _window, cx| this.confirm_execution(cx)))
-                    .child(div().text_xs().text_color(theme.surface).child("仍然执行")),
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::MEDIUM)
+                            .text_color(theme.surface)
+                            .child("仍然执行"),
+                    ),
             )
     }
 
@@ -1018,7 +1024,12 @@ impl Render for QueryPage {
             .bg(theme.surface)
             .child(self.tab_strip(cx))
             .child(self.toolbar(cx))
-            .children(self.redacted_notice.map(|_| self.redacted_banner(cx)))
+            // The confirmation replaces the notice: two stacked amber bars are noise.
+            .children(
+                (!self.confirm_run)
+                    .then(|| self.redacted_notice.map(|_| self.redacted_banner(cx)))
+                    .flatten(),
+            )
             .children(self.confirm_run.then(|| self.confirm_bar(cx)))
             .child(
                 div()
