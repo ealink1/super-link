@@ -115,6 +115,11 @@ impl TerminalPage {
         }
     }
 
+    pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
+        cx.notify();
+    }
+
     fn reload_hosts(&mut self, cx: &mut Context<Self>) {
         self.host_list = self.hosts.list().unwrap_or_default();
         if self.selected >= self.host_list.len() {

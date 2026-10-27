@@ -7,10 +7,12 @@ pub mod notebook;
 pub mod profiles;
 pub mod queries;
 pub mod query;
+pub mod settings;
 pub mod shell_hosts;
 
 pub use notebook::{NotebookError, NotebookService};
 pub use profiles::{Credentials, ProfileService};
 pub use queries::{DraftService, QueryLibrary};
 pub use query::{QueryError, QueryService};
+pub use settings::SettingsService;
 pub use shell_hosts::{HostCredentials, HostError, HostService};

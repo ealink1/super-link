@@ -2,6 +2,7 @@
 //! application services.
 
 pub mod editor;
+pub mod icons;
 pub mod note_page;
 mod query_page;
 mod shell;

@@ -47,6 +47,11 @@ impl QueryPage {
         }
     }
 
+    pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
+        cx.notify();
+    }
+
     pub fn select_profile(&mut self, profile: Profile, cx: &mut Context<Self>) {
         let supported = self.queries.supports(profile.sql_dialect());
         if let Some(draft) = self.restore_draft(&profile.id) {

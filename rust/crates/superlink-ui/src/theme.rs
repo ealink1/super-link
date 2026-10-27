@@ -1,8 +1,87 @@
 use gpui::{Hsla, rgb};
 
+/// How the palette is chosen. Persisted by key so a restart keeps the choice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThemeMode {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl ThemeMode {
+    pub fn resolve(self, appearance_is_dark: bool) -> Theme {
+        match self {
+            ThemeMode::Light => Theme::light(),
+            ThemeMode::Dark => Theme::dark(),
+            ThemeMode::System if appearance_is_dark => Theme::dark(),
+            ThemeMode::System => Theme::light(),
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            ThemeMode::System => "自动",
+            ThemeMode::Light => "浅色",
+            ThemeMode::Dark => "深色",
+        }
+    }
+
+    pub fn next(self) -> Self {
+        match self {
+            ThemeMode::System => ThemeMode::Light,
+            ThemeMode::Light => ThemeMode::Dark,
+            ThemeMode::Dark => ThemeMode::System,
+        }
+    }
+
+    pub fn as_key(self) -> &'static str {
+        match self {
+            ThemeMode::System => "system",
+            ThemeMode::Light => "light",
+            ThemeMode::Dark => "dark",
+        }
+    }
+
+    pub fn from_key(value: &str) -> Self {
+        match value {
+            "light" => ThemeMode::Light,
+            "dark" => ThemeMode::Dark,
+            _ => ThemeMode::System,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cycles_through_all_modes() {
+        assert_eq!(ThemeMode::System.next(), ThemeMode::Light);
+        assert_eq!(ThemeMode::Light.next(), ThemeMode::Dark);
+        assert_eq!(ThemeMode::Dark.next(), ThemeMode::System);
+    }
+
+    #[test]
+    fn keys_round_trip() {
+        for mode in [ThemeMode::System, ThemeMode::Light, ThemeMode::Dark] {
+            assert_eq!(ThemeMode::from_key(mode.as_key()), mode);
+        }
+        assert_eq!(ThemeMode::from_key("unknown"), ThemeMode::System);
+    }
+
+    #[test]
+    fn system_follows_the_window() {
+        assert_eq!(ThemeMode::System.resolve(true), Theme::dark());
+        assert_eq!(ThemeMode::System.resolve(false), Theme::light());
+        assert_eq!(ThemeMode::Light.resolve(true), Theme::light());
+    }
+}
+
 /// Design tokens. Both variants keep the same contrast structure so widgets
 /// never hardcode a color.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Theme {
     pub canvas: Hsla,
     pub surface: Hsla,

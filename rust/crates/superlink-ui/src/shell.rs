@@ -5,13 +5,16 @@ use gpui::{
     App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString, Window,
     WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
-use superlink_app::{DraftService, HostService, NotebookService, ProfileService, QueryService};
+use superlink_app::{
+    DraftService, HostService, NotebookService, ProfileService, QueryService, SettingsService,
+};
 use superlink_domain::Profile;
 
+use crate::icons;
 use crate::note_page::NotePage;
 use crate::query_page::QueryPage;
 use crate::terminal_page::TerminalPage;
-use crate::theme::Theme;
+use crate::theme::{Theme, ThemeMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Workspace {
@@ -38,6 +41,8 @@ pub struct SuperLinkApp {
     profiles: Vec<Profile>,
     selected: usize,
     collapsed_groups: HashSet<String>,
+    settings: Arc<SettingsService>,
+    mode: ThemeMode,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -50,14 +55,12 @@ impl SuperLinkApp {
         drafts: Arc<DraftService>,
         notebook: Arc<NotebookService>,
         hosts: Arc<HostService>,
+        settings: Arc<SettingsService>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let theme = if window.appearance() == gpui::WindowAppearance::Dark {
-            Theme::dark()
-        } else {
-            Theme::light()
-        };
+        let mode = ThemeMode::from_key(&settings.theme_mode());
+        let theme = mode.resolve(window.appearance() == gpui::WindowAppearance::Dark);
         let (profiles, error) = match service.list() {
             Ok(profiles) => (profiles, None),
             Err(err) => (Vec::new(), Some(SharedString::from(err.to_string()))),
@@ -73,12 +76,30 @@ impl SuperLinkApp {
             profiles,
             selected: 0,
             collapsed_groups: HashSet::new(),
+            settings,
+            mode,
             workspace: Workspace::Sql,
             theme,
             error,
         };
         app.sync_selection(cx);
         app
+    }
+
+    /// Cycles 自动 -> 浅色 -> 深色 and persists the choice.
+    fn cycle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let mode = self.mode.next();
+        let theme = mode.resolve(window.appearance() == gpui::WindowAppearance::Dark);
+        self.mode = mode;
+        self.theme = theme;
+        self.query_page
+            .update(cx, |page, cx| page.set_theme(theme, cx));
+        self.terminal_page
+            .update(cx, |page, cx| page.set_theme(theme, cx));
+        self.note_page
+            .update(cx, |page, cx| page.set_theme(theme, cx));
+        self.settings.set_theme_mode(mode.as_key());
+        cx.notify();
     }
 
     fn sync_selection(&mut self, cx: &mut Context<Self>) {
@@ -129,6 +150,9 @@ impl SuperLinkApp {
                 .child(
                     div()
                         .id("refresh-connections")
+                        .flex()
+                        .items_center()
+                        .gap_1()
                         .px_1()
                         .rounded_md()
                         .cursor_pointer()
@@ -139,6 +163,7 @@ impl SuperLinkApp {
                             this.refresh();
                             cx.notify();
                         }))
+                        .child(icons::icon("superlink/refresh.svg", 13.0, theme.muted))
                         .child(format!("{}", self.profiles.len())),
                 ),
         );
@@ -311,6 +336,30 @@ impl Render for SuperLinkApp {
                     .children(tabs)
                     .child(div().flex_1())
                     .child(
+                        div()
+                            .id("theme-toggle")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(
+                                cx.listener(|this, _event, window, cx| {
+                                    this.cycle_theme(window, cx)
+                                }),
+                            )
+                            .child(icons::icon("superlink/sliders.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted)
+                                    .child(self.mode.label()),
+                            ),
+                    )
+                    .child(
                         div().text_xs().text_color(theme.muted).child(
                             self.error
                                 .clone()
@@ -360,33 +409,39 @@ pub fn run(
     drafts: Arc<DraftService>,
     notebook: Arc<NotebookService>,
     hosts: Arc<HostService>,
+    settings: Arc<SettingsService>,
 ) {
-    Application::new().run(move |cx: &mut App| {
-        let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
-        let handle = cx
-            .open_window(
-                WindowOptions {
-                    window_bounds: Some(WindowBounds::Windowed(bounds)),
-                    titlebar: Some(gpui::TitlebarOptions {
-                        title: Some("SuperLink".into()),
+    Application::new()
+        .with_assets(icons::Assets::discover())
+        .run(move |cx: &mut App| {
+            let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
+            let handle = cx
+                .open_window(
+                    WindowOptions {
+                        window_bounds: Some(WindowBounds::Windowed(bounds)),
+                        titlebar: Some(gpui::TitlebarOptions {
+                            title: Some("SuperLink".into()),
+                            ..Default::default()
+                        }),
+                        focus: true,
                         ..Default::default()
-                    }),
-                    focus: true,
-                    ..Default::default()
-                },
-                |window, cx| {
-                    let service = service.clone();
-                    let queries = queries.clone();
-                    let drafts = drafts.clone();
-                    let notebook = notebook.clone();
-                    let hosts = hosts.clone();
-                    cx.new(|cx| {
-                        SuperLinkApp::new(service, queries, drafts, notebook, hosts, window, cx)
-                    })
-                },
-            )
-            .expect("failed to open the SuperLink window");
-        let _ = handle;
-        cx.activate(true);
-    });
+                    },
+                    |window, cx| {
+                        let service = service.clone();
+                        let queries = queries.clone();
+                        let drafts = drafts.clone();
+                        let notebook = notebook.clone();
+                        let hosts = hosts.clone();
+                        let settings = settings.clone();
+                        cx.new(|cx| {
+                            SuperLinkApp::new(
+                                service, queries, drafts, notebook, hosts, settings, window, cx,
+                            )
+                        })
+                    },
+                )
+                .expect("failed to open the SuperLink window");
+            let _ = handle;
+            cx.activate(true);
+        });
 }

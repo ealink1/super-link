@@ -39,6 +39,11 @@ impl NotePage {
         }
     }
 
+    pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
+        self.theme = theme;
+        cx.notify();
+    }
+
     fn reload(&mut self, cx: &mut Context<Self>) {
         match self.service.load() {
             Ok(notebook) => {

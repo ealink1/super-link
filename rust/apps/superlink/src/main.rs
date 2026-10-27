@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use superlink_app::{DraftService, HostService, NotebookService, ProfileService, QueryService};
+use superlink_app::{
+    DraftService, HostService, NotebookService, ProfileService, QueryService, SettingsService,
+};
 use superlink_infra::{LocalVault, Store};
 
 fn main() {
@@ -22,8 +24,9 @@ fn main() {
     let queries = Arc::new(QueryService::new(drivers_dir()));
     let drafts = Arc::new(DraftService::new(store.clone()));
     let hosts = Arc::new(HostService::new(store.clone(), vault.clone()));
+    let settings = Arc::new(SettingsService::new(store.clone()));
     let notebook = Arc::new(NotebookService::new(store, vault));
-    superlink_ui::run(service, queries, drafts, notebook, hosts);
+    superlink_ui::run(service, queries, drafts, notebook, hosts, settings);
 }
 
 /// Agent binaries live beside the application in release builds and in the
