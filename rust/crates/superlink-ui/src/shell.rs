@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
@@ -36,6 +37,7 @@ pub struct SuperLinkApp {
     terminal_page: Entity<TerminalPage>,
     profiles: Vec<Profile>,
     selected: usize,
+    collapsed_groups: HashSet<String>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -70,6 +72,7 @@ impl SuperLinkApp {
             terminal_page,
             profiles,
             selected: 0,
+            collapsed_groups: HashSet::new(),
             workspace: Workspace::Sql,
             theme,
             error,
@@ -151,40 +154,96 @@ impl SuperLinkApp {
             );
         }
 
+        let mut groups: BTreeMap<String, Vec<(usize, &Profile)>> = BTreeMap::new();
         for (index, profile) in self.profiles.iter().enumerate() {
-            let active = index == self.selected;
-            let name = SharedString::from(profile.name.clone());
-            let kind = SharedString::from(profile.sql_dialect().to_uppercase());
-            let row = div()
-                .id(("profile", index))
-                .flex()
-                .flex_col()
-                .gap_1()
-                .mx_2()
-                .px_2()
-                .py_2()
-                .rounded_md()
-                .cursor_pointer()
-                .bg(if active {
-                    theme.accent_soft
-                } else {
-                    theme.sidebar
-                })
-                .hover(move |style| style.bg(theme.accent_soft))
-                .on_click(cx.listener(move |this, _event, _window, cx| {
-                    this.selected = index;
-                    this.workspace = Workspace::Sql;
-                    this.sync_selection(cx);
-                    cx.notify();
-                }))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(if active { theme.accent } else { theme.text })
-                        .child(name),
-                )
-                .child(div().text_xs().text_color(theme.muted).child(kind));
-            column = column.child(row);
+            let key = if profile.group.trim().is_empty() {
+                "未分组".to_string()
+            } else {
+                profile.group.clone()
+            };
+            groups.entry(key).or_default().push((index, profile));
+        }
+
+        for (group, entries) in groups {
+            let collapsed = self.collapsed_groups.contains(&group);
+            let group_key = group.clone();
+            column = column.child(
+                div()
+                    .id(SharedString::from(format!("group-{group}")))
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .mx_2()
+                    .mt_1()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        if !this.collapsed_groups.remove(&group_key) {
+                            this.collapsed_groups.insert(group_key.clone());
+                        }
+                        cx.notify();
+                    }))
+                    .child(div().text_xs().text_color(theme.muted).child(if collapsed {
+                        "▸"
+                    } else {
+                        "▾"
+                    }))
+                    .child(
+                        div()
+                            .text_xs()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.muted)
+                            .child(SharedString::from(group.clone())),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted)
+                            .child(format!("{}", entries.len())),
+                    ),
+            );
+            if collapsed {
+                continue;
+            }
+            for (index, profile) in entries {
+                let active = index == self.selected;
+                let name = SharedString::from(profile.name.clone());
+                let kind = SharedString::from(profile.sql_dialect().to_uppercase());
+                let row = div()
+                    .id(("profile", index))
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .mx_2()
+                    .ml_5()
+                    .px_2()
+                    .py_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(if active {
+                        theme.accent_soft
+                    } else {
+                        theme.sidebar
+                    })
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.selected = index;
+                        this.workspace = Workspace::Sql;
+                        this.sync_selection(cx);
+                        cx.notify();
+                    }))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(if active { theme.accent } else { theme.text })
+                            .child(name),
+                    )
+                    .child(div().text_xs().text_color(theme.muted).child(kind));
+                column = column.child(row);
+            }
         }
 
         column
