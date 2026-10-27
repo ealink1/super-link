@@ -55,7 +55,8 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 ## 后续阶段
 
 1. SQL 工作区完善：多行编辑器、语法高亮、补全弹窗、表目录浏览、分页与写回、结构设计器。
-2. 终端工作区接入：superlink-terminal 已实现 SSH/PTY/SFTP/监控，但尚未接入 GPUI 会话视图与主机表单。
+2. 终端工作区完善：已接通本地 PTY 与 SSH（主机密钥确认、VT 屏幕、滚动缓冲），
+   仍缺输入法组合、窗口尺寸联动、SFTP 面板、监控面板与主机编辑表单。
 3. 笔记工作区完善：Markdown 编辑、分组、全文搜索、回收站。
 4. 桌面集成：托盘、后台驻留、多窗口、系统菜单、更新网络客户端。
 5. 打包与发布：六平台构建、签名/公证、与现有 release 流水线对接。
@@ -70,7 +71,7 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 - superlink-files：完成（导入导出/SQL 文档），39 个测试
 - superlink-update：完成（验签/校验/解压/回滚），74 个测试
 - superlink-terminal：完成（SSH/SFTP/PTY/监控），63 个测试
-- superlink-ui：SQL 与 Note 已接通，Shell 未接通
+- superlink-ui：SQL、Shell（终端）、Note 均已接通；12 个测试（含真实本地 PTY）
 
 ## 验证
 

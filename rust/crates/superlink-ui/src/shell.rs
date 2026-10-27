@@ -4,11 +4,12 @@ use gpui::{
     App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString, Window,
     WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
-use superlink_app::{DraftService, NotebookService, ProfileService, QueryService};
+use superlink_app::{DraftService, HostService, NotebookService, ProfileService, QueryService};
 use superlink_domain::Profile;
 
 use crate::note_page::NotePage;
 use crate::query_page::QueryPage;
+use crate::terminal_page::TerminalPage;
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,19 +28,13 @@ impl Workspace {
         }
     }
 
-    fn hint(self) -> &'static str {
-        match self {
-            Workspace::Sql => "选择左侧连接，开始浏览数据库与编写查询",
-            Workspace::Shell => "选择一个 SSH 主机，或打开本地终端",
-            Workspace::Note => "按分组整理 Markdown 笔记，自动加密保存在本机",
-        }
-    }
 }
 
 pub struct SuperLinkApp {
     service: Arc<ProfileService>,
     query_page: Entity<QueryPage>,
     note_page: Entity<NotePage>,
+    terminal_page: Entity<TerminalPage>,
     profiles: Vec<Profile>,
     selected: usize,
     workspace: Workspace,
@@ -53,6 +48,7 @@ impl SuperLinkApp {
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
         notebook: Arc<NotebookService>,
+        hosts: Arc<HostService>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -67,10 +63,12 @@ impl SuperLinkApp {
         };
         let query_page = cx.new(|cx| QueryPage::new(service.clone(), queries, drafts, theme, cx));
         let note_page = cx.new(|_cx| NotePage::new(notebook, theme));
+        let terminal_page = cx.new(|cx| TerminalPage::new(hosts, theme, cx));
         let mut app = Self {
             service,
             query_page,
             note_page,
+            terminal_page,
             profiles,
             selected: 0,
             workspace: Workspace::Sql,
@@ -220,35 +218,6 @@ impl SuperLinkApp {
             }))
     }
 
-    fn empty_state(&self) -> impl IntoElement {
-        let theme = self.theme;
-        div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .items_center()
-            .justify_center()
-            .gap_3()
-            .bg(theme.surface)
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(theme.text)
-                    .child("SuperLink · Rust / GPUI"),
-            )
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(theme.muted)
-                    .child(self.workspace.hint()),
-            )
-            .child(
-                div().text_xs().text_color(theme.muted).child(
-                    "domain · application · infra · ui 四层已就位，驱动层沿用 Go agent 进程",
-                ),
-            )
-    }
 }
 
 impl Render for SuperLinkApp {
@@ -308,7 +277,7 @@ impl Render for SuperLinkApp {
                             .child(match self.workspace {
                                 Workspace::Sql => self.query_page.clone().into_any_element(),
                                 Workspace::Note => self.note_page.clone().into_any_element(),
-                                Workspace::Shell => self.empty_state().into_any_element(),
+                                Workspace::Shell => self.terminal_page.clone().into_any_element(),
                             }),
                     ),
             )
@@ -333,6 +302,7 @@ pub fn run(
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
     notebook: Arc<NotebookService>,
+    hosts: Arc<HostService>,
 ) {
     Application::new().run(move |cx: &mut App| {
         let bounds = Bounds::centered(None, size(px(1280.0), px(800.0)), cx);
@@ -352,7 +322,10 @@ pub fn run(
                     let queries = queries.clone();
                     let drafts = drafts.clone();
                     let notebook = notebook.clone();
-                    cx.new(|cx| SuperLinkApp::new(service, queries, drafts, notebook, window, cx))
+                    let hosts = hosts.clone();
+                    cx.new(|cx| {
+                        SuperLinkApp::new(service, queries, drafts, notebook, hosts, window, cx)
+                    })
                 },
             )
             .expect("failed to open the SuperLink window");

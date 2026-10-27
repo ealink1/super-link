@@ -42,7 +42,8 @@ cargo run -p superlink
 
 - 9 个 crate：domain / infra / app / drivers / sql / files / update / terminal / ui
 - 267 个测试通过（2 个真实 SSH 测试默认忽略）
-- 已接通：SQL 查询（含中文输入法与结果表）、加密笔记预览、驱动校验与执行
-- 未接通：终端工作区 UI、笔记编辑、表目录浏览、更新网络客户端、打包
+- 已接通：SQL 查询（含中文输入法与结果表）、终端（本地 PTY 与 SSH、VT 屏幕、
+  主机密钥确认）、加密笔记预览、驱动校验与执行
+- 未接通：笔记编辑、表目录浏览、SFTP/监控面板、更新网络客户端、打包
 
 详见 `docs/plans/2026-10-27-rust-gpui-rewrite.md`。
