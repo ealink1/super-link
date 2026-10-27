@@ -14,6 +14,9 @@ use gpui::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
+type RunHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
+type ChangeHandler = Box<dyn Fn(&str, &mut App) + 'static>;
+
 pub struct SqlEditor {
     focus_handle: FocusHandle,
     content: SharedString,
@@ -25,9 +28,9 @@ pub struct SqlEditor {
     last_bounds: Option<Bounds<Pixels>>,
     enabled: bool,
     /// Invoked by Cmd+R so the editor can run without a toolbar click.
-    on_run: Option<Box<dyn Fn(&mut Window, &mut App) + 'static>>,
+    on_run: Option<RunHandler>,
     /// Fires after the text changed, used by search boxes.
-    on_change: Option<Box<dyn Fn(&str, &mut App) + 'static>>,
+    on_change: Option<ChangeHandler>,
     /// Password fields render one dot per byte instead of the characters.
     masked: bool,
 }
@@ -50,11 +53,7 @@ impl SqlEditor {
         }
     }
 
-    pub fn set_on_change(
-        &mut self,
-        handler: impl Fn(&str, &mut App) + 'static,
-        _cx: &mut Context<Self>,
-    ) {
+    pub fn set_on_change(&mut self, handler: impl Fn(&str, &mut App) + 'static, _cx: &mut Context<Self>) {
         self.on_change = Some(Box::new(handler));
     }
 
@@ -83,11 +82,7 @@ impl SqlEditor {
         }
     }
 
-    pub fn set_on_run(
-        &mut self,
-        handler: impl Fn(&mut Window, &mut App) + 'static,
-        _cx: &mut Context<Self>,
-    ) {
+    pub fn set_on_run(&mut self, handler: impl Fn(&mut Window, &mut App) + 'static, _cx: &mut Context<Self>) {
         self.on_run = Some(Box::new(handler));
     }
 

@@ -20,7 +20,7 @@ for path in ROOT.glob('internal/**/*.go'):
             errors.append(f'{relative}: UI dependency crosses the application boundary')
 for path in ROOT.glob('tools/*.py'):
     ast.parse(path.read_text(),filename=str(path))
-packages = json.loads(subprocess.check_output(['go','list','-json','./cmd/superlink'],cwd=ROOT,text=True))
+packages = json.loads(subprocess.check_output(['go','list','-json','./cmd/driver-agent'],cwd=ROOT,text=True))
 for package in packages.get('Deps',[]):
     if 'wailsapp' in package or package.endswith('/jvm'):
         errors.append(f'excluded runtime dependency: {package}')

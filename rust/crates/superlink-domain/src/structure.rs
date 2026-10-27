@@ -72,8 +72,10 @@ mod tests {
 
     #[test]
     fn warnings_do_not_change_the_hash() {
-        let mut info = TableInfo::default();
-        info.ddl = "CREATE TABLE t(a int)".into();
+        let mut info = TableInfo {
+            ddl: "CREATE TABLE t(a int)".into(),
+            ..Default::default()
+        };
         let first = structure_hash(&info);
         info.warnings.push("driver note".into());
         assert_eq!(first, structure_hash(&info));

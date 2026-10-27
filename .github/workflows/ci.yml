@@ -16,27 +16,33 @@ jobs:
         with:
           go-version: '1.26.3'
           cache: true
-      - name: Install Fyne native build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev libegl1-mesa-dev libwayland-dev libxkbcommon-dev xorg-dev
-      - name: Test release contracts
-        run: python3 -m unittest discover -s tools -p 'test_release_*.py' -v
-      - run: python3 tools/check-architecture.py
-      - run: go run ./tools/check-go-size
-      - run: python3 tools/verify-upstream.py
-      - run: python3 tools/verify-fyne.py
-      - run: python3 tools/verify-ui-assets.py
-      - run: go test ./...
-      - run: go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
-      # Software canvas captures clean the shared Fyne renderer cache; race
-      # instrumentation makes this expensive on hosted runners.
-      - run: go test -race -timeout 30m ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
-      - run: go vet ./...
-      - run: go -C third_party/fyne test -race -tags=test ./internal/painter ./internal/cache
-      - run: go -C third_party/fyne test -race -tags=test ./container -run 'Test(CachedChildTheme|CachedFeatureState|DestroyedOverride|ThemeOverride)'
-      - name: Build offline SQLite application
-        run: python3 tools/build.py --package
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Install GPUI Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-x11-dev
+      - name: Architecture and provenance checks
+        run: |
+          python3 tools/check-architecture.py
+          go run ./tools/check-go-size
+          python3 tools/verify-upstream.py
+          python3 tools/verify-fyne.py
+          python3 tools/verify-ui-assets.py
+          python3 tools/verify-shell-assets.py
+      - name: Go driver agent checks
+        run: |
+          go test ./...
+          go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
+          go vet ./...
+      - name: Rust workspace checks
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace --all-targets
+          cargo test --workspace
+      - name: Build driver agents
+        run: python3 tools/build.py --all-drivers --skip-app
       - uses: actions/upload-artifact@v4
         with:
-          name: linux-native-build
-          path: dist/
+          name: driver-agents
+          path: bin/drivers/
           retention-days: 7

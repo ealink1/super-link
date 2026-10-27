@@ -150,11 +150,11 @@ impl Session for LocalSession {
         }
         self.state = SessionState::Closed;
         self.output.close();
-        if let Ok(mut guard) = self.child.lock() {
-            if let Some(mut child) = guard.take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
+        if let Ok(mut guard) = self.child.lock()
+            && let Some(mut child) = guard.take()
+        {
+            let _ = child.kill();
+            let _ = child.wait();
         }
         if let Ok(mut guard) = self.writer.lock() {
             guard.take();

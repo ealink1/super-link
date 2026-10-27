@@ -1,27 +1,36 @@
-.PHONY: build run package drivers test vet selfcheck
-build:
-	python3 tools/build.py
-run: build
-	./bin/superlink
-package:
-	python3 tools/build.py --package
-drivers:
+.PHONY: agents build-agents run test vet selfcheck rust-test
+
+# 驱动 agent：SQLite 随包构建，其余按需
+build-agents:
+	python3 tools/build.py --skip-app
+agents:
 	python3 tools/build.py --all-drivers --skip-app
+
+# Rust 应用（rewrite 分支的正式程序）
+run:
+	cargo run --manifest-path rust/Cargo.toml -p superlink
+
 test:
 	go test ./...
+	go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
+	go vet ./...
+	cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+	cargo clippy --manifest-path rust/Cargo.toml --all-targets
+	cargo test --manifest-path rust/Cargo.toml
+
 vet:
 	go vet ./...
+	cargo clippy --manifest-path rust/Cargo.toml --all-targets
+
 selfcheck:
-	python3 -m unittest discover -s tools -p 'test_release_*.py' -v
 	python3 tools/check-architecture.py
 	go run ./tools/check-go-size
 	python3 tools/verify-upstream.py
 	python3 tools/verify-fyne.py
 	python3 tools/verify-ui-assets.py
+	python3 tools/verify-shell-assets.py
 	go test ./...
 	go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
-	go test -race ./internal/application ./internal/infra/... ./internal/domain ./internal/ui ./cmd/release-sign
 	go vet ./...
-	go -C third_party/fyne test -race -tags=test ./internal/painter ./internal/cache
-	go -C third_party/fyne test -race -tags=test ./container -run 'Test(CachedChildTheme|CachedFeatureState|DestroyedOverride|ThemeOverride)'
-	python3 tools/build.py --all-drivers --package
+	cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+	cargo test --manifest-path rust/Cargo.toml

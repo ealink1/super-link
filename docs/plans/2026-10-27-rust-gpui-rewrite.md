@@ -63,6 +63,19 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 - 测试：cargo test 覆盖可见性、校验边界、加密往返与篡改检测、修订冲突、
   驱动校验与真实 SQLite 查询、查询服务与笔记本快照。
 
+## 分支形态（2026-10-27 更新）
+
+本分支已移除 Go 应用代码（internal/ui、infra、application 等 54k 行），
+只保留 Rust 应用与 Go 驱动层：
+
+- rust/ — Rust + GPUI 应用（正式目标）
+- internal/upstream + cmd/driver-agent — 驱动 agent（36 类数据源）
+- assets/ — 图标与字体（原 internal/ui/assets）
+- tools/ — 仅保留 agent 构建、架构与资源校验脚本；Go 发布流水线留在 main
+
+Makefile 与 ci.yml 已同步改为「Go agent 检查 + Rust 检查」双轨。
+Go 完整应用与发布流水线只在 main 分支存在。
+
 ## 后续阶段
 
 1. SQL 工作区完善：多行编辑器、语法高亮、补全弹窗、表目录浏览、分页与写回、结构设计器。

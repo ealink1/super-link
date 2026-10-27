@@ -54,6 +54,7 @@ pub struct SuperLinkApp {
 }
 
 impl SuperLinkApp {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         service: Arc<ProfileService>,
         queries: Arc<QueryService>,
@@ -87,9 +88,7 @@ impl SuperLinkApp {
             page.set_on_saved(
                 move |id, app| {
                     let weak_shell = weak_shell.clone();
-                    let _ = weak_shell.update(app, |shell, cx| {
-                        shell.select_profile_by_id(id, cx)
-                    });
+                    let _ = weak_shell.update(app, |shell, cx| shell.select_profile_by_id(id, cx));
                 },
                 cx,
             );

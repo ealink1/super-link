@@ -283,7 +283,7 @@ mod tests {
             size: 100,
             ..Default::default()
         };
-        let mut cases = vec![
+        let mut cases = [
             base.clone(),
             base.clone(),
             base.clone(),

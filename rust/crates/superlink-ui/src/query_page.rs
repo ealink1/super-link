@@ -3,9 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{
-    App, Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px,
-};
+use gpui::{App, Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px};
 use serde_json::Value;
 use superlink_app::{
     Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
@@ -21,6 +19,8 @@ const DISPLAY_ROWS: usize = 300;
 const COLUMN_WIDTH: f32 = 160.0;
 const ROW_NUMBER_WIDTH: f32 = 52.0;
 const HISTORY_WIDTH: f32 = 300.0;
+
+type SavedHandler = Box<dyn Fn(&str, &mut App) + 'static>;
 
 struct QueryTab {
     id: String,
@@ -54,7 +54,7 @@ pub struct QueryPage {
     /// New-connection form.
     form_open: bool,
     /// Notifies the shell after a connection is saved so it can refresh.
-    on_saved: Option<Box<dyn Fn(&str, &mut App) + 'static>>,
+    on_saved: Option<SavedHandler>,
     form_kind: String,
     form_name: Entity<SqlEditor>,
     form_host: Entity<SqlEditor>,
@@ -287,7 +287,7 @@ impl QueryPage {
             .credentials(&profile)
             .ok()
             .flatten()
-            .unwrap_or_else(Credentials::default);
+            .unwrap_or_default();
         let limit = self.settings.row_limit().max(100);
         let queries = self.queries.clone();
         let history = self.history.clone();
@@ -626,11 +626,7 @@ impl QueryPage {
         panel
     }
 
-    pub fn set_on_saved(
-        &mut self,
-        handler: impl Fn(&str, &mut App) + 'static,
-        _cx: &mut Context<Self>,
-    ) {
+    pub fn set_on_saved(&mut self, handler: impl Fn(&str, &mut App) + 'static, _cx: &mut Context<Self>) {
         self.on_saved = Some(Box::new(handler));
     }
 

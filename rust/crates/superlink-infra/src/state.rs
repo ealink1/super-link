@@ -52,6 +52,7 @@ impl Store {
             .create(true)
             .read(true)
             .write(true)
+            .truncate(false)
             .open(path)?;
         harden_file(path)?;
 

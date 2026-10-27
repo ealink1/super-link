@@ -190,9 +190,13 @@ mod tests {
             key: "PRI".into(),
             ..Default::default()
         };
-        let edits: Vec<Box<dyn Fn(&mut ColumnDefinition)>> = vec![
-            Box::new(|column| column.name = " ".into()),
-            Box::new(|column| column.data_type = "INT); DROP TABLE x; --".into()),
+        // 一个类型别名比内联 trait 对象更易读。
+        type Edit = Box<dyn Fn(&mut ColumnDefinition)>;
+        let edits: [Edit; 5] = [
+            Box::new(|column: &mut ColumnDefinition| column.name = " ".into()),
+            Box::new(|column: &mut ColumnDefinition| {
+                column.data_type = "INT); DROP TABLE x; --".into()
+            }),
             Box::new(|column| column.extra = "generated".into()),
             Box::new(|column| {
                 column.extra = "auto_increment".into();

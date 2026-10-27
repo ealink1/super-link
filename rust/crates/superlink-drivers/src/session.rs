@@ -49,7 +49,7 @@ pub struct DriverSession {
 impl DriverSession {
     /// Spawns the agent and verifies its identity before any user data is sent.
     pub fn open(binary: impl AsRef<Path>, kind: &str) -> Result<Self, DriverError> {
-        let mut agent = DriverAgent::spawn(binary, &[]).map_err(AgentError::from)?;
+        let mut agent = DriverAgent::spawn(binary, &[])?;
         let data = agent.call("metadata", Map::new())?;
         let metadata: Metadata =
             serde_json::from_value(data).map_err(|_| DriverError::Malformed("metadata"))?;

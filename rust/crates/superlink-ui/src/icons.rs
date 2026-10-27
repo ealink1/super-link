@@ -8,11 +8,7 @@ use std::path::{Path, PathBuf};
 
 use gpui::{Hsla, Result, SharedString, Styled, px, svg};
 
-const ASSET_ROOT_CANDIDATES: [&str; 3] = [
-    "../../../internal/ui/assets",
-    "assets",
-    "../Resources/assets",
-];
+const ASSET_ROOT_CANDIDATES: [&str; 3] = ["../../../assets", "assets", "../Resources/assets"];
 
 pub struct Assets {
     root: PathBuf,

@@ -63,7 +63,7 @@ enum Event {
 enum Target {
     Local,
     Remote {
-        host: ShellHost,
+        host: Box<ShellHost>,
         policy: HostKeyPolicy,
     },
 }
@@ -272,7 +272,11 @@ impl TerminalPage {
         };
         self.attempts = 0;
         self.auto_reconnect = true;
-        self.begin(Target::Remote { host, policy }, true, cx);
+        self.begin(
+            Target::Remote { host: Box::new(host), policy },
+            true,
+            cx,
+        );
     }
 
     /// Manual reconnect after a drop, or a retry from the header button.
@@ -423,7 +427,7 @@ impl TerminalPage {
                     if self.scroll_offset > 0 {
                         self.scroll_offset = 0;
                     }
-                    self.screen.feed(&mut self.parser, &bytes);
+                    self.screen.feed(&mut self.parser, &bytes[..]);
                 }
                 Event::Closed(message) => {
                     self.session = None;
@@ -474,7 +478,11 @@ impl TerminalPage {
         };
         self.attempts = 0;
         self.auto_reconnect = true;
-        self.begin(Target::Remote { host, policy }, true, cx);
+        self.begin(
+            Target::Remote { host: Box::new(host), policy },
+            true,
+            cx,
+        );
     }
 
     fn send(&mut self, bytes: &[u8], cx: &mut Context<Self>) {

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-DIRECTORY = Path(__file__).resolve().parent.parent / 'internal/ui/assets/shell'
+DIRECTORY = Path(__file__).resolve().parent.parent / 'assets/shell'
 
 
 def main():
