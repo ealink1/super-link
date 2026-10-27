@@ -24,6 +24,7 @@ use superlink_terminal::{
 
 use superlink_terminal::Session;
 
+use crate::icons;
 use crate::theme::Theme;
 use crate::vt::{Color, Screen};
 
@@ -432,6 +433,9 @@ impl TerminalPage {
                     .px_2()
                     .py_1()
                     .rounded_md()
+                    .flex()
+                    .items_center()
+                    .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
                     .text_xs()
@@ -441,6 +445,7 @@ impl TerminalPage {
                         this.focus.focus(window);
                         cx.notify();
                     }))
+                    .child(icons::icon("shell/terminal.svg", 13.0, theme.accent))
                     .child("本地终端"),
             )
             .child(
@@ -449,6 +454,9 @@ impl TerminalPage {
                     .px_2()
                     .py_1()
                     .rounded_md()
+                    .flex()
+                    .items_center()
+                    .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent)
                     .text_xs()
@@ -458,6 +466,7 @@ impl TerminalPage {
                         this.focus.focus(window);
                         cx.notify();
                     }))
+                    .child(icons::icon("superlink/link.svg", 13.0, theme.surface))
                     .child("连接"),
             )
             .child(if self.session.is_some() {
@@ -466,11 +475,15 @@ impl TerminalPage {
                     .px_2()
                     .py_1()
                     .rounded_md()
+                    .flex()
+                    .items_center()
+                    .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
                     .text_xs()
                     .text_color(theme.accent)
                     .on_click(cx.listener(|this, _event, _window, cx| this.disconnect(cx)))
+                    .child(icons::icon("superlink/stop.svg", 13.0, theme.accent))
                     .child("断开")
                     .into_any_element()
             } else {
@@ -479,6 +492,9 @@ impl TerminalPage {
                     .px_2()
                     .py_1()
                     .rounded_md()
+                    .flex()
+                    .items_center()
+                    .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
                     .text_xs()
@@ -488,6 +504,7 @@ impl TerminalPage {
                         this.focus.focus(window);
                         cx.notify();
                     }))
+                    .child(icons::icon("shell/refresh-cw.svg", 13.0, theme.accent))
                     .child("重连")
                     .into_any_element()
             })

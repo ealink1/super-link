@@ -9,6 +9,7 @@ use gpui::{Context, FontWeight, Render, SharedString, Window, div, prelude::*, p
 use superlink_app::NotebookService;
 use superlink_domain::{Note, Notebook};
 
+use crate::icons;
 use crate::theme::Theme;
 
 const PREVIEW_BYTES: usize = 8 << 10;
@@ -94,12 +95,16 @@ impl NotePage {
                     .child(
                         div()
                             .id("reload-notes")
+                            .flex()
+                            .items_center()
+                            .gap_1()
                             .px_1()
                             .text_xs()
                             .cursor_pointer()
                             .text_color(theme.muted)
                             .hover(move |style| style.bg(theme.accent_soft))
                             .on_click(cx.listener(|this, _event, _window, cx| this.reload(cx)))
+                            .child(icons::icon("shell/refresh-cw.svg", 13.0, theme.muted))
                             .child(format!("{}", notes.len())),
                     ),
             );

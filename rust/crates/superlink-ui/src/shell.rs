@@ -262,11 +262,28 @@ impl SuperLinkApp {
                     }))
                     .child(
                         div()
-                            .text_sm()
-                            .text_color(if active { theme.accent } else { theme.text })
-                            .child(name),
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(icons::icon(
+                                icons::datasource_icon(profile.sql_dialect()),
+                                14.0,
+                                if active { theme.accent } else { theme.muted },
+                            ))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .text_color(if active { theme.accent } else { theme.text })
+                                    .child(name),
+                            ),
                     )
-                    .child(div().text_xs().text_color(theme.muted).child(kind));
+                    .child(
+                        div()
+                            .pl(px(22.0))
+                            .text_xs()
+                            .text_color(theme.muted)
+                            .child(kind),
+                    );
                 column = column.child(row);
             }
         }

@@ -78,6 +78,35 @@ impl gpui::AssetSource for Assets {
     }
 }
 
+/// Data source icon. Falls back to the generic database glyph for engines
+/// whose artwork only exists as PNG.
+pub fn datasource_icon(kind: &str) -> &'static str {
+    match kind {
+        "mysql" => "superlink/db-mysql.svg",
+        "mariadb" => "superlink/db-mariadb.svg",
+        "postgres" => "superlink/db-postgres.svg",
+        "sqlite" => "superlink/db-sqlite.svg",
+        "sqlserver" => "superlink/db-sqlserver.svg",
+        "mongodb" => "superlink/db-mongodb.svg",
+        "redis" => "superlink/db-redis.svg",
+        "clickhouse" => "superlink/db-clickhouse.svg",
+        "elasticsearch" => "superlink/db-elasticsearch.svg",
+        "diros" => "superlink/db-diros.svg",
+        "duckdb" => "superlink/db-duckdb.svg",
+        "iotdb" => "superlink/db-iotdb.svg",
+        "vastbase" => "superlink/db-vastbase.svg",
+        "sphinx" => "superlink/db-sphinx.svg",
+        "chroma" => "superlink/db-chroma.svg",
+        "milvus" => "superlink/db-milvus.svg",
+        "qdrant" => "superlink/db-qdrant.svg",
+        "nacos" => "superlink/db-nacos.svg",
+        "mqtt" => "superlink/db-mqtt.svg",
+        "pulsar" => "superlink/db-pulsar.svg",
+        "rabbitmq" => "superlink/db-rabbitmq.svg",
+        _ => "superlink/database.svg",
+    }
+}
+
 /// Monochrome icon tinted by the caller. Sizing is square.
 pub fn icon(path: &'static str, size: f32, color: Hsla) -> impl gpui::IntoElement {
     svg()
@@ -100,6 +129,41 @@ mod tests {
             "assets root: {}",
             assets.root().display()
         );
+    }
+
+    #[test]
+    fn every_mapped_icon_exists() {
+        for kind in [
+            "mysql",
+            "mariadb",
+            "postgres",
+            "sqlite",
+            "sqlserver",
+            "mongodb",
+            "redis",
+            "clickhouse",
+            "elasticsearch",
+            "diros",
+            "duckdb",
+            "iotdb",
+            "vastbase",
+            "sphinx",
+            "chroma",
+            "milvus",
+            "qdrant",
+            "nacos",
+            "mqtt",
+            "pulsar",
+            "rabbitmq",
+            "oracle",
+        ] {
+            let path = datasource_icon(kind);
+            let root = Assets::discover();
+            assert!(
+                root.root().join(path).is_file(),
+                "{kind} maps to missing {path}"
+            );
+        }
     }
 
     #[test]
