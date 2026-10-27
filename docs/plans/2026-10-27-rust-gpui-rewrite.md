@@ -71,6 +71,7 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 - rust/ — Rust + GPUI 应用（正式目标）
 - internal/upstream + cmd/driver-agent — 驱动 agent（36 类数据源）
 - assets/ — 图标与字体（原 internal/ui/assets）
+- third_party/fyne（Fyne fork）已从本分支移除，仅存在于 main；相关校验脚本一并删除
 - tools/ — 仅保留 agent 构建、架构与资源校验脚本；Go 发布流水线留在 main
 
 Makefile 与 ci.yml 已同步改为「Go agent 检查 + Rust 检查」双轨。

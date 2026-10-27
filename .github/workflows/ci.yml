@@ -26,7 +26,6 @@ jobs:
           python3 tools/check-architecture.py
           go run ./tools/check-go-size
           python3 tools/verify-upstream.py
-          python3 tools/verify-fyne.py
           python3 tools/verify-ui-assets.py
           python3 tools/verify-shell-assets.py
       - name: Go driver agent checks

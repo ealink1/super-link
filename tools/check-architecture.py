@@ -28,4 +28,4 @@ if (ROOT/'internal/upstream/jvm').exists():
     errors.append('JVM connector must not be present')
 if errors:
     raise SystemExit('\n'.join(errors))
-print('Architecture checks passed: native Fyne UI, isolated application layer, no Wails/JVM runtime.')
+print('Architecture checks passed: driver agents only, no Wails/JVM runtime, no Fyne UI.')

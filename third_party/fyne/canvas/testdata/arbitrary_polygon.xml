@@ -1,5 +1,0 @@
-<canvas size="10x10">
-	<content>
-		<arbitraryPolygon fillColor="foreground" point1="10,0" point2="10,10" size="10x10"/>
-	</content>
-</canvas>

@@ -158,5 +158,3 @@ require (
 replace github.com/highgo/pq-sm3 => ./third_party/highgo-pq
 
 replace github.com/caretdev/go-irisnative => ./third_party/go-irisnative
-
-replace fyne.io/fyne/v2 => ./third_party/fyne
