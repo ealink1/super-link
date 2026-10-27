@@ -82,6 +82,21 @@ cargo test
 cargo build -p superlink
 ```
 
+## 实机验证：中文输入法（2026-10-27）
+
+环境：macOS arm64，拼音输入法 com.apple.inputmethod.SCIM.ITABC。
+
+方法：把可执行文件临时打包为开发版 .app，用 CGWindowList 定位窗口，
+CGEvent 点击 Shell 标签与「本地终端」，随后在 ABC 与拼音之间切换：
+
+1. ABC 下输入 `printf '`
+2. 拼音下用物理按键输入 zhongwen，空格上屏
+3. ABC 下输入 `' > /tmp/ime-real.txt`，回车
+
+结果：文件内容为 6 字节 `e4b8ad e69687`，即「中文」，无重复字符、无拼音串
+残留，说明组合过程没有泄漏到 PTY，提交只发生一次。整个注入过程在每次按键前
+校验前台必须是 SuperLink，否则立即中止。
+
 ## 环境限制
 
 本机只有 Command Line Tools，没有完整 Xcode，`xcrun metal` 不可用，
