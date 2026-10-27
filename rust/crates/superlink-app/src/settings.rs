@@ -32,6 +32,11 @@ impl SettingsService {
         self.set("theme", Value::String(mode.to_string()));
     }
 
+    pub fn set_row_limit(&self, limit: u32) {
+        let limit = limit.clamp(100, 100_000);
+        self.set("rowLimit", Value::from(limit));
+    }
+
     pub fn row_limit(&self) -> u32 {
         self.get("rowLimit")
             .and_then(|value| value.as_u64())

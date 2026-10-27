@@ -12,4 +12,5 @@ superlink-terminal = { path = "../superlink-terminal" }
 gpui.workspace = true
 serde_json.workspace = true
 unicode-segmentation = "1"
+chrono.workspace = true
 vte = "0.13"

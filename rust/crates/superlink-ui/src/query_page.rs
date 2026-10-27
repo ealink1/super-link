@@ -4,8 +4,10 @@ use std::sync::Arc;
 
 use gpui::{Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px};
 use serde_json::Value;
-use superlink_app::{Credentials, DraftService, ProfileService, QueryService};
-use superlink_domain::{Draft, Profile, ResultSet};
+use superlink_app::{
+    Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
+};
+use superlink_domain::{Draft, History, Profile, ResultSet};
 
 use crate::editor::SqlEditor;
 use crate::icons;
@@ -14,7 +16,7 @@ use crate::theme::Theme;
 const DISPLAY_ROWS: usize = 300;
 const COLUMN_WIDTH: f32 = 160.0;
 const ROW_NUMBER_WIDTH: f32 = 52.0;
-const DEFAULT_LIMIT: u32 = 5_000;
+const HISTORY_WIDTH: f32 = 300.0;
 
 struct QueryTab {
     id: String,
@@ -26,6 +28,8 @@ pub struct QueryPage {
     profiles: Arc<ProfileService>,
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
+    history: Arc<HistoryService>,
+    settings: Arc<SettingsService>,
     theme: Theme,
     editor: Entity<SqlEditor>,
     profile: Option<Profile>,
@@ -35,6 +39,8 @@ pub struct QueryPage {
     error: Option<SharedString>,
     status: SharedString,
     running: bool,
+    history_open: bool,
+    entries: Vec<History>,
 }
 
 impl QueryPage {
@@ -42,6 +48,8 @@ impl QueryPage {
         profiles: Arc<ProfileService>,
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
+        history: Arc<HistoryService>,
+        settings: Arc<SettingsService>,
         theme: Theme,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -49,6 +57,8 @@ impl QueryPage {
             profiles,
             queries,
             drafts,
+            history,
+            settings,
             theme,
             editor: cx.new(SqlEditor::new),
             profile: None,
@@ -58,6 +68,8 @@ impl QueryPage {
             error: None,
             status: "选择连接后执行查询".into(),
             running: false,
+            history_open: false,
+            entries: Vec::new(),
         }
     }
 
@@ -211,7 +223,11 @@ impl QueryPage {
             .ok()
             .flatten()
             .unwrap_or_else(Credentials::default);
+        let limit = self.settings.row_limit().max(100);
         let queries = self.queries.clone();
+        let history = self.history.clone();
+        let profile_id = profile.id.clone();
+        let recorded = sql.clone();
         self.running = true;
         self.error = None;
         self.status = "执行中…".into();
@@ -219,9 +235,19 @@ impl QueryPage {
 
         let task = cx
             .background_executor()
-            .spawn(async move { queries.execute(&profile, &credentials, &sql, DEFAULT_LIMIT) });
+            .spawn(async move { queries.execute(&profile, &credentials, &sql, limit) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
+            match &outcome {
+                Ok(result) => history.record(
+                    &profile_id,
+                    &recorded,
+                    true,
+                    result.rows.len() as i64,
+                    result.duration_ns,
+                ),
+                Err(_) => history.record(&profile_id, &recorded, false, 0, 0),
+            }
             this.update(cx, |this, cx| {
                 this.running = false;
                 match outcome {
@@ -247,6 +273,9 @@ impl QueryPage {
                 }
                 this.editor
                     .update(cx, |editor, cx| editor.set_enabled(true, cx));
+                if this.history_open {
+                    this.reload_history();
+                }
                 cx.notify();
             })
             .ok();
@@ -254,6 +283,140 @@ impl QueryPage {
         .detach();
         self.editor
             .update(cx, |editor, cx| editor.set_enabled(false, cx));
+    }
+
+    fn reload_history(&mut self) {
+        self.entries = self
+            .profile
+            .as_ref()
+            .map(|profile| self.history.list(&profile.id))
+            .unwrap_or_default();
+    }
+
+    fn toggle_history(&mut self, cx: &mut Context<Self>) {
+        self.history_open = !self.history_open;
+        if self.history_open {
+            self.reload_history();
+        }
+        cx.notify();
+    }
+
+    fn clear_history(&mut self, cx: &mut Context<Self>) {
+        if let Some(profile) = self.profile.clone() {
+            self.history.clear(&profile.id);
+        }
+        self.entries.clear();
+        cx.notify();
+    }
+
+    fn history_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let mut panel = div()
+            .flex()
+            .flex_col()
+            .w(px(HISTORY_WIDTH))
+            .h_full()
+            .bg(theme.sidebar)
+            .border_l_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .px_3()
+                    .h(px(36.0))
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(icons::icon("superlink/history.svg", 13.0, theme.muted))
+                            .child(div().text_xs().text_color(theme.muted).child("执行历史")),
+                    )
+                    .child(
+                        div()
+                            .id("clear-history")
+                            .px_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.clear_history(cx)),
+                            )
+                            .child(icons::icon("superlink/trash.svg", 13.0, theme.muted)),
+                    ),
+            );
+
+        if self.entries.is_empty() {
+            return panel.child(
+                div()
+                    .px_3()
+                    .py_2()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child("还没有执行记录"),
+            );
+        }
+
+        for entry in &self.entries {
+            let theme = self.theme;
+            let time = entry
+                .created_at
+                .map(|value| {
+                    value
+                        .with_timezone(&chrono::Local)
+                        .format("%m-%d %H:%M:%S")
+                        .to_string()
+                })
+                .unwrap_or_default();
+            let text: String = entry
+                .text
+                .lines()
+                .next()
+                .unwrap_or("")
+                .chars()
+                .take(48)
+                .collect();
+            panel = panel.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .mx_2()
+                    .my_1()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .bg(theme.surface)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_between()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(if entry.success {
+                                        theme.accent
+                                    } else {
+                                        gpui::rgb(0xb42318).into()
+                                    })
+                                    .child(if entry.success { "成功" } else { "失败" }),
+                            )
+                            .child(div().text_xs().text_color(theme.muted).child(time)),
+                    )
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.text)
+                            .child(SharedString::from(text)),
+                    ),
+            );
+        }
+        panel
     }
 
     fn tab_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -390,6 +553,43 @@ impl QueryPage {
             )
             .child(
                 div()
+                    .id("history")
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(if self.history_open {
+                        theme.accent_soft
+                    } else {
+                        theme.surface
+                    })
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| this.toggle_history(cx)))
+                    .child(icons::icon(
+                        "superlink/history.svg",
+                        14.0,
+                        if self.history_open {
+                            theme.accent
+                        } else {
+                            theme.muted
+                        },
+                    ))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(if self.history_open {
+                                theme.accent
+                            } else {
+                                theme.muted
+                            })
+                            .child("执行历史"),
+                    ),
+            )
+            .child(
+                div()
                     .flex()
                     .items_center()
                     .gap_1()
@@ -430,7 +630,7 @@ impl QueryPage {
                     .border_color(theme.border)
                     .text_xs()
                     .text_color(theme.muted)
-                    .child(format!("{DEFAULT_LIMIT}")),
+                    .child(format!("{}", self.settings.row_limit())),
             )
             .child(
                 div()
@@ -627,7 +827,21 @@ impl Render for QueryPage {
             .bg(theme.surface)
             .child(self.tab_strip(cx))
             .child(self.toolbar(cx))
-            .child(self.editor_panel())
-            .child(self.result_panel())
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(self.editor_panel())
+                            .child(self.result_panel()),
+                    )
+                    .children(self.history_open.then(|| self.history_panel(cx))),
+            )
     }
 }

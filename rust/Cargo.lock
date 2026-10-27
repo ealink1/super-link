@@ -5928,6 +5928,7 @@ dependencies = [
  "superlink-domain",
  "superlink-drivers",
  "superlink-infra",
+ "superlink-sql",
  "thiserror 2.0.21",
  "uuid",
 ]
@@ -6019,6 +6020,7 @@ dependencies = [
 name = "superlink-ui"
 version = "0.2.0"
 dependencies = [
+ "chrono",
  "gpui",
  "serde_json",
  "superlink-app",

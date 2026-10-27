@@ -6,7 +6,8 @@ use gpui::{
     WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
 use superlink_app::{
-    DraftService, HostService, NotebookService, ProfileService, QueryService, SettingsService,
+    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
+    SettingsService,
 };
 use superlink_domain::Profile;
 
@@ -43,6 +44,7 @@ pub struct SuperLinkApp {
     collapsed_groups: HashSet<String>,
     settings: Arc<SettingsService>,
     mode: ThemeMode,
+    settings_open: bool,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -53,6 +55,7 @@ impl SuperLinkApp {
         service: Arc<ProfileService>,
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
+        history: Arc<HistoryService>,
         notebook: Arc<NotebookService>,
         hosts: Arc<HostService>,
         settings: Arc<SettingsService>,
@@ -65,7 +68,17 @@ impl SuperLinkApp {
             Ok(profiles) => (profiles, None),
             Err(err) => (Vec::new(), Some(SharedString::from(err.to_string()))),
         };
-        let query_page = cx.new(|cx| QueryPage::new(service.clone(), queries, drafts, theme, cx));
+        let query_page = cx.new(|cx| {
+            QueryPage::new(
+                service.clone(),
+                queries,
+                drafts,
+                history,
+                settings.clone(),
+                theme,
+                cx,
+            )
+        });
         let note_page = cx.new(|_cx| NotePage::new(notebook, theme));
         let terminal_page = cx.new(|cx| TerminalPage::new(hosts, theme, cx));
         let mut app = Self {
@@ -78,6 +91,7 @@ impl SuperLinkApp {
             collapsed_groups: HashSet::new(),
             settings,
             mode,
+            settings_open: false,
             workspace: Workspace::Sql,
             theme,
             error,
@@ -88,7 +102,10 @@ impl SuperLinkApp {
 
     /// Cycles 自动 -> 浅色 -> 深色 and persists the choice.
     fn cycle_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let mode = self.mode.next();
+        self.set_mode(self.mode.next(), window, cx);
+    }
+
+    fn set_mode(&mut self, mode: ThemeMode, window: &mut Window, cx: &mut Context<Self>) {
         let theme = mode.resolve(window.appearance() == gpui::WindowAppearance::Dark);
         self.mode = mode;
         self.theme = theme;
@@ -100,6 +117,137 @@ impl SuperLinkApp {
             .update(cx, |page, cx| page.set_theme(theme, cx));
         self.settings.set_theme_mode(mode.as_key());
         cx.notify();
+    }
+
+    fn settings_view(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let modes = [
+            (ThemeMode::System, "自动"),
+            (ThemeMode::Light, "浅色"),
+            (ThemeMode::Dark, "深色"),
+        ];
+        let limits = [1_000u32, 5_000, 20_000];
+
+        let mut mode_row = div().flex().items_center().gap_2();
+        for (mode, label) in modes {
+            let active = self.mode == mode;
+            mode_row =
+                mode_row.child(
+                    div()
+                        .id(SharedString::from(format!("theme-mode-{}", mode.as_key())))
+                        .px_3()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .bg(if active { theme.accent } else { theme.canvas })
+                        .border_1()
+                        .border_color(if active { theme.accent } else { theme.border })
+                        .on_click(cx.listener(move |this, _event, window, cx| {
+                            this.set_mode(mode, window, cx)
+                        }))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(if active { theme.surface } else { theme.text })
+                                .child(label),
+                        ),
+                );
+        }
+
+        let current_limit = self.settings.row_limit();
+        let mut limit_row = div().flex().items_center().gap_2();
+        for limit in limits {
+            let active = current_limit == limit;
+            limit_row = limit_row.child(
+                div()
+                    .id(SharedString::from(format!("row-limit-{limit}")))
+                    .px_3()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(if active { theme.accent } else { theme.canvas })
+                    .border_1()
+                    .border_color(if active { theme.accent } else { theme.border })
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.settings.set_row_limit(limit);
+                        cx.notify();
+                    }))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(if active { theme.surface } else { theme.text })
+                            .child(format!("{limit} 行")),
+                    ),
+            );
+        }
+
+        div()
+            .flex()
+            .flex_1()
+            .items_center()
+            .justify_center()
+            .bg(theme.canvas)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_4()
+                    .p_6()
+                    .w(px(520.0))
+                    .rounded_md()
+                    .bg(theme.surface)
+                    .border_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(icons::icon("superlink/settings.svg", 16.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(theme.text)
+                                    .child("设置"),
+                            )
+                            .child(div().flex_1())
+                            .child(
+                                div()
+                                    .id("close-settings")
+                                    .px_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .hover(move |style| style.bg(theme.accent_soft))
+                                    .on_click(cx.listener(|this, _event, _window, cx| {
+                                        this.settings_open = false;
+                                        cx.notify();
+                                    }))
+                                    .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(div().text_xs().text_color(theme.muted).child("外观"))
+                            .child(mode_row),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted)
+                                    .child("结果行数上限"),
+                            )
+                            .child(limit_row),
+                    ),
+            )
     }
 
     fn sync_selection(&mut self, cx: &mut Context<Self>) {
@@ -377,6 +525,22 @@ impl Render for SuperLinkApp {
                             ),
                     )
                     .child(
+                        div()
+                            .id("open-settings")
+                            .flex()
+                            .items_center()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.settings_open = true;
+                                cx.notify();
+                            }))
+                            .child(icons::icon("superlink/settings.svg", 15.0, theme.muted)),
+                    )
+                    .child(
                         div().text_xs().text_color(theme.muted).child(
                             self.error
                                 .clone()
@@ -384,7 +548,9 @@ impl Render for SuperLinkApp {
                         ),
                     ),
             )
-            .child(
+            .child(if self.settings_open {
+                self.settings_view(cx).into_any_element()
+            } else {
                 div()
                     .flex()
                     .flex_1()
@@ -402,8 +568,9 @@ impl Render for SuperLinkApp {
                                 Workspace::Note => self.note_page.clone().into_any_element(),
                                 Workspace::Shell => self.terminal_page.clone().into_any_element(),
                             }),
-                    ),
-            )
+                    )
+                    .into_any_element()
+            })
             .child(
                 div()
                     .flex()
@@ -424,6 +591,7 @@ pub fn run(
     service: Arc<ProfileService>,
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
+    history: Arc<HistoryService>,
     notebook: Arc<NotebookService>,
     hosts: Arc<HostService>,
     settings: Arc<SettingsService>,
@@ -447,12 +615,14 @@ pub fn run(
                         let service = service.clone();
                         let queries = queries.clone();
                         let drafts = drafts.clone();
+                        let history = history.clone();
                         let notebook = notebook.clone();
                         let hosts = hosts.clone();
                         let settings = settings.clone();
                         cx.new(|cx| {
                             SuperLinkApp::new(
-                                service, queries, drafts, notebook, hosts, settings, window, cx,
+                                service, queries, drafts, history, notebook, hosts, settings,
+                                window, cx,
                             )
                         })
                     },

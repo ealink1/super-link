@@ -200,6 +200,37 @@ impl Store {
         Ok(())
     }
 
+    /// Newest first, bounded by the caller. Only redacted text is stored.
+    pub fn history(&self, profile_id: &str, limit: usize) -> StoreResult<Vec<History>> {
+        let db = self.lock();
+        let mut statement = db.prepare(
+            "SELECT id,profile_id,text,success,rows_count,duration_ns,created_at
+             FROM history WHERE profile_id=? ORDER BY id DESC LIMIT ?",
+        )?;
+        let rows = statement.query_map(params![profile_id, limit as i64], |row| {
+            Ok(History {
+                id: row.get(0)?,
+                profile_id: row.get(1)?,
+                text: row.get(2)?,
+                success: row.get(3)?,
+                rows: row.get(4)?,
+                duration_ns: row.get::<_, i64>(5)?.max(0) as u64,
+                created_at: chrono::DateTime::from_timestamp_millis(row.get(6)?),
+            })
+        })?;
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(row?);
+        }
+        Ok(entries)
+    }
+
+    pub fn clear_history(&self, profile_id: &str) -> StoreResult<()> {
+        let db = self.lock();
+        db.execute("DELETE FROM history WHERE profile_id=?", [profile_id])?;
+        Ok(())
+    }
+
     pub fn saved_queries(&self, profile_id: &str) -> StoreResult<Vec<SavedQuery>> {
         let db = self.lock();
         let mut statement = db.prepare(
