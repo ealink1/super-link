@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use superlink_app::{
-    DraftService, HostService, NotebookService, ProfileService, QueryService,
-};
+use superlink_app::{DraftService, HostService, NotebookService, ProfileService, QueryService};
 use superlink_infra::{LocalVault, Store};
 
 fn main() {

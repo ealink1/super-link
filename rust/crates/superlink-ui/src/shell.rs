@@ -27,7 +27,6 @@ impl Workspace {
             Workspace::Note => "Note",
         }
     }
-
 }
 
 pub struct SuperLinkApp {
@@ -217,7 +216,6 @@ impl SuperLinkApp {
                 cx.notify();
             }))
     }
-
 }
 
 impl Render for SuperLinkApp {

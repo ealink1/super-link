@@ -35,7 +35,10 @@ pub struct Cell {
 
 impl Default for Cell {
     fn default() -> Self {
-        Self { ch: ' ', style: Style::default() }
+        Self {
+            ch: ' ',
+            style: Style::default(),
+        }
     }
 }
 
@@ -141,7 +144,10 @@ impl Screen {
             self.cursor_col = 0;
             self.line_feed();
         }
-        let cell = Cell { ch, style: self.style };
+        let cell = Cell {
+            ch,
+            style: self.style,
+        };
         self.grid[self.cursor_row][self.cursor_col] = cell;
         self.cursor_col += 1;
     }
@@ -157,7 +163,8 @@ impl Screen {
     fn scroll_up(&mut self, count: usize) {
         for _ in 0..count.min(self.rows) {
             let line = self.grid.remove(self.scroll_top);
-            self.grid.insert(self.scroll_bottom, vec![Cell::default(); self.cols]);
+            self.grid
+                .insert(self.scroll_bottom, vec![Cell::default(); self.cols]);
             if self.scroll_top == 0 && self.scroll_bottom == self.rows - 1 {
                 if self.scrollback.len() == SCROLLBACK_LIMIT {
                     self.scrollback.pop_front();
@@ -226,11 +233,19 @@ impl Screen {
                 100..=107 => self.style.bg = Color::Indexed((value - 100 + 8) as u8),
                 38 | 48 => {
                     let color = match values.get(index + 1).copied() {
-                        Some(5) => values.get(index + 2).map(|value| Color::Indexed((*value).min(255) as u8)),
-                        Some(2) => match (values.get(index + 2), values.get(index + 3), values.get(index + 4)) {
-                            (Some(r), Some(g), Some(b)) => {
-                                Some(Color::Rgb((*r).min(255) as u8, (*g).min(255) as u8, (*b).min(255) as u8))
-                            }
+                        Some(5) => values
+                            .get(index + 2)
+                            .map(|value| Color::Indexed((*value).min(255) as u8)),
+                        Some(2) => match (
+                            values.get(index + 2),
+                            values.get(index + 3),
+                            values.get(index + 4),
+                        ) {
+                            (Some(r), Some(g), Some(b)) => Some(Color::Rgb(
+                                (*r).min(255) as u8,
+                                (*g).min(255) as u8,
+                                (*b).min(255) as u8,
+                            )),
                             _ => None,
                         },
                         _ => None,
@@ -242,7 +257,11 @@ impl Screen {
                             self.style.bg = color;
                         }
                     }
-                    index += if values.get(index + 1) == Some(&5) { 2 } else { 4 };
+                    index += if values.get(index + 1) == Some(&5) {
+                        2
+                    } else {
+                        4
+                    };
                 }
                 _ => {}
             }
@@ -279,7 +298,13 @@ impl Perform for Screen {
         }
     }
 
-    fn csi_dispatch(&mut self, params: &Params, _intermediates: &[u8], _ignore: bool, action: char) {
+    fn csi_dispatch(
+        &mut self,
+        params: &Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        action: char,
+    ) {
         match action {
             'A' => self.cursor_row = self.cursor_row.saturating_sub(param(params, 0, 1)),
             'B' => {
@@ -301,7 +326,9 @@ impl Perform for Screen {
             'm' => self.sgr(params),
             'r' => {
                 let top = param(params, 0, 1).saturating_sub(1);
-                let bottom = param(params, 1, self.rows).saturating_sub(1).min(self.rows - 1);
+                let bottom = param(params, 1, self.rows)
+                    .saturating_sub(1)
+                    .min(self.rows - 1);
                 if top < bottom {
                     self.scroll_top = top;
                     self.scroll_bottom = bottom;

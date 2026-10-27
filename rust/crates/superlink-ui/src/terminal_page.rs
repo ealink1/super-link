@@ -4,22 +4,22 @@
 //! on a worker thread; the GPUI thread only drains events and paints.
 
 use std::ops::Range;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, InspectorElementId, KeyDownEvent,
-    LayoutId, MouseButton, PaintQuad, Pixels, Render, SharedString, ShapedLine, Style, TextRun,
+    LayoutId, MouseButton, PaintQuad, Pixels, Render, ShapedLine, SharedString, Style, TextRun,
     UTF16Selection, Window, div, fill, point, prelude::*, px, relative, rgb, size,
 };
 use superlink_app::HostService;
 use superlink_domain::ShellHost;
 use superlink_terminal::{
-    CancelToken, HostKeyPolicy, LocalSession, SessionHandle, SshClient, TerminalGeometry,
-    TerminalError,
+    CancelToken, HostKeyPolicy, LocalSession, SessionHandle, SshClient, TerminalError,
+    TerminalGeometry,
 };
 
 use superlink_terminal::Session;
@@ -27,21 +27,43 @@ use superlink_terminal::Session;
 use crate::theme::Theme;
 use crate::vt::{Color, Screen};
 
-const GEOMETRY: TerminalGeometry = TerminalGeometry { cols: 100, rows: 28 };
+const GEOMETRY: TerminalGeometry = TerminalGeometry {
+    cols: 100,
+    rows: 28,
+};
 const POLL_INTERVAL: Duration = Duration::from_millis(16);
+/// Automatic reconnect only applies to remote hosts: an exited local shell is
+/// intentional and must not be restarted behind the user's back.
+const MAX_RECONNECT_ATTEMPTS: u32 = 5;
+const RECONNECT_BACKOFF_SECS: [u64; 5] = [1, 2, 4, 8, 15];
+
+fn backoff_delay(attempt: u32) -> Option<u64> {
+    RECONNECT_BACKOFF_SECS
+        .get(attempt.checked_sub(1)? as usize)
+        .copied()
+}
 
 enum Event {
-    Opened { handle: SessionHandle, fingerprint: Option<String> },
+    Opened {
+        handle: SessionHandle,
+        fingerprint: Option<String>,
+    },
     Data(Vec<u8>),
     Closed(String),
     Failed(String),
-    HostKeyUnknown { fingerprint: String, message: String },
+    HostKeyUnknown {
+        fingerprint: String,
+        message: String,
+    },
 }
 
 #[derive(Clone)]
 enum Target {
     Local,
-    Remote { host: ShellHost, policy: HostKeyPolicy },
+    Remote {
+        host: ShellHost,
+        policy: HostKeyPolicy,
+    },
 }
 
 pub struct TerminalPage {
@@ -60,6 +82,12 @@ pub struct TerminalPage {
     error: Option<SharedString>,
     /// IME preedit text, shown locally and never sent before commit.
     composing: Composition,
+    /// Last connection attempt, kept so a dropped transport can be rebuilt.
+    target: Option<Target>,
+    auto_reconnect: bool,
+    attempts: u32,
+    /// Invalidates a pending reconnect after a manual disconnect.
+    generation: u64,
 }
 
 impl TerminalPage {
@@ -80,6 +108,10 @@ impl TerminalPage {
             scroll_offset: 0,
             error: None,
             composing: Composition::default(),
+            target: None,
+            auto_reconnect: false,
+            attempts: 0,
+            generation: 0,
         }
     }
 
@@ -92,7 +124,9 @@ impl TerminalPage {
     }
 
     fn connect_local(&mut self, cx: &mut Context<Self>) {
-        self.start(Target::Local, cx);
+        self.attempts = 0;
+        self.auto_reconnect = true;
+        self.begin(Target::Local, true, cx);
     }
 
     fn connect_selected(&mut self, cx: &mut Context<Self>) {
@@ -106,18 +140,52 @@ impl TerminalPage {
         } else {
             HostKeyPolicy::Pinned(host.fingerprint.clone())
         };
-        self.start(Target::Remote { host, policy }, cx);
+        self.attempts = 0;
+        self.auto_reconnect = true;
+        self.begin(Target::Remote { host, policy }, true, cx);
     }
 
-    fn start(&mut self, target: Target, cx: &mut Context<Self>) {
+    /// Manual reconnect after a drop, or a retry from the header button.
+    fn reconnect(&mut self, cx: &mut Context<Self>) {
         if self.session.is_some() {
             return;
         }
+        let Some(target) = self.target.clone() else {
+            return;
+        };
+        self.attempts = 0;
+        self.auto_reconnect = true;
+        self.begin(target, false, cx);
+    }
+
+    /// User-initiated disconnect: cancel retries and close the transport.
+    fn disconnect(&mut self, cx: &mut Context<Self>) {
+        self.auto_reconnect = false;
+        self.generation += 1;
+        self.attempts = 0;
+        if let Some(handle) = self.session.take() {
+            let _ = handle.close();
+        }
+        self.status = "已断开".into();
+        self.error = None;
+        cx.notify();
+    }
+
+    fn begin(&mut self, target: Target, clear_screen: bool, cx: &mut Context<Self>) {
+        if self.session.is_some() {
+            return;
+        }
+        // Any new attempt invalidates a retry that is still counting down, so a
+        // manual connect cannot be hijacked by the previous host's timer.
+        self.generation += 1;
+        self.target = Some(target.clone());
         self.error = None;
         self.pending = None;
         self.status = "连接中…".into();
-        self.screen = Screen::new(GEOMETRY.cols as usize, GEOMETRY.rows as usize);
-        self.scroll_offset = 0;
+        if clear_screen {
+            self.screen = Screen::new(GEOMETRY.cols as usize, GEOMETRY.rows as usize);
+            self.scroll_offset = 0;
+        }
         cx.notify();
 
         let (tx, rx) = mpsc::channel();
@@ -125,6 +193,65 @@ impl TerminalPage {
         self.running = running.clone();
         spawn_worker(target, tx);
         self.poll(rx, running, cx);
+    }
+
+    fn should_auto_reconnect(&self) -> bool {
+        self.auto_reconnect && matches!(self.target, Some(Target::Remote { .. }))
+    }
+
+    fn schedule_reconnect(&mut self, reason: String, cx: &mut Context<Self>) {
+        if !self.should_auto_reconnect() {
+            self.status = SharedString::from(reason);
+            return;
+        }
+        let Some(target) = self.target.clone() else {
+            return;
+        };
+        let attempt = self.attempts + 1;
+        let Some(delay) = backoff_delay(attempt) else {
+            self.status = "重连失败，已达上限，请手动重连".into();
+            self.error = Some(reason.into());
+            cx.notify();
+            return;
+        };
+        self.attempts = attempt;
+        self.generation += 1;
+        let generation = self.generation;
+        self.screen.feed(
+            &mut self.parser,
+            format!("\r\n\x1b[33m[{reason}]\x1b[0m\r\n").as_bytes(),
+        );
+        self.status =
+            format!("已断开，{delay} 秒后重连（{attempt}/{MAX_RECONNECT_ATTEMPTS}）").into();
+        cx.notify();
+
+        cx.spawn(async move |this, cx| {
+            for remaining in (1..=delay).rev() {
+                cx.background_executor().timer(Duration::from_secs(1)).await;
+                let alive = this
+                    .update(cx, |this, cx| {
+                        if this.generation != generation {
+                            return false;
+                        }
+                        this.status = format!(
+                            "已断开，{remaining} 秒后重连（{attempt}/{MAX_RECONNECT_ATTEMPTS}）"
+                        )
+                        .into();
+                        cx.notify();
+                        true
+                    })
+                    .is_ok();
+                if !alive {
+                    return;
+                }
+            }
+            let _ = this.update(cx, |this, cx| {
+                if this.generation == generation && this.auto_reconnect {
+                    this.begin(target, false, cx);
+                }
+            });
+        })
+        .detach();
     }
 
     fn poll(&mut self, rx: Receiver<Event>, running: Arc<AtomicBool>, cx: &mut Context<Self>) {
@@ -149,8 +276,13 @@ impl TerminalPage {
         for event in events {
             changed = true;
             match event {
-                Event::Opened { handle, fingerprint } => {
+                Event::Opened {
+                    handle,
+                    fingerprint,
+                } => {
                     self.session = Some(handle);
+                    self.attempts = 0;
+                    self.error = None;
                     self.status = match fingerprint {
                         Some(fingerprint) => SharedString::from(format!("已连接 · {fingerprint}")),
                         None => "本地终端".into(),
@@ -166,15 +298,18 @@ impl TerminalPage {
                 Event::Closed(message) => {
                     self.session = None;
                     self.running.store(false, Ordering::SeqCst);
-                    self.status = SharedString::from(message);
+                    self.schedule_reconnect(message, cx);
                 }
                 Event::Failed(message) => {
                     self.session = None;
                     self.running.store(false, Ordering::SeqCst);
                     self.status = "连接失败".into();
-                    self.error = Some(message.into());
+                    self.schedule_reconnect(message, cx);
                 }
-                Event::HostKeyUnknown { fingerprint, message } => {
+                Event::HostKeyUnknown {
+                    fingerprint,
+                    message,
+                } => {
                     self.session = None;
                     self.running.store(false, Ordering::SeqCst);
                     self.status = "等待确认主机指纹".into();
@@ -207,7 +342,9 @@ impl TerminalPage {
         } else {
             HostKeyPolicy::TrustOnce(fingerprint)
         };
-        self.start(Target::Remote { host, policy }, cx);
+        self.attempts = 0;
+        self.auto_reconnect = true;
+        self.begin(Target::Remote { host, policy }, true, cx);
     }
 
     fn send(&mut self, bytes: &[u8], cx: &mut Context<Self>) {
@@ -271,10 +408,19 @@ impl TerminalPage {
                 div()
                     .text_sm()
                     .text_color(theme.text)
-                    .child(if self.session.is_some() { "终端" } else { "未连接" }),
+                    .child(if self.session.is_some() {
+                        "终端"
+                    } else {
+                        "未连接"
+                    }),
             )
             .child(div().flex_1())
-            .child(div().text_xs().text_color(theme.muted).child(self.status.clone()))
+            .child(
+                div()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(self.status.clone()),
+            )
             .child(
                 div()
                     .id("local-shell")
@@ -309,6 +455,37 @@ impl TerminalPage {
                     }))
                     .child("连接"),
             )
+            .child(if self.session.is_some() {
+                div()
+                    .id("disconnect")
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(theme.accent_soft)
+                    .text_xs()
+                    .text_color(theme.accent)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.disconnect(cx)))
+                    .child("断开")
+                    .into_any_element()
+            } else {
+                div()
+                    .id("reconnect")
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(theme.accent_soft)
+                    .text_xs()
+                    .text_color(theme.accent)
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.reconnect(cx);
+                        this.focus.focus(window);
+                        cx.notify();
+                    }))
+                    .child("重连")
+                    .into_any_element()
+            })
     }
 
     fn host_list(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -335,7 +512,9 @@ impl TerminalPage {
                             .cursor_pointer()
                             .text_xs()
                             .text_color(theme.muted)
-                            .on_click(cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)),
+                            )
                             .child(format!("{}", self.host_list.len())),
                     ),
             );
@@ -360,7 +539,11 @@ impl TerminalPage {
                     .py_2()
                     .rounded_md()
                     .cursor_pointer()
-                    .bg(if active { theme.accent_soft } else { theme.sidebar })
+                    .bg(if active {
+                        theme.accent_soft
+                    } else {
+                        theme.sidebar
+                    })
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         this.selected = index;
                         cx.notify();
@@ -398,65 +581,66 @@ impl TerminalPage {
             );
 
         if let Some((host, fingerprint)) = self.pending.clone() {
-            area = area.child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_2()
-                    .p_4()
-                    .m_4()
-                    .rounded_md()
-                    .bg(theme.surface)
-                    .border_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.text)
-                            .child(format!("尚未信任 {} 的主机密钥", host.name)),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted)
-                            .child(SharedString::from(fingerprint.clone())),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .id("trust-once")
-                                    .px_2()
-                                    .py_1()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .bg(theme.accent_soft)
-                                    .text_xs()
-                                    .text_color(theme.accent)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.trust(false, cx)
-                                    }))
-                                    .child("仅本次信任"),
-                            )
-                            .child(
-                                div()
-                                    .id("trust-remember")
-                                    .px_2()
-                                    .py_1()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .bg(theme.accent)
-                                    .text_xs()
-                                    .text_color(theme.surface)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.trust(true, cx)
-                                    }))
-                                    .child("记住并连接"),
-                            ),
-                    ),
-            );
+            area =
+                area.child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_2()
+                        .p_4()
+                        .m_4()
+                        .rounded_md()
+                        .bg(theme.surface)
+                        .border_1()
+                        .border_color(theme.border)
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(theme.text)
+                                .child(format!("尚未信任 {} 的主机密钥", host.name)),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted)
+                                .child(SharedString::from(fingerprint.clone())),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .gap_2()
+                                .child(
+                                    div()
+                                        .id("trust-once")
+                                        .px_2()
+                                        .py_1()
+                                        .rounded_md()
+                                        .cursor_pointer()
+                                        .bg(theme.accent_soft)
+                                        .text_xs()
+                                        .text_color(theme.accent)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.trust(false, cx)
+                                        }))
+                                        .child("仅本次信任"),
+                                )
+                                .child(
+                                    div()
+                                        .id("trust-remember")
+                                        .px_2()
+                                        .py_1()
+                                        .rounded_md()
+                                        .cursor_pointer()
+                                        .bg(theme.accent)
+                                        .text_xs()
+                                        .text_color(theme.surface)
+                                        .on_click(cx.listener(|this, _event, _window, cx| {
+                                            this.trust(true, cx)
+                                        }))
+                                        .child("记住并连接"),
+                                ),
+                        ),
+                );
             return area;
         }
 
@@ -591,13 +775,22 @@ fn spawn_worker(target: Target, tx: Sender<Event>) {
 
         match opened {
             Err((message, Some(fingerprint))) => {
-                let _ = tx.send(Event::HostKeyUnknown { fingerprint, message });
+                let _ = tx.send(Event::HostKeyUnknown {
+                    fingerprint,
+                    message,
+                });
             }
             Err((message, None)) => {
                 let _ = tx.send(Event::Failed(message));
             }
             Ok((handle, mut session, fingerprint)) => {
-                if tx.send(Event::Opened { handle, fingerprint }).is_err() {
+                if tx
+                    .send(Event::Opened {
+                        handle,
+                        fingerprint,
+                    })
+                    .is_err()
+                {
                     return;
                 }
                 let mut buffer = vec![0u8; 32 * 1024];
@@ -697,16 +890,20 @@ impl Element for ScreenElement {
                     strikethrough: None,
                 })
                 .collect();
-            let shaped = window
-                .text_system()
-                .shape_line(SharedString::from(text), font_size, &runs, None);
+            let shaped =
+                window
+                    .text_system()
+                    .shape_line(SharedString::from(text), font_size, &runs, None);
             if self.focused && self.scroll_offset == 0 {
                 let (row_index, col) = screen.cursor();
                 if row_index == row {
                     let x = shaped.x_for_index(byte_index(&screen, row, col));
                     cursor = Some(fill(
                         Bounds::new(
-                            point(bounds.left() + x, bounds.top() + window.line_height() * row as f32),
+                            point(
+                                bounds.left() + x,
+                                bounds.top() + window.line_height() * row as f32,
+                            ),
                             size(px(8.0), window.line_height()),
                         ),
                         rgb(0xd0d7de),
@@ -810,7 +1007,10 @@ impl EntityInputHandler for TerminalPage {
         _cx: &mut Context<Self>,
     ) -> Option<UTF16Selection> {
         let end = self.composing.utf16_len();
-        Some(UTF16Selection { range: end..end, reversed: false })
+        Some(UTF16Selection {
+            range: end..end,
+            reversed: false,
+        })
     }
 
     fn marked_text_range(
@@ -818,7 +1018,9 @@ impl EntityInputHandler for TerminalPage {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Option<Range<usize>> {
-        self.composing.is_active().then(|| 0..self.composing.utf16_len())
+        self.composing
+            .is_active()
+            .then(|| 0..self.composing.utf16_len())
     }
 
     fn unmark_text(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -944,8 +1146,9 @@ mod pty_tests {
     /// Proves the real local PTY feeds the real screen model.
     #[test]
     fn local_shell_output_reaches_the_screen() {
-        let mut session = LocalSession::open(Some("/bin/sh"), TerminalGeometry { cols: 80, rows: 24 })
-            .expect("local pty");
+        let mut session =
+            LocalSession::open(Some("/bin/sh"), TerminalGeometry { cols: 80, rows: 24 })
+                .expect("local pty");
         session.write(b"printf 'superlink-ok\\n'\n").expect("write");
         let (tx, rx) = mpsc::channel();
         std::thread::spawn(move || {
@@ -1084,5 +1287,21 @@ mod ime_pty_tests {
         // Nothing else to send: only Composition::clear plus a commit produces
         // bytes, which the handler performs in replace_text_in_range.
         assert!(composition.is_active());
+    }
+}
+
+#[cfg(test)]
+mod reconnect_tests {
+    use super::{MAX_RECONNECT_ATTEMPTS, backoff_delay};
+
+    #[test]
+    fn backoff_grows_and_then_stops() {
+        assert_eq!(backoff_delay(0), None);
+        assert_eq!(backoff_delay(1), Some(1));
+        assert_eq!(backoff_delay(2), Some(2));
+        assert_eq!(backoff_delay(3), Some(4));
+        assert_eq!(backoff_delay(4), Some(8));
+        assert_eq!(backoff_delay(5), Some(15));
+        assert_eq!(backoff_delay(MAX_RECONNECT_ATTEMPTS + 1), None);
     }
 }
