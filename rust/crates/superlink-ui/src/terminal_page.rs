@@ -198,7 +198,18 @@ impl TerminalPage {
         let password = Self::editor_text(&self.form_password, cx);
         let notes = Self::editor_text(&self.form_notes, cx);
 
-        let port: u16 = port_text.trim().parse().unwrap_or(0);
+        let port: u16 = if port_text.trim().is_empty() {
+            22
+        } else {
+            match port_text.trim().parse() {
+                Ok(value) => value,
+                Err(_) => {
+                    self.form_error = Some("端口无效，请输入 1-65535".into());
+                    cx.notify();
+                    return;
+                }
+            }
+        };
         let record = ShellHost {
             id: uuid::Uuid::new_v4().to_string(),
             name: name.trim().to_string(),

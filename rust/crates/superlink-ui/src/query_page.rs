@@ -694,7 +694,18 @@ impl QueryPage {
             cx.notify();
             return;
         }
-        let port: u16 = port_text.trim().parse().unwrap_or(0);
+        let port: u16 = if port_text.trim().is_empty() {
+            0
+        } else {
+            match port_text.trim().parse() {
+                Ok(value) => value,
+                Err(_) => {
+                    self.form_error = Some("端口无效，请输入 1-65535".into());
+                    cx.notify();
+                    return;
+                }
+            }
+        };
         let profile = Profile {
             id: uuid::Uuid::new_v4().to_string(),
             name: name.trim().to_string(),
