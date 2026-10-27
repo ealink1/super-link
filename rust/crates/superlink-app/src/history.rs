@@ -25,7 +25,16 @@ impl HistoryService {
             .unwrap_or_default()
     }
 
-    pub fn record(&self, profile_id: &str, sql: &str, success: bool, rows: i64, duration_ns: u64) {
+    /// Returns the row id so the caller can remember the original text for
+    /// this session; only the redacted copy is persisted.
+    pub fn record(
+        &self,
+        profile_id: &str,
+        sql: &str,
+        success: bool,
+        rows: i64,
+        duration_ns: u64,
+    ) -> Option<i64> {
         let entry = History {
             profile_id: profile_id.to_string(),
             text: redact(sql),
@@ -34,7 +43,7 @@ impl HistoryService {
             duration_ns,
             ..Default::default()
         };
-        let _ = self.store.add_history(&entry);
+        self.store.add_history(&entry).ok()
     }
 
     pub fn clear(&self, profile_id: &str) {
@@ -103,6 +112,9 @@ mod tests {
         service.record("p1", "SELECT 'secret'", true, 3, 1_500_000);
         let list = service.list("p1");
         assert_eq!(list.len(), 1);
+        let id = service.record("p1", "SELECT 2", true, 0, 0).expect("id");
+        assert!(id > list[0].id);
+        assert_eq!(service.list("p1").len(), 2);
         assert!(!list[0].text.contains("secret"));
         assert_eq!(list[0].rows, 3);
         service.clear("p1");

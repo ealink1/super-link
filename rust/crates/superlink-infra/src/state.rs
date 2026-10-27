@@ -183,7 +183,9 @@ impl Store {
     }
 
     /// History stores redacted query text supplied by the caller; never results.
-    pub fn add_history(&self, history: &History) -> StoreResult<()> {
+    /// Returns the new row id so the caller can keep the unredacted text for
+    /// this session only.
+    pub fn add_history(&self, history: &History) -> StoreResult<i64> {
         let db = self.lock();
         db.execute(
             "INSERT INTO history(profile_id,text,success,rows_count,duration_ns,created_at)
@@ -197,7 +199,7 @@ impl Store {
                 chrono::Utc::now().timestamp_millis()
             ],
         )?;
-        Ok(())
+        Ok(db.last_insert_rowid())
     }
 
     /// Newest first, bounded by the caller. Only redacted text is stored.

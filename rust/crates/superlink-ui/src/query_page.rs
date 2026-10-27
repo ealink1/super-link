@@ -1,5 +1,6 @@
 //! SQL workspace: query tabs, toolbar, statement input and a result table.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use gpui::{Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px};
@@ -41,6 +42,8 @@ pub struct QueryPage {
     running: bool,
     history_open: bool,
     entries: Vec<History>,
+    /// Unredacted statements from this session, keyed by history row id.
+    recent_sql: HashMap<i64, String>,
 }
 
 impl QueryPage {
@@ -70,6 +73,7 @@ impl QueryPage {
             running: false,
             history_open: false,
             entries: Vec::new(),
+            recent_sql: HashMap::new(),
         }
     }
 
@@ -238,7 +242,7 @@ impl QueryPage {
             .spawn(async move { queries.execute(&profile, &credentials, &sql, limit) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
-            match &outcome {
+            let entry_id = match &outcome {
                 Ok(result) => history.record(
                     &profile_id,
                     &recorded,
@@ -247,8 +251,17 @@ impl QueryPage {
                     result.duration_ns,
                 ),
                 Err(_) => history.record(&profile_id, &recorded, false, 0, 0),
-            }
+            };
+            let original = recorded.clone();
             this.update(cx, |this, cx| {
+                if let Some(id) = entry_id {
+                    if this.recent_sql.len() >= 50
+                        && let Some(oldest) = this.recent_sql.keys().min().copied()
+                    {
+                        this.recent_sql.remove(&oldest);
+                    }
+                    this.recent_sql.insert(id, original);
+                }
                 this.running = false;
                 match outcome {
                     Ok(result) => {
@@ -291,6 +304,16 @@ impl QueryPage {
             .as_ref()
             .map(|profile| self.history.list(&profile.id))
             .unwrap_or_default();
+    }
+
+    /// Clicking a row restores this session's exact statement, or the redacted
+    /// template for entries recorded before this window opened.
+    fn load_history(&mut self, id: i64, redacted: String, cx: &mut Context<Self>) {
+        let (text, note) = resolve_history_text(self.recent_sql.get(&id).cloned(), redacted);
+        self.editor
+            .update(cx, |editor, cx| editor.set_text(text, cx));
+        self.status = note.into();
+        cx.notify();
     }
 
     fn toggle_history(&mut self, cx: &mut Context<Self>) {
@@ -380,8 +403,11 @@ impl QueryPage {
                 .chars()
                 .take(48)
                 .collect();
+            let entry_id = entry.id;
+            let redacted = entry.text.clone();
             panel = panel.child(
                 div()
+                    .id(SharedString::from(format!("history-{}", entry.id)))
                     .flex()
                     .flex_col()
                     .gap_1()
@@ -390,6 +416,11 @@ impl QueryPage {
                     .px_2()
                     .py_1()
                     .rounded_md()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.load_history(entry_id, redacted.clone(), cx)
+                    }))
                     .bg(theme.surface)
                     .child(
                         div()
@@ -807,6 +838,15 @@ impl QueryPage {
     }
 }
 
+/// Entries recorded in this window keep their exact text; older ones only have
+/// the redacted copy that was persisted.
+fn resolve_history_text(recent: Option<String>, redacted: String) -> (String, &'static str) {
+    match recent {
+        Some(text) => (text, "已回填上次执行的 SQL"),
+        None => (redacted, "已回填历史语句（字面量已脱敏）"),
+    }
+}
+
 fn cell_text(value: &Value) -> SharedString {
     match value {
         Value::Null => "NULL".into(),
@@ -843,5 +883,24 @@ impl Render for QueryPage {
                     )
                     .children(self.history_open.then(|| self.history_panel(cx))),
             )
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    use super::resolve_history_text;
+
+    #[test]
+    fn prefers_the_unredacted_text_from_this_session() {
+        let (text, note) = resolve_history_text(Some("SELECT 'alice'".into()), "SELECT ?".into());
+        assert_eq!(text, "SELECT 'alice'");
+        assert!(note.contains("上次执行"));
+    }
+
+    #[test]
+    fn falls_back_to_the_redacted_copy() {
+        let (text, note) = resolve_history_text(None, "SELECT ?".into());
+        assert_eq!(text, "SELECT ?");
+        assert!(note.contains("脱敏"));
     }
 }
