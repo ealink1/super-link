@@ -11,6 +11,20 @@
 
 - 设计与进度：[docs/plans/2026-10-27-rust-gpui-rewrite.md](docs/plans/2026-10-27-rust-gpui-rewrite.md)
 - Rust 结构与运行方式：[rust/README.md](rust/README.md)
+- 驱动层溯源：[UPSTREAM.md](UPSTREAM.md)
+
+## 文档结构
+
+```
+docs/
+  plans/        活跃计划（当前只有 Rust 重写计划）
+  archive/
+    go-app/     main 分支 Go 版的历史设计、QA 与截图（已归档）
+  upstream-adaptations.patch   驱动层上游适配补丁（UPSTREAM.md 引用）
+  upstream-import.json         上游导入清单（同上）
+```
+
+Go 版历史文档仅在追溯 main 分支行为时查阅，不随 Rust 开发更新。
 
 ## 快速开始
 
