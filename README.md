@@ -44,7 +44,8 @@ python3 tools/build.py --skip-app   # 只构建驱动 agent
   更新验签、SSH/SFTP/PTY 已全部就位并有测试
 - 驱动移植：SQLite（`SUPERLINK_NATIVE_SQLITE=1`）、PostgreSQL（`SUPERLINK_NATIVE_PG=1`，
   含 TLS 与客户端证书）、MySQL 协议族（`SUPERLINK_NATIVE_MYSQL=1`，覆盖
-  MySQL/MariaDB/OceanBase/TiDB、Kingbase/Vastbase、ClickHouse）已有进程内实现；
+  MySQL/MariaDB/OceanBase/TiDB、Kingbase/Vastbase、ClickHouse、
+  Elasticsearch）已有进程内实现；
   SQLite 与 agent 结果逐值一致，其余数据源继续走 agent
   （GaussDB/OpenGauss/HighGo 因 sha256/SM3 认证保留 agent）
 - UI：SQL（编辑/运行/结果/历史/新建连接表单）、Shell（主机卡片/终端）、Note（预览）

@@ -90,7 +90,8 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 2c | PG 方言族：Kingbase/Vastbase 复用 PG 驱动 | **已完成**（同 `SUPERLINK_NATIVE_PG`） |
 | 2d | GaussDB/OpenGauss（sha256 挑战）、HighGo（SM3） | 保留 agent：tokio-postgres 无法完成这两类认证握手 |
 | 3 | ClickHouse（HTTP + JSONCompact，服务端行预算） | **已完成**（`SUPERLINK_NATIVE_CLICKHOUSE=1`） |
-| 3b | Elasticsearch/Trino/TDengine/IoTDB | 待做 |
+| 3b | Elasticsearch（JSON DSL / `METHOD /index/_search`，仅 _search/_count 白名单） | **已完成**（`SUPERLINK_NATIVE_ES=1`） |
+| 3c | Trino/TDengine/IoTDB | 待做 |
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
 
@@ -110,6 +111,9 @@ SUPERLINK_TEST_PG_KIND=kingbase SUPERLINK_TEST_PG_PORT=54321 \
 PostgreSQL 的 sslMode 语义：disable/allow/prefer 走明文（不尝试先 TLS 后降级）、
 require 加密但不校验证书、verify-ca 与 verify-full 等价（rustls 无法只校验链），
 支持 `sslCA` 自定义根与 `sslCert/sslKey` 客户端证书（必须成对配置）。
+
+Elasticsearch 只移植 DevTools 常用子集（单请求、_search/_count）；msearch、
+SQL 兼容层、批量请求与写入端点仍走 agent，未移植部分会返回明确提示。
 
 MySQL 驱动走文本协议 + 按列类型解码：整数按有无符号区分、DECIMAL 保留字符串、
 二级制字符集（charset=63）的 BLOB 转 base64、日期时间输出 ISO 形式；

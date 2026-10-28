@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
 use superlink_drivers::{
-    DriverError, DriverSession, NativeClickHouse, NativeMysql, NativePostgres, NativeSqlite,
+    DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres,
+    NativeSqlite,
 };
 
 use crate::profiles::Credentials;
@@ -84,6 +85,10 @@ impl QueryService {
                 let mut driver = NativeClickHouse::open(&config)?;
                 return Ok(driver.query(sql, &[], max_rows)?);
             }
+            Some(NativeKind::Elasticsearch) => {
+                let mut driver = NativeElasticsearch::open(&config)?;
+                return Ok(driver.query(sql, &[], max_rows)?);
+            }
             None => {}
         }
         let binary = self
@@ -110,6 +115,7 @@ pub(crate) struct NativeFlags {
     pub postgres: bool,
     pub mysql: bool,
     pub clickhouse: bool,
+    pub elasticsearch: bool,
 }
 
 impl NativeFlags {
@@ -120,6 +126,7 @@ impl NativeFlags {
             postgres: on("SUPERLINK_NATIVE_PG"),
             mysql: on("SUPERLINK_NATIVE_MYSQL"),
             clickhouse: on("SUPERLINK_NATIVE_CLICKHOUSE"),
+            elasticsearch: on("SUPERLINK_NATIVE_ES"),
         }
     }
 }
@@ -130,6 +137,7 @@ pub(crate) enum NativeKind {
     Postgres,
     Mysql,
     ClickHouse,
+    Elasticsearch,
 }
 
 /// 方言 → 原生驱动的路由。
@@ -149,6 +157,7 @@ pub(crate) fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind
         // Sphinx/StarRocks 同协议但行为差异未验证，暂不纳入。
         "mysql" | "mariadb" | "oceanbase" | "tidb" if flags.mysql => Some(NativeKind::Mysql),
         "clickhouse" if flags.clickhouse => Some(NativeKind::ClickHouse),
+        "elasticsearch" if flags.elasticsearch => Some(NativeKind::Elasticsearch),
         _ => None,
     }
 }
@@ -193,6 +202,7 @@ mod tests {
             postgres: true,
             mysql: true,
             clickhouse: true,
+            elasticsearch: true,
         }
     }
 
@@ -223,6 +233,10 @@ mod tests {
             Some(NativeKind::Mysql)
         );
         assert_eq!(native_target("tidb", all_on()), Some(NativeKind::Mysql));
+        assert_eq!(
+            native_target("elasticsearch", all_on()),
+            Some(NativeKind::Elasticsearch)
+        );
         assert_eq!(
             native_target("clickhouse", all_on()),
             Some(NativeKind::ClickHouse)
