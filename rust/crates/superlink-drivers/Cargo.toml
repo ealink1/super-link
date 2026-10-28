@@ -21,6 +21,7 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rustls-pemfile = "2"
 rustls-native-certs = "0.8"
 tokio-rustls = "0.26"
+mysql = { version = "28", default-features = false, features = ["minimal", "rustls-tls", "buffer-pool"] }
 thiserror.workspace = true
 sha2.workspace = true
 hex.workspace = true

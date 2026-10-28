@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
-use superlink_drivers::{DriverError, DriverSession, NativePostgres, NativeSqlite};
+use superlink_drivers::{DriverError, DriverSession, NativeMysql, NativePostgres, NativeSqlite};
 
 use crate::profiles::Credentials;
 
@@ -69,6 +69,10 @@ impl QueryService {
             let driver = NativeSqlite::open(&config)?;
             return Ok(driver.query(sql, &[], max_rows)?);
         }
+        if MYSQL_FAMILY.contains(&kind.as_str()) && native_mysql_enabled() {
+            let mut driver = NativeMysql::open(&config)?;
+            return Ok(driver.query(sql, &[], max_rows)?);
+        }
         if kind == "postgresql" && native_pg_enabled() {
             let mut driver = NativePostgres::open(&config)?;
             return Ok(driver.query(sql, &[], max_rows)?);
@@ -98,6 +102,13 @@ fn native_sqlite_enabled() -> bool {
 fn native_pg_enabled() -> bool {
     std::env::var_os("SUPERLINK_NATIVE_PG").is_some()
 }
+
+fn native_mysql_enabled() -> bool {
+    std::env::var_os("SUPERLINK_NATIVE_MYSQL").is_some()
+}
+
+/// 共用 MySQL 线协议的方言族；Sphinx/StarRocks 待验证后再纳入。
+const MYSQL_FAMILY: [&str; 4] = ["mysql", "mariadb", "oceanbase", "tidb"];
 
 /// The vault keeps the password out of metadata; the driver still needs it.
 fn live_config(config: &ConnectionConfig, credentials: &Credentials) -> ConnectionConfig {
