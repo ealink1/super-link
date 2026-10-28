@@ -17,6 +17,8 @@ use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
+use super::sqlite::{ColumnEntry, TableEntry};
+
 use crate::session::DriverError;
 
 pub struct NativePostgres {
@@ -120,6 +122,103 @@ impl NativePostgres {
             truncated,
             duration_ns: started.elapsed().as_nanos() as u64,
         })
+    }
+}
+
+/// public 之外的 schema 用 schema.table 限定，避免同名表冲突。
+fn qualify(schema: &str, name: &str) -> String {
+    if schema == "public" {
+        name.to_string()
+    } else {
+        format!("{schema}.{name}")
+    }
+}
+
+fn table_kind(raw: &str) -> &'static str {
+    if raw.eq_ignore_ascii_case("VIEW") {
+        "view"
+    } else {
+        "table"
+    }
+}
+
+/// 结构浏览：系统 schema 之外的普通表与视图。
+impl NativePostgres {
+    pub fn tables(&mut self) -> Result<Vec<TableEntry>, DriverError> {
+        let rows = self
+            .client
+            .query(
+                "SELECT table_schema, table_name, table_type
+                 FROM information_schema.tables
+                 WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                 ORDER BY table_schema, table_name",
+                &[],
+            )
+            .map_err(|err| DriverError::Native(format!("读取表列表失败：{err}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let schema: String = row.get(0);
+                let name: String = row.get(1);
+                let kind: String = row.get(2);
+                TableEntry {
+                    name: qualify(&schema, &name),
+                    kind: table_kind(&kind).to_string(),
+                }
+            })
+            .collect())
+    }
+
+    /// 列定义；主键通过 table_constraints 单独查询后合并。
+    pub fn columns(&mut self, table: &str) -> Result<Vec<ColumnEntry>, DriverError> {
+        let (schema, name) = match table.split_once('.') {
+            Some((schema, name)) => (schema.to_string(), name.to_string()),
+            None => ("public".to_string(), table.to_string()),
+        };
+        let rows = self
+            .client
+            .query(
+                "SELECT column_name, data_type, is_nullable, column_default
+                 FROM information_schema.columns
+                 WHERE table_schema = $1 AND table_name = $2
+                 ORDER BY ordinal_position",
+                &[&schema, &name],
+            )
+            .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
+
+        let primary: Vec<String> = self
+            .client
+            .query(
+                "SELECT kcu.column_name
+                 FROM information_schema.table_constraints tc
+                 JOIN information_schema.key_column_usage kcu
+                   ON tc.constraint_name = kcu.constraint_name
+                  AND tc.table_schema = kcu.table_schema
+                 WHERE tc.constraint_type = 'PRIMARY KEY'
+                   AND tc.table_schema = $1 AND tc.table_name = $2",
+                &[&schema, &name],
+            )
+            .map_err(|err| DriverError::Native(format!("读取主键失败：{err}")))?
+            .into_iter()
+            .map(|row| row.get::<_, String>(0))
+            .collect();
+
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let column: String = row.get(0);
+                let data_type: String = row.get(1);
+                let nullable: String = row.get(2);
+                let default_value: Option<String> = row.get(3);
+                ColumnEntry {
+                    primary_key: primary.iter().any(|name| name == &column),
+                    name: column,
+                    data_type,
+                    nullable: nullable.eq_ignore_ascii_case("YES"),
+                    default_value,
+                }
+            })
+            .collect())
     }
 }
 
@@ -480,6 +579,14 @@ mod tests {
     }
 
     #[test]
+    fn qualifies_non_public_schemas() {
+        assert_eq!(qualify("public", "users"), "users");
+        assert_eq!(qualify("app", "users"), "app.users");
+        assert_eq!(table_kind("BASE TABLE"), "table");
+        assert_eq!(table_kind("VIEW"), "view");
+    }
+
+    #[test]
     fn maps_sslmode_to_a_plan() {
         assert_eq!(ssl_mode(&config("disable", false)).unwrap(), SslMode::Plain);
         assert_eq!(ssl_mode(&config("prefer", false)).unwrap(), SslMode::Plain);
@@ -563,6 +670,7 @@ mod tests {
             user: std::env::var("SUPERLINK_TEST_PG_USER").unwrap_or_else(|_| "postgres".into()),
             password: std::env::var("SUPERLINK_TEST_PG_PASSWORD").unwrap_or_default(),
             database: std::env::var("SUPERLINK_TEST_PG_DB").unwrap_or_else(|_| "postgres".into()),
+            ssl_mode: std::env::var("SUPERLINK_TEST_PG_SSLMODE").unwrap_or_default(),
             ..Default::default()
         })
     }

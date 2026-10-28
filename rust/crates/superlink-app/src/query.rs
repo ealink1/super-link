@@ -61,6 +61,7 @@ impl QueryService {
         match native_target(&kind, NativeFlags::from_env()) {
             Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.tables()?),
             Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.tables()?),
+            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&profile.config)?.tables()?),
             _ => Err(QueryError::Unsupported(kind)),
         }
     }
@@ -71,6 +72,9 @@ impl QueryService {
         match native_target(&kind, NativeFlags::from_env()) {
             Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.columns(table)?),
             Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.columns(table)?),
+            Some(NativeKind::Postgres) => {
+                Ok(NativePostgres::open(&profile.config)?.columns(table)?)
+            }
             _ => Err(QueryError::Unsupported(kind)),
         }
     }

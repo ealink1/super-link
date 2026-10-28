@@ -123,8 +123,9 @@ Sphinx/StarRocks 虽同协议但行为差异待验证后再纳入开关。
 侧栏「表」分区列出当前连接的表/视图，点击回填 SELECT * FROM "x" LIMIT 100。
 点击表名左侧箭头展开列定义（名称 · 类型 · PK/NOT NULL），点击表名回填查询；
 列定义按需异步加载并缓存，切换连接时清空。
-结构查询现由原生 SQLite 与原生 MySQL 提供（information_schema + DATABASE()），
-其余方言显示「尚未接入 Rust 驱动」。
+结构查询现由原生 SQLite、MySQL（information_schema + DATABASE()）
+与 PostgreSQL（information_schema + table_constraints 判主键，非 public schema
+用 schema.table 限定）提供，其余方言显示「尚未接入 Rust 驱动」。
 索引/外键/DDL 与其它方言的结构浏览仍未接入，那部分 Go 代码（upstream/db
 的 94k 行）暂不移植——等 UI 需要时再按功能补齐，避免提前搬运无消费者的代码。
 
