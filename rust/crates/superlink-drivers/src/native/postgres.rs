@@ -216,6 +216,16 @@ impl NativePostgres {
 
 /// 结构浏览：系统 schema 之外的普通表与视图。
 impl NativePostgres {
+    /// PG 的跨库查询需要独立连接，这里只返回当前连接的数据库。
+    pub fn databases(&mut self) -> Result<Vec<String>, DriverError> {
+        let name: String = self
+            .client
+            .query_one("SELECT current_database()", &[])
+            .map_err(|err| DriverError::Native(format!("读取数据库失败：{err}")))?
+            .get(0);
+        Ok(vec![name])
+    }
+
     pub fn tables(&mut self) -> Result<Vec<TableEntry>, DriverError> {
         let rows = self
             .client

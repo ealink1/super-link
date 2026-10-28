@@ -157,6 +157,11 @@ impl NativeSqlite {
             .map_err(|err| DriverError::Native(format!("提交失败：{err}")))
     }
 
+    /// SQLite 没有多库层级，返回空列表表示直接展示表。
+    pub fn databases(&self) -> Result<Vec<String>, DriverError> {
+        Ok(Vec::new())
+    }
+
     /// 一次取齐列、索引与外键。
     pub fn structure(&self, table: &str) -> Result<TableStructure, DriverError> {
         Ok(TableStructure {

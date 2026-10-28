@@ -6,8 +6,8 @@ use gpui::{
     Window, WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
 use superlink_app::{
-    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryError,
-    QueryService, SettingsService, StructureService,
+    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
+    SettingsService, StructureService,
 };
 use superlink_domain::Profile;
 
@@ -37,6 +37,8 @@ impl Workspace {
 
 /// 表结构编辑面板的临时状态。
 struct StructureEdit {
+    conn: usize,
+    database: String,
     table: String,
     columns: Vec<superlink_drivers::ColumnEntry>,
     name: Entity<SqlEditor>,
@@ -61,13 +63,16 @@ pub struct SuperLinkApp {
     sql_filter: String,
     sql_search: Entity<SqlEditor>,
     queries: Arc<QueryService>,
-    tables: Vec<superlink_drivers::TableEntry>,
-    tables_note: Option<SharedString>,
-    expanded_tables: HashSet<String>,
+    expanded_conns: HashSet<usize>,
+    conn_dbs: HashMap<usize, Option<Vec<String>>>,
+    conn_db_note: HashMap<usize, SharedString>,
+    expanded_dbs: HashSet<(usize, String)>,
+    db_tables: HashMap<(usize, String), Option<Vec<superlink_drivers::TableEntry>>>,
+    expanded_tables: HashSet<(usize, String)>,
+    table_structures: HashMap<(usize, String), superlink_drivers::TableStructure>,
+    column_errors: HashMap<(usize, String), SharedString>,
     structure: Arc<StructureService>,
     structure_edit: Option<StructureEdit>,
-    table_columns: HashMap<String, superlink_drivers::TableStructure>,
-    column_errors: HashMap<String, SharedString>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -146,13 +151,16 @@ impl SuperLinkApp {
             sql_filter: String::new(),
             sql_search: sql_search.clone(),
             queries: queries.clone(),
-            tables: Vec::new(),
-            tables_note: None,
+            expanded_conns: HashSet::new(),
+            conn_dbs: HashMap::new(),
+            conn_db_note: HashMap::new(),
+            expanded_dbs: HashSet::new(),
+            db_tables: HashMap::new(),
             expanded_tables: HashSet::new(),
+            table_structures: HashMap::new(),
+            column_errors: HashMap::new(),
             structure: structure.clone(),
             structure_edit: None,
-            table_columns: HashMap::new(),
-            column_errors: HashMap::new(),
             workspace: Workspace::Sql,
             theme,
             error,
@@ -332,38 +340,145 @@ impl SuperLinkApp {
             self.query_page
                 .update(cx, |page, cx| page.select_profile(profile, cx));
         }
-        self.reload_tables(cx);
     }
 
-    /// 结构浏览在后台读取，回调只更新状态，不阻塞渲染。
-    fn reload_tables(&mut self, cx: &mut Context<Self>) {
-        self.tables.clear();
-        self.tables_note = None;
-        self.expanded_tables.clear();
-        self.table_columns.clear();
-        self.column_errors.clear();
-        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+    /// 连接节点的库列表；SQLite 返回空即没有库层级，直接挂表。
+    fn toggle_conn(&mut self, index: usize, cx: &mut Context<Self>) {
+        if self.expanded_conns.remove(&index) {
             cx.notify();
+            return;
+        }
+        self.expanded_conns.insert(index);
+        if !self.conn_dbs.contains_key(&index) {
+            self.fetch_databases(index, cx);
+        }
+        cx.notify();
+    }
+
+    fn fetch_databases(&mut self, index: usize, cx: &mut Context<Self>) {
+        let Some(profile) = self.profiles.get(index).cloned() else {
             return;
         };
         let queries = self.queries.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { queries.tables(&profile) });
+            .spawn(async move { queries.databases(&profile) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
                 match outcome {
+                    Ok(databases) => {
+                        this.conn_dbs.insert(index, Some(databases));
+                        this.conn_db_note.remove(&index);
+                    }
+                    Err(err) => {
+                        this.conn_dbs.insert(index, Some(Vec::new()));
+                        this.conn_db_note
+                            .insert(index, SharedString::from(err.to_string()));
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn toggle_db(&mut self, index: usize, database: String, cx: &mut Context<Self>) {
+        let key = (index, database.clone());
+        if self.expanded_dbs.remove(&key) {
+            cx.notify();
+            return;
+        }
+        self.expanded_dbs.insert(key);
+        let cache_key = (index, database.clone());
+        if !self.db_tables.contains_key(&cache_key) {
+            self.fetch_tables(index, database, cx);
+        }
+        cx.notify();
+    }
+
+    fn fetch_tables(&mut self, index: usize, database: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.profiles.get(index).cloned() else {
+            return;
+        };
+        let queries = self.queries.clone();
+        let db_for_task = database.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.tables(&profile, &db_for_task) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                let key = (index, database.clone());
+                match outcome {
                     Ok(entries) => {
-                        this.tables = entries;
-                        this.tables_note = None;
+                        this.db_tables.insert(key, Some(entries));
                     }
-                    Err(QueryError::Unsupported(kind)) => {
-                        this.tables_note = Some(SharedString::from(format!(
-                            "{kind} 的结构浏览尚未接入 Rust 驱动"
-                        )));
+                    Err(err) => {
+                        this.db_tables.insert(key, Some(Vec::new()));
+                        this.column_errors
+                            .insert((index, database), SharedString::from(err.to_string()));
                     }
-                    Err(err) => this.tables_note = Some(SharedString::from(err.to_string())),
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn toggle_table(
+        &mut self,
+        index: usize,
+        database: String,
+        table: String,
+        cx: &mut Context<Self>,
+    ) {
+        let key = (index, table.clone());
+        if self.expanded_tables.remove(&key) {
+            cx.notify();
+            return;
+        }
+        self.expanded_tables.insert(key);
+        let cache_key = (index, table.clone());
+        if !self.table_structures.contains_key(&cache_key)
+            && !self.column_errors.contains_key(&(index, table.clone()))
+        {
+            self.fetch_structure(index, database, table, cx);
+        }
+        cx.notify();
+    }
+
+    fn fetch_structure(
+        &mut self,
+        index: usize,
+        database: String,
+        table: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(profile) = self.profiles.get(index).cloned() else {
+            return;
+        };
+        let queries = self.queries.clone();
+        let db_for_task = database.clone();
+        let table_for_task = table.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.structure(&profile, &db_for_task, &table_for_task) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                let key = (index, table.clone());
+                match outcome {
+                    Ok(structure) => {
+                        this.table_structures.insert(key, structure);
+                        this.column_errors.remove(&(index, table));
+                    }
+                    Err(err) => {
+                        this.column_errors
+                            .insert((index, table), SharedString::from(err.to_string()));
+                    }
                 }
                 cx.notify();
             })
@@ -385,17 +500,25 @@ impl SuperLinkApp {
         }
     }
 
-    fn open_structure_editor(&mut self, table: String, cx: &mut Context<Self>) {
+    fn open_structure_editor(
+        &mut self,
+        conn: usize,
+        database: String,
+        table: String,
+        cx: &mut Context<Self>,
+    ) {
         let name = cx.new(SqlEditor::new);
         let data_type = cx.new(SqlEditor::new);
         name.update(cx, |editor, cx| editor.set_placeholder("列名", cx));
         data_type.update(cx, |editor, cx| editor.set_placeholder("类型，如 TEXT", cx));
         let columns = self
-            .table_columns
-            .get(&table)
+            .table_structures
+            .get(&(conn, table.clone()))
             .map(|structure| structure.columns.clone())
             .unwrap_or_default();
         self.structure_edit = Some(StructureEdit {
+            conn,
+            database,
             table,
             columns,
             name,
@@ -414,22 +537,30 @@ impl SuperLinkApp {
     }
 
     /// 结构变更后刷新面板与表树缓存。
-    fn refresh_structure(&mut self, table: String, cx: &mut Context<Self>) {
-        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+    fn refresh_structure(
+        &mut self,
+        conn: usize,
+        database: String,
+        table: String,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(profile) = self.profiles.get(conn).cloned() else {
             return;
         };
         let queries = self.queries.clone();
+        let db_for_task = database.clone();
         let name = table.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { queries.structure(&profile, &name) });
+            .spawn(async move { queries.structure(&profile, &db_for_task, &name) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
                 if let Ok(structure) = outcome {
-                    this.table_columns
-                        .insert(table.to_string(), structure.clone());
+                    this.table_structures
+                        .insert((conn, table.clone()), structure.clone());
                     if let Some(edit) = this.structure_edit.as_mut()
+                        && edit.conn == conn
                         && edit.table == table
                     {
                         edit.columns = structure.columns;
@@ -449,8 +580,10 @@ impl SuperLinkApp {
         let name = edit.name.read(cx).text().trim().to_string();
         let data_type = edit.data_type.read(cx).text().trim().to_string();
         let nullable = edit.nullable;
+        let conn = edit.conn;
+        let database = edit.database.clone();
         let table = edit.table.clone();
-        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+        let Some(profile) = self.profiles.get(conn).cloned() else {
             return;
         };
         if name.is_empty() || data_type.is_empty() {
@@ -461,9 +594,17 @@ impl SuperLinkApp {
             return;
         }
         let service = self.structure.clone();
+        let db_for_task = database.clone();
         let table_for_task = table.clone();
         let task = cx.background_executor().spawn(async move {
-            service.add_column(&profile, &table_for_task, &name, &data_type, nullable)
+            service.add_column(
+                &profile,
+                &db_for_task,
+                &table_for_task,
+                &name,
+                &data_type,
+                nullable,
+            )
         });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
@@ -484,7 +625,7 @@ impl SuperLinkApp {
         })
         .detach();
         // 成功与否都刷新一次：失败时也能看到真实结构。
-        self.refresh_structure(table, cx);
+        self.refresh_structure(conn, database, table, cx);
     }
 
     fn delete_column(&mut self, column: String, cx: &mut Context<Self>) {
@@ -500,16 +641,19 @@ impl SuperLinkApp {
             cx.notify();
             return;
         }
+        let conn = edit.conn;
+        let database = edit.database.clone();
         let table = edit.table.clone();
-        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+        let Some(profile) = self.profiles.get(conn).cloned() else {
             return;
         };
         let service = self.structure.clone();
+        let db_for_task = database.clone();
         let table_for_task = table.clone();
         let column_for_task = column.clone();
-        let task = cx
-            .background_executor()
-            .spawn(async move { service.drop_column(&profile, &table_for_task, &column_for_task) });
+        let task = cx.background_executor().spawn(async move {
+            service.drop_column(&profile, &db_for_task, &table_for_task, &column_for_task)
+        });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -528,48 +672,7 @@ impl SuperLinkApp {
             .ok();
         })
         .detach();
-        self.refresh_structure(table, cx);
-    }
-
-    fn toggle_table(&mut self, name: String, cx: &mut Context<Self>) {
-        if self.expanded_tables.remove(&name) {
-            cx.notify();
-            return;
-        }
-        self.expanded_tables.insert(name.clone());
-        if !self.table_columns.contains_key(&name) && !self.column_errors.contains_key(&name) {
-            self.fetch_columns(name, cx);
-        }
-        cx.notify();
-    }
-
-    fn fetch_columns(&mut self, name: String, cx: &mut Context<Self>) {
-        let Some(profile) = self.profiles.get(self.selected).cloned() else {
-            return;
-        };
-        let queries = self.queries.clone();
-        let table = name.clone();
-        let task = cx
-            .background_executor()
-            .spawn(async move { queries.structure(&profile, &table) });
-        cx.spawn(async move |this, cx| {
-            let outcome = task.await;
-            this.update(cx, |this, cx| {
-                match outcome {
-                    Ok(entries) => {
-                        this.table_columns.insert(name.clone(), entries);
-                        this.column_errors.remove(&name);
-                    }
-                    Err(err) => {
-                        this.column_errors
-                            .insert(name.clone(), SharedString::from(err.to_string()));
-                    }
-                }
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
+        self.refresh_structure(conn, database, table, cx);
     }
 
     fn structure_panel(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -806,289 +909,373 @@ impl SuperLinkApp {
     }
 
     /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。
-    fn table_tree(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// 一张表的行 + 展开后的列/索引/外键。
+    fn table_block(
+        &self,
+        index: usize,
+        database: String,
+        entry: &superlink_drivers::TableEntry,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let theme = self.theme;
-        let mut section = div().flex().flex_col().gap_1().px_2().pb_2().child(
+        let name = entry.name.clone();
+        let is_view = entry.kind == "view";
+        let expanded = self.expanded_tables.contains(&(index, name.clone()));
+        let toggle_name = entry.name.clone();
+        let edit_database = database.clone();
+        let mut block = div().flex().flex_col();
+        block = block.child(
             div()
+                .id(SharedString::from(format!("table-{index}-{}", entry.name)))
                 .flex()
                 .items_center()
-                .justify_between()
+                .gap_1()
+                .pl(px(30.0))
+                .py(px(1.0))
+                .rounded_md()
+                .hover(move |style| style.bg(theme.accent_soft))
                 .child(
                     div()
-                        .text_size(px(crate::theme::TEXT_SIZE))
-                        .text_color(theme.muted)
-                        .child("表"),
+                        .id(SharedString::from(format!("fold-{index}-{}", entry.name)))
+                        .w(px(14.0))
+                        .flex()
+                        .justify_center()
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.toggle_table(index, edit_database.clone(), toggle_name.clone(), cx)
+                        }))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(if expanded { "▾" } else { "▸" }),
+                        ),
                 )
                 .child(
                     div()
-                        .text_size(px(crate::theme::TEXT_SIZE))
-                        .text_color(theme.muted)
-                        .child(format!("{}", self.tables.len())),
+                        .id(SharedString::from(format!("open-{index}-{}", entry.name)))
+                        .flex()
+                        .flex_1()
+                        .items_center()
+                        .gap_2()
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            let table = name.replace('"', "\"\"");
+                            this.workspace = Workspace::Sql;
+                            this.query_page.update(cx, |page, cx| {
+                                page.load_sql(format!("SELECT * FROM \"{table}\" LIMIT 100;"), cx)
+                            });
+                            cx.notify();
+                        }))
+                        .child(icons::icon(
+                            if is_view {
+                                "superlink/all-objects.svg"
+                            } else {
+                                "superlink/table.svg"
+                            },
+                            12.0,
+                            theme.muted,
+                        ))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.text)
+                                .child(SharedString::from(entry.name.clone())),
+                        ),
                 ),
         );
 
-        if let Some(note) = &self.tables_note {
-            return section.child(
+        if expanded {
+            let edit_name = entry.name.clone();
+            block = block.child(
                 div()
-                    .px_1()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(note.clone()),
-            );
-        }
-        if self.tables.is_empty() {
-            return section.child(
-                div()
-                    .px_1()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child("没有表"),
-            );
-        }
-
-        for entry in self.tables.iter().take(200) {
-            let theme = self.theme;
-            let name = entry.name.clone();
-            let is_view = entry.kind == "view";
-            let expanded = self.expanded_tables.contains(&entry.name);
-            let toggle_name = entry.name.clone();
-            section = section.child(
-                div()
-                    .id(SharedString::from(format!("table-{}", entry.name)))
+                    .id(SharedString::from(format!("edit-{index}-{}", entry.name)))
                     .flex()
                     .items_center()
-                    .gap_1()
-                    .px_1()
-                    .py_1()
-                    .rounded_md()
+                    .pl(px(44.0))
+                    .py(px(1.0))
+                    .cursor_pointer()
                     .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.open_structure_editor(index, database.clone(), edit_name.clone(), cx)
+                    }))
                     .child(
                         div()
-                            .id(SharedString::from(format!("fold-{}", entry.name)))
-                            .w(px(14.0))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.accent)
+                            .child("编辑结构…"),
+                    ),
+            );
+
+            if let Some(error) = self.column_errors.get(&(index, entry.name.clone())) {
+                block = block.child(
+                    div()
+                        .pl(px(44.0))
+                        .py_1()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child(error.clone()),
+                );
+            } else if let Some(structure) = self.table_structures.get(&(index, entry.name.clone()))
+            {
+                for column in &structure.columns {
+                    let meta = if column.primary_key {
+                        format!("{} · PK", column.data_type)
+                    } else if column.nullable {
+                        column.data_type.clone()
+                    } else {
+                        format!("{} · NOT NULL", column.data_type)
+                    };
+                    block = block.child(
+                        div()
                             .flex()
-                            .justify_center()
+                            .items_center()
+                            .gap_2()
+                            .pl(px(44.0))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child(SharedString::from(column.name.clone())),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(meta)),
+                            )
+                            .children(column.comment.as_ref().map(|comment| {
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(comment.clone()))
+                            })),
+                    );
+                }
+                if structure.columns.is_empty() {
+                    block = block.child(
+                        div()
+                            .pl(px(44.0))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("没有列"),
+                    );
+                }
+                if !structure.indexes.is_empty() {
+                    block = block.child(
+                        div()
+                            .pl(px(44.0))
+                            .pt_1()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("索引"),
+                    );
+                    for index_entry in &structure.indexes {
+                        let columns = index_entry.columns.join(", ");
+                        let label = if index_entry.unique {
+                            format!("{columns} · 唯一")
+                        } else {
+                            columns
+                        };
+                        block = block.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .pl(px(52.0))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child(SharedString::from(index_entry.name.clone())),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(label)),
+                                ),
+                        );
+                    }
+                }
+                if !structure.foreign_keys.is_empty() {
+                    block = block.child(
+                        div()
+                            .pl(px(44.0))
+                            .pt_1()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("外键"),
+                    );
+                    for key in &structure.foreign_keys {
+                        let from = key.columns.join(", ");
+                        let to = format!(
+                            "{}({})",
+                            key.referenced_table,
+                            key.referenced_columns.join(", ")
+                        );
+                        block = block.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_1()
+                                .pl(px(52.0))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child(SharedString::from(from)),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child("→"),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(to)),
+                                ),
+                        );
+                    }
+                }
+            } else {
+                block = block.child(
+                    div()
+                        .pl(px(44.0))
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child("加载中…"),
+                );
+            }
+        }
+        block.into_any_element()
+    }
+
+    /// 连接节点的对象子树：库（或直接表）→ 表 → 列。
+    fn conn_subtree(&self, index: usize, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let mut subtree = div().flex().flex_col();
+        match self.conn_dbs.get(&index) {
+            None | Some(None) => {
+                subtree = subtree.child(
+                    div()
+                        .pl(px(30.0))
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child("加载中…"),
+                )
+            }
+            Some(Some(databases)) if databases.is_empty() => {
+                // 无库层级（SQLite）：连接下直接挂表。
+                let state = self.db_tables.get(&(index, String::new()));
+                match state {
+                    Some(Some(tables)) => {
+                        if tables.is_empty() {
+                            subtree = subtree.child(
+                                div()
+                                    .pl(px(30.0))
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("没有表"),
+                            );
+                        }
+                        for entry in tables.iter().take(200) {
+                            subtree =
+                                subtree.child(self.table_block(index, String::new(), entry, cx));
+                        }
+                    }
+                    _ => {
+                        subtree = subtree.child(
+                            div()
+                                .pl(px(30.0))
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("加载中…"),
+                        )
+                    }
+                }
+            }
+            Some(Some(databases)) => {
+                if let Some(note) = self.conn_db_note.get(&index) {
+                    subtree = subtree.child(
+                        div()
+                            .pl(px(30.0))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child(note.clone()),
+                    );
+                }
+                for database in databases.iter().take(100) {
+                    let expanded = self.expanded_dbs.contains(&(index, database.clone()));
+                    let toggle_db = database.clone();
+                    subtree = subtree.child(
+                        div()
+                            .id(SharedString::from(format!("db-{index}-{database}")))
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .pl(px(30.0))
+                            .py(px(1.0))
                             .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
                             .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.toggle_table(toggle_name.clone(), cx)
+                                this.toggle_db(index, toggle_db.clone(), cx)
                             }))
                             .child(
                                 div()
                                     .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.muted)
                                     .child(if expanded { "▾" } else { "▸" }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("open-{}", entry.name)))
-                            .flex()
-                            .flex_1()
-                            .items_center()
-                            .gap_2()
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                let table = name.replace('"', "\"\"");
-                                this.workspace = Workspace::Sql;
-                                this.query_page.update(cx, |page, cx| {
-                                    page.load_sql(
-                                        format!("SELECT * FROM \"{table}\" LIMIT 100;"),
-                                        cx,
-                                    )
-                                });
-                                cx.notify();
-                            }))
-                            .child(icons::icon(
-                                if is_view {
-                                    "superlink/all-objects.svg"
-                                } else {
-                                    "superlink/table.svg"
-                                },
-                                12.0,
-                                theme.muted,
-                            ))
+                            )
                             .child(
                                 div()
                                     .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.text)
-                                    .child(SharedString::from(entry.name.clone())),
+                                    .child(SharedString::from(database.clone())),
                             ),
-                    ),
-            );
-
-            if expanded {
-                let edit_name = entry.name.clone();
-                section = section.child(
-                    div()
-                        .id(SharedString::from(format!("edit-{}", entry.name)))
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .pl(px(30.0))
-                        .py(px(1.0))
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(theme.accent_soft))
-                        .on_click(cx.listener(move |this, _event, _window, cx| {
-                            this.open_structure_editor(edit_name.clone(), cx)
-                        }))
-                        .child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.accent)
-                                .child("编辑结构…"),
-                        ),
-                );
-                if let Some(error) = self.column_errors.get(&entry.name) {
-                    section = section.child(
-                        div()
-                            .pl(px(30.0))
-                            .py_1()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child(error.clone()),
                     );
-                } else if let Some(structure) = self.table_columns.get(&entry.name) {
-                    let columns = &structure.columns;
-                    for column in columns {
-                        let meta = if column.primary_key {
-                            format!("{} · PK", column.data_type)
-                        } else if column.nullable {
-                            column.data_type.clone()
-                        } else {
-                            format!("{} · NOT NULL", column.data_type)
-                        };
-                        section = section.child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap_2()
-                                .pl(px(30.0))
-                                .py(px(1.0))
-                                .child(
+                    if !expanded {
+                        continue;
+                    }
+                    let state = self.db_tables.get(&(index, database.clone()));
+                    match state {
+                        Some(Some(tables)) => {
+                            if tables.is_empty() {
+                                subtree = subtree.child(
                                     div()
-                                        .text_size(px(crate::theme::TEXT_SIZE))
-                                        .text_color(theme.text)
-                                        .child(SharedString::from(column.name.clone())),
-                                )
-                                .child(
-                                    div()
+                                        .pl(px(44.0))
                                         .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.muted)
-                                        .child(SharedString::from(meta)),
-                                )
-                                .children(column.comment.as_ref().map(|comment| {
-                                    div()
-                                        .text_size(px(crate::theme::TEXT_SIZE))
-                                        .text_color(theme.muted)
-                                        .child(SharedString::from(comment.clone()))
-                                })),
-                        );
-                    }
-                    if columns.is_empty() {
-                        section = section.child(
-                            div()
-                                .pl(px(30.0))
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("没有列"),
-                        );
-                    }
-
-                    if !structure.indexes.is_empty() {
-                        section = section.child(
-                            div()
-                                .pl(px(30.0))
-                                .pt_1()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("索引"),
-                        );
-                        for index in &structure.indexes {
-                            let columns = index.columns.join(", ");
-                            let label = if index.unique {
-                                format!("{columns} · 唯一")
-                            } else {
-                                columns
-                            };
-                            section = section.child(
+                                        .child("没有表"),
+                                );
+                            }
+                            for entry in tables.iter().take(200) {
+                                subtree = subtree.child(self.table_block(
+                                    index,
+                                    database.clone(),
+                                    entry,
+                                    cx,
+                                ));
+                            }
+                        }
+                        _ => {
+                            subtree = subtree.child(
                                 div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .pl(px(38.0))
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.text)
-                                            .child(SharedString::from(index.name.clone())),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.muted)
-                                            .child(SharedString::from(label)),
-                                    ),
-                            );
+                                    .pl(px(44.0))
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("加载中…"),
+                            )
                         }
                     }
-
-                    if !structure.foreign_keys.is_empty() {
-                        section = section.child(
-                            div()
-                                .pl(px(30.0))
-                                .pt_1()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("外键"),
-                        );
-                        for key in &structure.foreign_keys {
-                            let from = key.columns.join(", ");
-                            let to = format!(
-                                "{}({})",
-                                key.referenced_table,
-                                key.referenced_columns.join(", ")
-                            );
-                            section = section.child(
-                                div()
-                                    .flex()
-                                    .items_center()
-                                    .gap_1()
-                                    .pl(px(38.0))
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.text)
-                                            .child(SharedString::from(from)),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.muted)
-                                            .child("→"),
-                                    )
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.muted)
-                                            .child(SharedString::from(to)),
-                                    ),
-                            );
-                        }
-                    }
-                } else {
-                    section = section.child(
-                        div()
-                            .pl(px(30.0))
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("加载中…"),
-                    );
                 }
             }
         }
-        section
+        subtree.into_any_element()
     }
-
     fn sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut column = div()
@@ -1345,7 +1532,29 @@ impl SuperLinkApp {
                         div()
                             .flex()
                             .items_center()
-                            .gap_2()
+                            .gap_1()
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("fold-conn-{index}")))
+                                    .w(px(14.0))
+                                    .flex()
+                                    .justify_center()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                                        cx.stop_propagation();
+                                        this.toggle_conn(index, cx);
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.muted)
+                                            .child(if self.expanded_conns.contains(&index) {
+                                                "▾"
+                                            } else {
+                                                "▸"
+                                            }),
+                                    ),
+                            )
                             .child(icons::icon(
                                 icons::datasource_icon(profile.sql_dialect()),
                                 14.0,
@@ -1366,21 +1575,11 @@ impl SuperLinkApp {
                             .child(kind),
                     );
                 column = column.child(row);
+                if self.expanded_conns.contains(&index) {
+                    column = column.child(self.conn_subtree(index, cx));
+                }
             }
         }
-
-        // 表结构跟在连接树之后，只对当前连接生效。
-        column = column.child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_h(px(0.0))
-                .border_t_1()
-                .border_color(theme.border)
-                .pt_2()
-                .child(self.table_tree(cx)),
-        );
 
         column
     }

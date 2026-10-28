@@ -37,16 +37,18 @@ impl StructureService {
     pub fn apply(
         &self,
         profile: &Profile,
+        database: &str,
         table: &str,
         changes: Vec<StructureChange>,
     ) -> Result<Vec<String>, StructureError> {
-        self.apply_with(profile, table, changes, NativeFlags::from_env())
+        self.apply_with(profile, database, table, changes, NativeFlags::from_env())
     }
 
     /// 便捷入口：新增一列。
     pub fn add_column(
         &self,
         profile: &Profile,
+        database: &str,
         table: &str,
         name: &str,
         data_type: &str,
@@ -62,13 +64,14 @@ impl StructureService {
             },
             ..Default::default()
         };
-        self.apply(profile, table, vec![change])
+        self.apply(profile, database, table, vec![change])
     }
 
     /// 便捷入口：删除一列（主键列会被校验器拒绝）。
     pub fn drop_column(
         &self,
         profile: &Profile,
+        database: &str,
         table: &str,
         name: &str,
     ) -> Result<Vec<String>, StructureError> {
@@ -83,13 +86,14 @@ impl StructureService {
             },
             ..Default::default()
         };
-        self.apply(profile, table, vec![change])
+        self.apply(profile, database, table, vec![change])
     }
 
     /// 显式传入开关，测试用它避免改动进程环境变量。
     pub(crate) fn apply_with(
         &self,
         profile: &Profile,
+        database: &str,
         table: &str,
         changes: Vec<StructureChange>,
         flags: NativeFlags,
@@ -103,7 +107,7 @@ impl StructureService {
 
         let structure = match target {
             NativeKind::Sqlite => NativeSqlite::open(&profile.config)?.structure(table)?,
-            NativeKind::Mysql => NativeMysql::open(&profile.config)?.structure(table)?,
+            NativeKind::Mysql => NativeMysql::open(&profile.config)?.structure(database, table)?,
             NativeKind::Postgres => NativePostgres::open(&profile.config)?.structure(table)?,
             _ => return Err(StructureError::Unsupported(kind)),
         };
@@ -212,7 +216,7 @@ mod tests {
         let flags = sqlite_flags();
 
         let statements = service
-            .apply_with(&profile, "items", vec![add_column("note")], flags)
+            .apply_with(&profile, "", "items", vec![add_column("note")], flags)
             .expect("add column");
         assert_eq!(statements.len(), 1);
         assert!(
@@ -237,7 +241,7 @@ mod tests {
             ..Default::default()
         };
         service
-            .apply_with(&profile, "items", vec![drop_change], flags)
+            .apply_with(&profile, "", "items", vec![drop_change], flags)
             .expect("drop");
         let structure = driver.structure("items").unwrap();
         assert!(!structure.columns.iter().any(|column| column.name == "note"));
@@ -258,12 +262,13 @@ mod tests {
         let service = StructureService::new();
         let flags = sqlite_flags();
         service
-            .apply_with(&profile, "items", vec![add_column("note")], flags)
+            .apply_with(&profile, "", "items", vec![add_column("note")], flags)
             .unwrap();
         // 直接用便捷方法删除
         let statements = service
             .apply_with(
                 &profile,
+                "",
                 "items",
                 vec![StructureChange {
                     kind: "dropColumn".into(),
@@ -287,7 +292,13 @@ mod tests {
     fn rejects_duplicate_column_names() {
         let (profile, path) = temp_db();
         let error = StructureService::new()
-            .apply_with(&profile, "items", vec![add_column("title")], sqlite_flags())
+            .apply_with(
+                &profile,
+                "",
+                "items",
+                vec![add_column("title")],
+                sqlite_flags(),
+            )
             .unwrap_err();
         assert!(error.to_string().contains("duplicate"));
         let _ = std::fs::remove_file(path);
@@ -303,7 +314,7 @@ mod tests {
             ..Default::default()
         };
         let error = StructureService::new()
-            .apply(&profile, "t", vec![add_column("x")])
+            .apply(&profile, "", "t", vec![add_column("x")])
             .unwrap_err();
         assert!(matches!(error, StructureError::Unsupported(_)));
     }
@@ -333,6 +344,7 @@ mod tests {
         let error = StructureService::new()
             .apply_with(
                 &profile,
+                "",
                 "items",
                 vec![add_column("note"), duplicate_index],
                 sqlite_flags(),

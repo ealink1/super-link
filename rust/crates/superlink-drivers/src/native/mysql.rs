@@ -63,6 +63,9 @@ impl NativeMysql {
             .ip_or_hostname(Some(host))
             .tcp_port(port)
             .tcp_connect_timeout(Some(std::time::Duration::from_secs(10)))
+            // 无读超时的话，握手阶段挂起的服务端会让请求永远停在「加载中」。
+            .read_timeout(Some(std::time::Duration::from_secs(30)))
+            .write_timeout(Some(std::time::Duration::from_secs(30)))
             .prefer_socket(false);
         if !config.user.trim().is_empty() {
             builder = builder.user(Some(config.user.trim()));
@@ -193,16 +196,17 @@ fn table_kind(raw: &str) -> &'static str {
 }
 
 impl NativeMysql {
-    /// 当前库的表与视图；未选择库时给出明确错误。
-    pub fn tables(&mut self) -> Result<Vec<TableEntry>, DriverError> {
-        let database: Option<String> = self
+    /// 服务器上的全部数据库（含系统库，由 UI 决定是否展示）。
+    pub fn databases(&mut self) -> Result<Vec<String>, DriverError> {
+        let rows: Vec<String> = self
             .conn
-            .query_first("SELECT DATABASE()")
-            .map_err(|err| DriverError::Native(format!("读取当前库失败：{err}")))?
-            .flatten();
-        let Some(database) = database.filter(|name| !name.is_empty()) else {
-            return Err(DriverError::Native("连接未选择数据库".into()));
-        };
+            .query("SHOW DATABASES")
+            .map_err(|err| DriverError::Native(format!("读取数据库列表失败：{err}")))?;
+        Ok(rows)
+    }
+
+    /// 指定库的表与视图。
+    pub fn tables(&mut self, database: &str) -> Result<Vec<TableEntry>, DriverError> {
         let rows: Vec<(String, String)> = self
             .conn
             .exec(
@@ -221,15 +225,19 @@ impl NativeMysql {
     }
 
     /// 列定义：名称、类型、可空、主键、默认值。
-    pub fn columns(&mut self, table: &str) -> Result<Vec<ColumnEntry>, DriverError> {
+    pub fn columns(
+        &mut self,
+        database: &str,
+        table: &str,
+    ) -> Result<Vec<ColumnEntry>, DriverError> {
         let rows: Vec<(String, String, String, String, Option<String>)> = self
             .conn
             .exec(
                 "SELECT column_name, column_type, is_nullable, column_key, column_default
                  FROM information_schema.columns
-                 WHERE table_schema = DATABASE() AND table_name = ?
+                 WHERE table_schema = ? AND table_name = ?
                  ORDER BY ordinal_position",
-                (table,),
+                (database, table),
             )
             .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
         Ok(rows
@@ -268,23 +276,27 @@ impl NativeMysql {
 
 /// information_schema.statistics 的索引定义。
 impl NativeMysql {
-    pub fn structure(&mut self, table: &str) -> Result<TableStructure, DriverError> {
+    pub fn structure(
+        &mut self,
+        database: &str,
+        table: &str,
+    ) -> Result<TableStructure, DriverError> {
         Ok(TableStructure {
-            columns: self.columns(table)?,
-            indexes: self.indexes(table)?,
-            foreign_keys: self.foreign_keys(table)?,
+            columns: self.columns(database, table)?,
+            indexes: self.indexes(database, table)?,
+            foreign_keys: self.foreign_keys(database, table)?,
         })
     }
 
-    fn indexes(&mut self, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
+    fn indexes(&mut self, database: &str, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
         let rows: Vec<(String, i64, Option<String>)> = self
             .conn
             .exec(
                 "SELECT index_name, non_unique, column_name
                  FROM information_schema.statistics
-                 WHERE table_schema = DATABASE() AND table_name = ?
+                 WHERE table_schema = ? AND table_name = ?
                  ORDER BY index_name, seq_in_index",
-                (table,),
+                (database, table),
             )
             .map_err(|err| DriverError::Native(format!("读取索引失败：{err}")))?;
         let mut list: Vec<IndexEntry> = Vec::new();
@@ -306,7 +318,11 @@ impl NativeMysql {
         Ok(list)
     }
 
-    fn foreign_keys(&mut self, table: &str) -> Result<Vec<ForeignKeyEntry>, DriverError> {
+    fn foreign_keys(
+        &mut self,
+        database: &str,
+        table: &str,
+    ) -> Result<Vec<ForeignKeyEntry>, DriverError> {
         // (约束名, 本地列, 引用表, 引用列)
         type FkRow = (String, Option<String>, Option<String>, Option<String>);
         let rows: Vec<FkRow> = self
@@ -314,10 +330,10 @@ impl NativeMysql {
             .exec(
                 "SELECT constraint_name, column_name, referenced_table_name, referenced_column_name
                  FROM information_schema.key_column_usage
-                 WHERE table_schema = DATABASE() AND table_name = ?
+                 WHERE table_schema = ? AND table_name = ?
                    AND referenced_table_name IS NOT NULL
                  ORDER BY constraint_name, ordinal_position",
-                (table,),
+                (database, table),
             )
             .map_err(|err| DriverError::Native(format!("读取外键失败：{err}")))?;
         let mut list: Vec<ForeignKeyEntry> = Vec::new();

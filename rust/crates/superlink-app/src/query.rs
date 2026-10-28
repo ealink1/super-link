@@ -56,22 +56,41 @@ impl QueryService {
     }
 
     /// 结构浏览：目前只有原生 SQLite 提供；其余方言仍由 agent 承担。
-    pub fn tables(&self, profile: &Profile) -> Result<Vec<TableEntry>, QueryError> {
+    /// 层级对象树第一层：数据库列表。SQLite 返回空表示没有库层级。
+    pub fn databases(&self, profile: &Profile) -> Result<Vec<String>, QueryError> {
+        let kind = profile.sql_dialect().to_string();
+        match native_target(&kind, NativeFlags::from_env()) {
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.databases()?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.databases()?),
+            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&profile.config)?.databases()?),
+            _ => Err(QueryError::Unsupported(kind)),
+        }
+    }
+
+    /// 指定库（SQLite 忽略）下的表与视图。
+    pub fn tables(&self, profile: &Profile, database: &str) -> Result<Vec<TableEntry>, QueryError> {
         let kind = profile.sql_dialect().to_string();
         match native_target(&kind, NativeFlags::from_env()) {
             Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.tables()?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.tables()?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.tables(database)?),
             Some(NativeKind::Postgres) => Ok(NativePostgres::open(&profile.config)?.tables()?),
             _ => Err(QueryError::Unsupported(kind)),
         }
     }
 
-    /// 单表的列定义；与 tables 一样目前只支持原生 SQLite。
-    pub fn structure(&self, profile: &Profile, table: &str) -> Result<TableStructure, QueryError> {
+    /// 单表的列定义；与 tables 一样目前只支持原生接入的方言。
+    pub fn structure(
+        &self,
+        profile: &Profile,
+        database: &str,
+        table: &str,
+    ) -> Result<TableStructure, QueryError> {
         let kind = profile.sql_dialect().to_string();
         match native_target(&kind, NativeFlags::from_env()) {
             Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.structure(table)?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.structure(table)?),
+            Some(NativeKind::Mysql) => {
+                Ok(NativeMysql::open(&profile.config)?.structure(database, table)?)
+            }
             Some(NativeKind::Postgres) => {
                 Ok(NativePostgres::open(&profile.config)?.structure(table)?)
             }
