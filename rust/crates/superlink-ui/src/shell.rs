@@ -73,6 +73,9 @@ pub struct SuperLinkApp {
     column_errors: HashMap<(usize, String), SharedString>,
     structure: Arc<StructureService>,
     structure_edit: Option<StructureEdit>,
+    workbench: Option<crate::workbench::Workbench>,
+    wb_column: Entity<SqlEditor>,
+    wb_value: Entity<SqlEditor>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -161,6 +164,9 @@ impl SuperLinkApp {
             column_errors: HashMap::new(),
             structure: structure.clone(),
             structure_edit: None,
+            workbench: None,
+            wb_column: cx.new(SqlEditor::new),
+            wb_value: cx.new(SqlEditor::new),
             workspace: Workspace::Sql,
             theme,
             error,
@@ -536,6 +542,189 @@ impl SuperLinkApp {
         cx.notify();
     }
 
+    /// 双击对象树中的表：打开工作台（数据页）。
+    fn open_workbench(
+        &mut self,
+        conn: usize,
+        database: String,
+        table: String,
+        cx: &mut Context<Self>,
+    ) {
+        let columns = self
+            .table_structures
+            .get(&(conn, table.clone()))
+            .map(|structure| structure.columns.clone())
+            .unwrap_or_default();
+        self.structure_edit = None;
+        self.wb_column.update(cx, |editor, cx| {
+            editor.set_text(String::new(), cx);
+            editor.set_placeholder("列名", cx)
+        });
+        self.wb_value.update(cx, |editor, cx| {
+            editor.set_text(String::new(), cx);
+            editor.set_placeholder("值", cx)
+        });
+        let cached_columns = !columns.is_empty();
+        self.workbench = Some(crate::workbench::Workbench::new(
+            conn,
+            database.clone(),
+            table.clone(),
+            columns,
+        ));
+        if cached_columns {
+            self.fetch_workbench_data(cx);
+        } else {
+            // 结构还没缓存：先取一次结构，回来后再取数。
+            let db = database.clone();
+            let name = table.clone();
+            self.fetch_structure(conn, db, name, cx);
+            self.fetch_workbench_data(cx);
+            cx.notify();
+        }
+    }
+
+    fn close_workbench(&mut self, cx: &mut Context<Self>) {
+        self.workbench = None;
+        cx.notify();
+    }
+
+    fn fetch_workbench_data(&mut self, cx: &mut Context<Self>) {
+        let Some(bench) = self.workbench.as_ref() else {
+            return;
+        };
+        if bench.columns.is_empty() {
+            return;
+        }
+        let Some(profile) = self.profiles.get(bench.conn).cloned() else {
+            return;
+        };
+        let kind = profile.sql_dialect();
+        let (data_sql, count_sql) = match bench.page_statements(kind) {
+            Ok(statements) => statements,
+            Err(err) => {
+                if let Some(bench) = self.workbench.as_mut() {
+                    bench.error = Some(SharedString::from(err.to_string()));
+                }
+                cx.notify();
+                return;
+            }
+        };
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.loading = true;
+            bench.error = None;
+        }
+        let queries = self.queries.clone();
+        let credentials = self
+            .service
+            .credentials(&profile)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let limit = crate::workbench::PAGE_SIZE;
+        let data_task_data = data_sql.clone();
+        let task = cx.background_executor().spawn(async move {
+            let data = queries.execute(&profile, &credentials, &data_task_data, limit);
+            let count = queries.execute(&profile, &credentials, &count_sql, 10);
+            (data, count)
+        });
+        cx.spawn(async move |this, cx| {
+            let (data, count) = task.await;
+            this.update(cx, |this, cx| {
+                if let Some(bench) = this.workbench.as_mut() {
+                    bench.loading = false;
+                    match (data, count) {
+                        (Ok(data), Ok(count)) => {
+                            bench.error = None;
+                            bench.set_data(data, Some(&count));
+                        }
+                        (Err(err), _) | (_, Err(err)) => {
+                            bench.error = Some(SharedString::from(err.to_string()));
+                        }
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn apply_workbench_filter(&mut self, cx: &mut Context<Self>) {
+        let column = self.wb_column.read(cx).text().trim().to_string();
+        let value = self.wb_value.read(cx).text().trim().to_string();
+        let (committed, refresh) = {
+            let Some(bench) = self.workbench.as_mut() else {
+                return;
+            };
+            bench.draft.column = column;
+            bench.draft.value = value;
+            match bench.commit_draft() {
+                Ok(()) => (true, bench.database.clone()),
+                Err(err) => {
+                    bench.error = Some(SharedString::from(err));
+                    (false, String::new())
+                }
+            }
+        };
+        if !committed {
+            cx.notify();
+            return;
+        }
+        self.wb_column
+            .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+        self.wb_value
+            .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+        let _ = refresh;
+        self.fetch_workbench_data(cx);
+    }
+
+    fn cycle_workbench_operator(&mut self, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.draft.operator = (bench.draft.operator + 1) % crate::workbench::OPERATORS.len();
+        }
+        cx.notify();
+    }
+
+    fn toggle_workbench_join(&mut self, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.draft.join_and = !bench.draft.join_and;
+        }
+        cx.notify();
+    }
+
+    fn remove_workbench_filter(&mut self, position: usize, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.filters.remove(position);
+            bench.page = 1;
+        }
+        self.fetch_workbench_data(cx);
+    }
+
+    fn workbench_sort(&mut self, column: String, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.toggle_sort(&column);
+        }
+        self.fetch_workbench_data(cx);
+    }
+
+    fn workbench_page(&mut self, delta: i32, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            if delta < 0 {
+                bench.go_prev();
+            } else {
+                bench.go_next();
+            }
+        }
+        self.fetch_workbench_data(cx);
+    }
+
+    fn set_workbench_tab(&mut self, tab: crate::workbench::WorkbenchTab, cx: &mut Context<Self>) {
+        if let Some(bench) = self.workbench.as_mut() {
+            bench.tab = tab;
+        }
+        cx.notify();
+    }
+
     /// 结构变更后刷新面板与表树缓存。
     fn refresh_structure(
         &mut self,
@@ -673,6 +862,521 @@ impl SuperLinkApp {
         })
         .detach();
         self.refresh_structure(conn, database, table, cx);
+    }
+
+    fn workbench_panel(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let Some(bench) = self.workbench.as_ref() else {
+            return div().into_any_element();
+        };
+        let table = bench.table.clone();
+        let tab = bench.tab;
+        let operator = crate::workbench::OPERATORS[bench.draft.operator];
+        let join_and = bench.draft.join_and;
+
+        let mut panel = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h(px(0.0))
+            .bg(theme.surface)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
+                    .py_2()
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child(format!("表工作台 · {table}")),
+                    )
+                    .child(div().flex_1())
+                    .children(crate::workbench::WorkbenchTab::ALL.iter().map(|t| {
+                        let active = *t == tab;
+                        div()
+                            .id(SharedString::from(format!("wb-tab-{:?}", t)))
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(if active {
+                                theme.accent_soft
+                            } else {
+                                theme.surface
+                            })
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.set_workbench_tab(*t, cx)
+                            }))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(if active { theme.accent } else { theme.muted })
+                                    .child(t.label()),
+                            )
+                    }))
+                    .child(
+                        div()
+                            .id("close-workbench")
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.close_workbench(cx)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("关闭"),
+                            ),
+                    ),
+            );
+
+        if let Some(error) = &bench.error {
+            panel = panel.child(
+                div()
+                    .mx_3()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.danger)
+                    .child(error.clone()),
+            );
+        }
+
+        match tab {
+            crate::workbench::WorkbenchTab::Data => {
+                // 条件构建行
+                panel = panel.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .w(px(150.0))
+                                .h(px(crate::theme::CONTROL_MIN))
+                                .px_2()
+                                .rounded_md()
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(theme.surface)
+                                .child(self.wb_column.clone()),
+                        )
+                        .child(
+                            div()
+                                .id("wb-operator")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .border_1()
+                                .border_color(theme.border)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.cycle_workbench_operator(cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.accent)
+                                        .child(operator),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id("wb-join")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .border_1()
+                                .border_color(theme.border)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.toggle_workbench_join(cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child(if join_and { "且" } else { "或" }),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .w(px(150.0))
+                                .h(px(crate::theme::CONTROL_MIN))
+                                .px_2()
+                                .rounded_md()
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(theme.surface)
+                                .child(self.wb_value.clone()),
+                        )
+                        .child(
+                            div()
+                                .id("wb-apply-filter")
+                                .px_3()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .bg(theme.accent)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.apply_workbench_filter(cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_color(theme.surface)
+                                        .child("添加条件"),
+                                ),
+                        ),
+                );
+
+                if !bench.filters.is_empty() {
+                    let mut chips = div().flex().flex_wrap().items_center().gap_1().px_3();
+                    for (position, filter) in bench.filters.iter().enumerate() {
+                        let position_copy = position;
+                        chips = chips.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_1()
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .bg(theme.canvas)
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child(SharedString::from(format!(
+                                            "{} {} {}",
+                                            filter.column, filter.operator, filter.value
+                                        ))),
+                                )
+                                .child(
+                                    div()
+                                        .id(SharedString::from(format!("filter-x-{position}")))
+                                        .cursor_pointer()
+                                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                                            this.remove_workbench_filter(position_copy, cx)
+                                        }))
+                                        .child(
+                                            div()
+                                                .text_size(px(crate::theme::TEXT_SIZE))
+                                                .text_color(theme.muted)
+                                                .child("×"),
+                                        ),
+                                ),
+                        );
+                    }
+                    panel = panel.child(chips);
+                }
+
+                if bench.loading {
+                    panel = panel.child(
+                        div()
+                            .flex_1()
+                            .items_center()
+                            .justify_center()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("加载中…"),
+                    );
+                    return panel.into_any_element();
+                }
+
+                let Some(result) = bench.result.as_ref() else {
+                    panel = panel.child(
+                        div()
+                            .flex_1()
+                            .items_center()
+                            .justify_center()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("选择条件后加载数据"),
+                    );
+                    return panel.into_any_element();
+                };
+
+                let total_label = bench
+                    .total
+                    .map(|total| format!("共 {total} 行"))
+                    .unwrap_or_default();
+                panel = panel.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(total_label),
+                        )
+                        .child(div().flex_1())
+                        .child(
+                            div()
+                                .id("wb-prev")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .border_1()
+                                .border_color(theme.border)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.workbench_page(-1, cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child("上一页"),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(format!("第 {} 页", bench.page)),
+                        )
+                        .child(
+                            div()
+                                .id("wb-next")
+                                .px_2()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .border_1()
+                                .border_color(theme.border)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.workbench_page(1, cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child("下一页"),
+                                ),
+                        ),
+                );
+
+                let header = div()
+                    .flex()
+                    .items_center()
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .bg(theme.canvas)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .w(px(crate::query_page::ROW_NUMBER_WIDTH))
+                            .px_2()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("#"),
+                    )
+                    .children(result.columns.iter().map(|column| {
+                        let mark = bench.sort_mark(&column.name);
+                        let name = column.name.clone();
+                        div()
+                            .id(SharedString::from(format!("wb-sort-{}", column.name)))
+                            .w(px(crate::query_page::COLUMN_WIDTH))
+                            .px_2()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.muted)
+                            .cursor_pointer()
+                            .hover(move |style| style.text_color(theme.accent))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.workbench_sort(name.clone(), cx)
+                            }))
+                            .child(SharedString::from(format!("{}{mark}", column.name)))
+                    }));
+
+                let rows = result.rows.iter().enumerate().map(|(index, row)| {
+                    div()
+                        .flex()
+                        .items_center()
+                        .h(px(24.0))
+                        .bg(if index % 2 == 0 {
+                            theme.surface
+                        } else {
+                            theme.canvas
+                        })
+                        .child(
+                            div()
+                                .w(px(crate::query_page::ROW_NUMBER_WIDTH))
+                                .px_2()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(format!("{}", index + 1)),
+                        )
+                        .children(row.iter().map(|cell| {
+                            div()
+                                .w(px(crate::query_page::COLUMN_WIDTH))
+                                .px_2()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.text)
+                                .child(crate::query_page::cell_text(cell))
+                        }))
+                });
+
+                panel = panel.child(header).child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_h(px(0.0))
+                        .children(rows),
+                );
+            }
+            crate::workbench::WorkbenchTab::Structure => {
+                let mut section = div().flex().flex_col().gap_1().p_3();
+                for column in &bench.columns {
+                    let meta = if column.primary_key {
+                        format!("{} · PK", column.data_type)
+                    } else if column.nullable {
+                        column.data_type.clone()
+                    } else {
+                        format!("{} · NOT NULL", column.data_type)
+                    };
+                    section = section.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child(SharedString::from(column.name.clone())),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(meta)),
+                            )
+                            .children(column.comment.as_ref().map(|comment| {
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(comment.clone()))
+                            })),
+                    );
+                }
+                if let Some(structure) = self
+                    .table_structures
+                    .get(&(bench.conn, bench.table.clone()))
+                {
+                    if !structure.indexes.is_empty() {
+                        section = section.child(
+                            div()
+                                .pt_2()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("索引"),
+                        );
+                        for index_entry in &structure.indexes {
+                            section = section.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.text)
+                                            .child(SharedString::from(index_entry.name.clone())),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.muted)
+                                            .child(SharedString::from(
+                                                index_entry.columns.join(", "),
+                                            )),
+                                    ),
+                            );
+                        }
+                    }
+                    if !structure.foreign_keys.is_empty() {
+                        section = section.child(
+                            div()
+                                .pt_2()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("外键"),
+                        );
+                        for key in &structure.foreign_keys {
+                            section = section.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.text)
+                                            .child(SharedString::from(key.columns.join(", "))),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.muted)
+                                            .child("→"),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.muted)
+                                            .child(SharedString::from(format!(
+                                                "{}({})",
+                                                key.referenced_table,
+                                                key.referenced_columns.join(", ")
+                                            ))),
+                                    ),
+                            );
+                        }
+                    }
+                }
+                panel = panel.child(section);
+            }
+            crate::workbench::WorkbenchTab::Ddl => {
+                let kind = self
+                    .profiles
+                    .get(bench.conn)
+                    .map(|profile| profile.sql_dialect().to_string())
+                    .unwrap_or_default();
+                let text = match bench.ddl(&kind) {
+                    Ok(ddl) => SharedString::from(ddl),
+                    Err(err) => SharedString::from(err.to_string()),
+                };
+                panel = panel.child(
+                    div()
+                        .p_3()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.text)
+                        .child(text),
+                );
+            }
+        }
+        panel.into_any_element()
     }
 
     fn structure_panel(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -923,6 +1627,8 @@ impl SuperLinkApp {
         let expanded = self.expanded_tables.contains(&(index, name.clone()));
         let toggle_name = entry.name.clone();
         let edit_database = database.clone();
+        let open_name = entry.name.clone();
+        let open_database = database.clone();
         let mut block = div().flex().flex_col();
         block = block.child(
             div()
@@ -959,14 +1665,29 @@ impl SuperLinkApp {
                         .items_center()
                         .gap_2()
                         .cursor_pointer()
-                        .on_click(cx.listener(move |this, _event, _window, cx| {
-                            let table = name.replace('"', "\"\"");
-                            this.workspace = Workspace::Sql;
-                            this.query_page.update(cx, |page, cx| {
-                                page.load_sql(format!("SELECT * FROM \"{table}\" LIMIT 100;"), cx)
-                            });
-                            cx.notify();
-                        }))
+                        .on_click(cx.listener(
+                            move |this, event: &gpui::ClickEvent, _window, cx| {
+                                if event.click_count() >= 2 {
+                                    this.open_workbench(
+                                        index,
+                                        open_database.clone(),
+                                        open_name.clone(),
+                                        cx,
+                                    );
+                                    cx.notify();
+                                    return;
+                                }
+                                let table = name.replace('"', "\"\"");
+                                this.workspace = Workspace::Sql;
+                                this.query_page.update(cx, |page, cx| {
+                                    page.load_sql(
+                                        format!("SELECT * FROM \"{table}\" LIMIT 100;"),
+                                        cx,
+                                    )
+                                });
+                                cx.notify();
+                            },
+                        ))
                         .child(icons::icon(
                             if is_view {
                                 "superlink/all-objects.svg"
@@ -1698,6 +2419,8 @@ impl Render for SuperLinkApp {
             )
             .child(if self.settings_open {
                 self.settings_view(cx).into_any_element()
+            } else if self.workbench.is_some() {
+                self.workbench_panel(cx)
             } else if self.structure_edit.is_some() {
                 self.structure_panel(cx).into_any_element()
             } else if self.workspace == Workspace::Sql {

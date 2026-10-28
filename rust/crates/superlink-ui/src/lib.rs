@@ -9,6 +9,7 @@ mod shell;
 pub mod terminal_page;
 pub mod theme;
 pub mod vt;
+pub mod workbench;
 
 pub use note_page::NotePage;
 pub use query_page::QueryPage;

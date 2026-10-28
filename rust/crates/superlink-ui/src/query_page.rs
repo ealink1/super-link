@@ -18,8 +18,8 @@ use crate::icons;
 use crate::theme::Theme;
 
 const DISPLAY_ROWS: usize = 300;
-const COLUMN_WIDTH: f32 = 160.0;
-const ROW_NUMBER_WIDTH: f32 = 52.0;
+pub(crate) const COLUMN_WIDTH: f32 = 160.0;
+pub(crate) const ROW_NUMBER_WIDTH: f32 = 52.0;
 const HISTORY_WIDTH: f32 = 300.0;
 
 type SavedHandler = Box<dyn Fn(&str, &mut App) + 'static>;
@@ -1545,7 +1545,7 @@ fn resolve_history_text(recent: Option<String>, redacted: String) -> (String, &'
     }
 }
 
-fn cell_text(value: &Value) -> SharedString {
+pub(crate) fn cell_text(value: &Value) -> SharedString {
     match value {
         Value::Null => "NULL".into(),
         Value::String(text) => text.clone().into(),

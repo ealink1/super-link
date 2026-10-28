@@ -6337,6 +6337,7 @@ dependencies = [
  "superlink-app",
  "superlink-domain",
  "superlink-drivers",
+ "superlink-sql",
  "superlink-terminal",
  "unicode-segmentation",
  "uuid",
