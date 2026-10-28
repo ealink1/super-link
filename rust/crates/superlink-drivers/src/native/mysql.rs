@@ -354,14 +354,9 @@ mod tests {
         );
     }
 
-    /// 需要真实服务：SUPERLINK_TEST_MYSQL=1 + HOST/PORT/USER/PASSWORD/DB 环境变量
-    #[test]
-    fn queries_a_live_server_when_configured() {
-        if std::env::var("SUPERLINK_TEST_MYSQL").is_err() {
-            eprintln!("skipping: SUPERLINK_TEST_MYSQL not set");
-            return;
-        }
-        let config = ConnectionConfig {
+    fn live_config() -> Option<ConnectionConfig> {
+        std::env::var("SUPERLINK_TEST_MYSQL").ok()?;
+        Some(ConnectionConfig {
             kind: "mysql".into(),
             host: std::env::var("SUPERLINK_TEST_MYSQL_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
             port: std::env::var("SUPERLINK_TEST_MYSQL_PORT")
@@ -372,15 +367,72 @@ mod tests {
             password: std::env::var("SUPERLINK_TEST_MYSQL_PASSWORD").unwrap_or_default(),
             database: std::env::var("SUPERLINK_TEST_MYSQL_DB").unwrap_or_else(|_| "mysql".into()),
             ..Default::default()
+        })
+    }
+
+    /// 真实实例冒烟：类型解码 + DDL/DML + 行预算 + 错误路径。
+    fn live_battery(driver: &mut NativeMysql) {
+        let values = driver
+            .query(
+                "SELECT 1 AS i, CAST(12.34 AS DECIMAL(10,2)) AS d, 'x' AS s, NULL AS n",
+                &[],
+                10,
+            )
+            .unwrap();
+        assert_eq!(values.columns.len(), 4);
+        assert_eq!(values.rows[0][0], json!(1));
+        assert_eq!(values.rows[0][1], json!("12.34"), "DECIMAL 需保留字符串与标度");
+        assert_eq!(values.rows[0][2], json!("x"));
+        assert_eq!(values.rows[0][3], Value::Null);
+
+        driver
+            .query(
+                "CREATE TEMPORARY TABLE sl_probe(a INT, b DECIMAL(10,2), c VARBINARY(8), d DATETIME)",
+                &[],
+                0,
+            )
+            .unwrap();
+        let inserted = driver
+            .query(
+                "INSERT INTO sl_probe VALUES (1, 12.34, X'0102', '2026-10-27 13:05:09'), (2, 0.50, NULL, NULL)",
+                &[],
+                0,
+            )
+            .unwrap();
+        assert_eq!(inserted.rows_affected, 2, "INSERT 的影响行数");
+
+        let rows = driver
+            .query("SELECT a, b, c, d FROM sl_probe ORDER BY a", &[], 10)
+            .unwrap();
+        assert_eq!(rows.rows.len(), 2);
+        assert_eq!(rows.rows[0][0], json!(1));
+        assert_eq!(rows.rows[0][1], json!("12.34"));
+        assert_eq!(rows.rows[0][2], json!("AQI="), "二进制列转 base64");
+        assert_eq!(rows.rows[0][3], json!("2026-10-27T13:05:09"));
+        assert_eq!(rows.rows[1][1], json!("0.50"), "标度必须保留");
+
+        let limited = driver
+            .query(
+                "SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe",
+                &[],
+                2,
+            )
+            .unwrap();
+        assert_eq!(limited.rows.len(), 2);
+        assert!(limited.truncated, "行预算需触发截断");
+
+        let error = driver.query("SELECT * FROM missing_table", &[], 0).unwrap_err();
+        assert!(!error.to_string().is_empty(), "错误需带服务端信息");
+    }
+
+    #[test]
+    fn passes_the_battery_on_a_live_mysql_server() {
+        let Some(config) = live_config() else {
+            eprintln!("skipping: SUPERLINK_TEST_MYSQL not set");
+            return;
         };
         let mut driver = NativeMysql::open(&config).unwrap();
-        let result = driver
-            .query("SELECT 1 AS one, 'x' AS txt, 1.5 AS f", &[], 10)
-            .unwrap();
-        assert_eq!(result.columns.len(), 3);
-        assert_eq!(result.rows[0][0], json!(1));
-        assert_eq!(result.rows[0][1], json!("x"));
-        assert_eq!(result.rows[0][2], json!(1.5));
+        live_battery(&mut driver);
     }
 
     #[test]
