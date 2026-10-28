@@ -1,7 +1,9 @@
 use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
-use superlink_drivers::{DriverError, DriverSession, NativeMysql, NativePostgres, NativeSqlite};
+use superlink_drivers::{
+    DriverError, DriverSession, NativeClickHouse, NativeMysql, NativePostgres, NativeSqlite,
+};
 
 use crate::profiles::Credentials;
 
@@ -78,6 +80,10 @@ impl QueryService {
                 let mut driver = NativeMysql::open(&config)?;
                 return Ok(driver.query(sql, &[], max_rows)?);
             }
+            Some(NativeKind::ClickHouse) => {
+                let mut driver = NativeClickHouse::open(&config)?;
+                return Ok(driver.query(sql, &[], max_rows)?);
+            }
             None => {}
         }
         let binary = self
@@ -103,6 +109,7 @@ pub(crate) struct NativeFlags {
     pub sqlite: bool,
     pub postgres: bool,
     pub mysql: bool,
+    pub clickhouse: bool,
 }
 
 impl NativeFlags {
@@ -112,6 +119,7 @@ impl NativeFlags {
             sqlite: on("SUPERLINK_NATIVE_SQLITE"),
             postgres: on("SUPERLINK_NATIVE_PG"),
             mysql: on("SUPERLINK_NATIVE_MYSQL"),
+            clickhouse: on("SUPERLINK_NATIVE_CLICKHOUSE"),
         }
     }
 }
@@ -121,6 +129,7 @@ pub(crate) enum NativeKind {
     Sqlite,
     Postgres,
     Mysql,
+    ClickHouse,
 }
 
 /// 方言 → 原生驱动的路由。
@@ -139,6 +148,7 @@ pub(crate) fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind
         "postgres" | "kingbase" | "vastbase" if flags.postgres => Some(NativeKind::Postgres),
         // Sphinx/StarRocks 同协议但行为差异未验证，暂不纳入。
         "mysql" | "mariadb" | "oceanbase" | "tidb" if flags.mysql => Some(NativeKind::Mysql),
+        "clickhouse" if flags.clickhouse => Some(NativeKind::ClickHouse),
         _ => None,
     }
 }
@@ -182,6 +192,7 @@ mod tests {
             sqlite: true,
             postgres: true,
             mysql: true,
+            clickhouse: true,
         }
     }
 
@@ -212,6 +223,10 @@ mod tests {
             Some(NativeKind::Mysql)
         );
         assert_eq!(native_target("tidb", all_on()), Some(NativeKind::Mysql));
+        assert_eq!(
+            native_target("clickhouse", all_on()),
+            Some(NativeKind::ClickHouse)
+        );
     }
 
     #[test]

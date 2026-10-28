@@ -89,7 +89,8 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 2b | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB，含 TLS） | **已完成**（`SUPERLINK_NATIVE_MYSQL=1`；Sphinx/StarRocks 待验证） |
 | 2c | PG 方言族：Kingbase/Vastbase 复用 PG 驱动 | **已完成**（同 `SUPERLINK_NATIVE_PG`） |
 | 2d | GaussDB/OpenGauss（sha256 挑战）、HighGo（SM3） | 保留 agent：tokio-postgres 无法完成这两类认证握手 |
-| 3 | HTTP 系（ClickHouse/Elasticsearch/Trino/TDengine/IoTDB） | 待做 |
+| 3 | ClickHouse（HTTP + JSONCompact，服务端行预算） | **已完成**（`SUPERLINK_NATIVE_CLICKHOUSE=1`） |
+| 3b | Elasticsearch/Trino/TDengine/IoTDB | 待做 |
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
 

@@ -590,7 +590,11 @@ mod tests {
             )
             .unwrap();
         let inserted = driver
-            .query("INSERT INTO sl_probe VALUES (1, 12.34, '甲'), (2, 0.50, '乙')", &[], 0)
+            .query(
+                "INSERT INTO sl_probe VALUES (1, 12.34, '甲'), (2, 0.50, '乙')",
+                &[],
+                0,
+            )
             .unwrap();
         assert_eq!(inserted.rows_affected, 2, "DDL/DML 的 rows_affected");
 
@@ -611,7 +615,9 @@ mod tests {
         assert_eq!(limited.rows.len(), 2);
         assert!(limited.truncated, "行预算需触发截断");
 
-        let error = driver.query("SELECT * FROM missing_table", &[], 0).unwrap_err();
+        let error = driver
+            .query("SELECT * FROM missing_table", &[], 0)
+            .unwrap_err();
         assert!(!error.to_string().is_empty(), "错误需带服务端信息");
     }
 
