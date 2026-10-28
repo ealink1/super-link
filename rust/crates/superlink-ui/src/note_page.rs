@@ -228,7 +228,7 @@ impl Render for NotePage {
                     .px_3()
                     .py_2()
                     .text_xs()
-                    .text_color(gpui::rgb(0xb42318))
+                    .text_color(theme.danger)
                     .child(error),
             );
         }

@@ -724,9 +724,9 @@ impl TerminalPage {
                     .child(self.form_row("密码", &self.form_password))
                     .child(self.form_row("备注", &self.form_notes))
                     .children(
-                        self.form_error.clone().map(|error| {
-                            div().text_xs().text_color(gpui::rgb(0xb42318)).child(error)
-                        }),
+                        self.form_error
+                            .clone()
+                            .map(|error| div().text_xs().text_color(theme.danger).child(error)),
                     )
                     .child(
                         div()

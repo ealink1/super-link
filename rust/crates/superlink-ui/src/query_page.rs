@@ -609,7 +609,7 @@ impl QueryPage {
                                     .text_color(if entry.success {
                                         theme.accent
                                     } else {
-                                        gpui::rgb(0xb42318).into()
+                                        theme.danger
                                     })
                                     .child(if entry.success { "成功" } else { "失败" }),
                             )
@@ -875,9 +875,9 @@ impl QueryPage {
                     .child(self.form_row("数据库", &self.form_database))
                     .child(self.form_row("密码", &self.form_password))
                     .children(
-                        self.form_error.clone().map(|error| {
-                            div().text_xs().text_color(gpui::rgb(0xb42318)).child(error)
-                        }),
+                        self.form_error
+                            .clone()
+                            .map(|error| div().text_xs().text_color(theme.danger).child(error)),
                     )
                     .child(
                         div()
@@ -1223,7 +1223,7 @@ impl QueryPage {
                     .px_3()
                     .py_2()
                     .text_xs()
-                    .text_color(gpui::rgb(0xb42318))
+                    .text_color(theme.danger)
                     .child(error),
             );
         }

@@ -7,7 +7,7 @@ pub mod note_page;
 mod query_page;
 mod shell;
 pub mod terminal_page;
-mod theme;
+pub mod theme;
 pub mod vt;
 
 pub use note_page::NotePage;
