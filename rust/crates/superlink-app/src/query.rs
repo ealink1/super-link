@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
-use superlink_drivers::{DriverError, DriverSession, NativeSqlite};
+use superlink_drivers::{DriverError, DriverSession, NativePostgres, NativeSqlite};
 
 use crate::profiles::Credentials;
 
@@ -69,6 +69,10 @@ impl QueryService {
             let driver = NativeSqlite::open(&config)?;
             return Ok(driver.query(sql, &[], max_rows)?);
         }
+        if kind == "postgresql" && native_pg_enabled() && NativePostgres::supports(&config) {
+            let mut driver = NativePostgres::open(&config)?;
+            return Ok(driver.query(sql, &[], max_rows)?);
+        }
         let binary = self
             .agent_path(&kind)
             .ok_or_else(|| QueryError::Unsupported(kind.clone()))?;
@@ -86,9 +90,13 @@ impl QueryService {
     }
 }
 
-/// 原生 SQLite 驱动默认关闭，需显式开启以保留 agent 行为作为回退。
+/// 原生驱动默认关闭，需显式开启以保留 agent 行为作为回退。
 fn native_sqlite_enabled() -> bool {
     std::env::var_os("SUPERLINK_NATIVE_SQLITE").is_some()
+}
+
+fn native_pg_enabled() -> bool {
+    std::env::var_os("SUPERLINK_NATIVE_PG").is_some()
 }
 
 /// The vault keeps the password out of metadata; the driver still needs it.

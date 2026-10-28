@@ -85,7 +85,8 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 阶段 | 范围 | 状态 |
 |---|---|---|
 | 1 | SQLite 进程内实现 + 与 agent 结果一致性测试 | **已完成**（`SUPERLINK_NATIVE_SQLITE=1` 开启） |
-| 2 | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB/Sphinx/StarRocks）与 PG 协议族（PostgreSQL/Kingbase/GaussDB/OpenGauss/HighGo/Vastbase） | 待做，crate 成熟 |
+| 2 | PostgreSQL 进程内实现（类型化取值、NUMERIC/UUID 二进制解码、行预算） | **已完成**（`SUPERLINK_NATIVE_PG=1`，仅明文连接） |
+| 2b | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB/Sphinx/StarRocks）与 PG 方言族（Kingbase/GaussDB/OpenGauss/HighGo/Vastbase 认证差异） | 待做 |
 | 3 | HTTP 系（ClickHouse/Elasticsearch/Trino/TDengine/IoTDB） | 待做 |
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
