@@ -119,7 +119,9 @@ MySQL 驱动走文本协议 + 按列类型解码：整数按有无符号区分�
 二级制字符集（charset=63）的 BLOB 转 base64、日期时间输出 ISO 形式；
 Sphinx/StarRocks 虽同协议但行为差异待验证后再纳入开关。
 
-结构浏览（表/列/DDL/变更写回）在 Rust UI 尚未接入，那部分 Go 代码（upstream/db
+结构浏览已起步：SQLite 原生驱动提供 tables()/columns()（sqlite_master + PRAGMA table_info），
+侧栏「表」分区列出当前连接的表/视图，点击回填 SELECT * FROM "x" LIMIT 100。
+其余方言显示「尚未接入 Rust 驱动」。索引/外键/DDL 与其它方言的结构浏览仍未接入，那部分 Go 代码（upstream/db
 的 94k 行）暂不移植——等 UI 需要时再按功能补齐，避免提前搬运无消费者的代码。
 
 ## IPC 安全加固（2026-10-27）

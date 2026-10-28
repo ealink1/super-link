@@ -6336,6 +6336,7 @@ dependencies = [
  "serde_json",
  "superlink-app",
  "superlink-domain",
+ "superlink-drivers",
  "superlink-terminal",
  "unicode-segmentation",
  "uuid",

@@ -49,4 +49,5 @@ python3 tools/build.py --skip-app   # 只构建驱动 agent
   SQLite 与 agent 结果逐值一致，其余数据源继续走 agent
   （GaussDB/OpenGauss/HighGo 因 sha256/SM3 认证保留 agent）
 - UI：SQL（编辑/运行/结果/历史/新建连接表单）、Shell（主机卡片/终端）、Note（预览）
-- 尚未对齐：多行编辑器、表目录、SFTP/监控面板、Note 编辑、发布打包
+- 结构浏览：SQLite 原生驱动已支持表/视图列表与点击回填，其它方言待接入
+- 尚未对齐：多行编辑器、完整表目录（列/索引/DDL）、SFTP/监控面板、Note 编辑、发布打包

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
 use superlink_drivers::{
     DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres,
-    NativeSqlite,
+    NativeSqlite, TableEntry,
 };
 
 use crate::profiles::Credentials;
@@ -53,6 +53,16 @@ impl QueryService {
 
     pub fn supports(&self, kind: &str) -> bool {
         self.agent_path(kind).is_some()
+    }
+
+    /// 结构浏览：目前只有原生 SQLite 提供；其余方言仍由 agent 承担。
+    pub fn tables(&self, profile: &Profile) -> Result<Vec<TableEntry>, QueryError> {
+        let kind = profile.sql_dialect().to_string();
+        if native_target(&kind, NativeFlags::from_env()) == Some(NativeKind::Sqlite) {
+            let driver = NativeSqlite::open(&profile.config)?;
+            return Ok(driver.tables()?);
+        }
+        Err(QueryError::Unsupported(kind))
     }
 
     pub fn execute(

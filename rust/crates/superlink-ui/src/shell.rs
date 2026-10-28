@@ -6,8 +6,8 @@ use gpui::{
     WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
 use superlink_app::{
-    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
-    SettingsService,
+    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryError,
+    QueryService, SettingsService,
 };
 use superlink_domain::Profile;
 
@@ -48,6 +48,9 @@ pub struct SuperLinkApp {
     settings_open: bool,
     sql_filter: String,
     sql_search: Entity<SqlEditor>,
+    queries: Arc<QueryService>,
+    tables: Vec<superlink_drivers::TableEntry>,
+    tables_note: Option<SharedString>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -75,7 +78,7 @@ impl SuperLinkApp {
         let query_page = cx.new(|cx| {
             QueryPage::new(
                 service.clone(),
-                queries,
+                queries.clone(),
                 drafts,
                 history,
                 settings.clone(),
@@ -124,6 +127,9 @@ impl SuperLinkApp {
             settings_open: false,
             sql_filter: String::new(),
             sql_search: sql_search.clone(),
+            queries: queries.clone(),
+            tables: Vec::new(),
+            tables_note: None,
             workspace: Workspace::Sql,
             theme,
             error,
@@ -298,6 +304,41 @@ impl SuperLinkApp {
             self.query_page
                 .update(cx, |page, cx| page.select_profile(profile, cx));
         }
+        self.reload_tables(cx);
+    }
+
+    /// 结构浏览在后台读取，回调只更新状态，不阻塞渲染。
+    fn reload_tables(&mut self, cx: &mut Context<Self>) {
+        self.tables.clear();
+        self.tables_note = None;
+        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+            cx.notify();
+            return;
+        };
+        let queries = self.queries.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.tables(&profile) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                match outcome {
+                    Ok(entries) => {
+                        this.tables = entries;
+                        this.tables_note = None;
+                    }
+                    Err(QueryError::Unsupported(kind)) => {
+                        this.tables_note = Some(SharedString::from(format!(
+                            "{kind} 的结构浏览仍由 agent 承担"
+                        )));
+                    }
+                    Err(err) => this.tables_note = Some(SharedString::from(err.to_string())),
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn refresh(&mut self) {
@@ -311,6 +352,85 @@ impl SuperLinkApp {
             }
             Err(err) => self.error = Some(SharedString::from(err.to_string())),
         }
+    }
+
+    /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。
+    fn table_tree(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let mut section = div().flex().flex_col().gap_1().px_2().pb_2().child(
+            div()
+                .flex()
+                .items_center()
+                .justify_between()
+                .child(div().text_xs().text_color(theme.muted).child("表"))
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted)
+                        .child(format!("{}", self.tables.len())),
+                ),
+        );
+
+        if let Some(note) = &self.tables_note {
+            return section.child(
+                div()
+                    .px_1()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child(note.clone()),
+            );
+        }
+        if self.tables.is_empty() {
+            return section.child(
+                div()
+                    .px_1()
+                    .text_xs()
+                    .text_color(theme.muted)
+                    .child("没有表"),
+            );
+        }
+
+        for entry in self.tables.iter().take(200) {
+            let theme = self.theme;
+            let name = entry.name.clone();
+            let is_view = entry.kind == "view";
+            section = section.child(
+                div()
+                    .id(SharedString::from(format!("table-{}", entry.name)))
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        let table = name.replace('"', "\"\"");
+                        this.workspace = Workspace::Sql;
+                        this.query_page.update(cx, |page, cx| {
+                            page.load_sql(format!("SELECT * FROM \"{table}\" LIMIT 100;"), cx)
+                        });
+                        cx.notify();
+                    }))
+                    .child(icons::icon(
+                        if is_view {
+                            "superlink/all-objects.svg"
+                        } else {
+                            "superlink/table.svg"
+                        },
+                        12.0,
+                        theme.muted,
+                    ))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.text)
+                            .child(SharedString::from(entry.name.clone())),
+                    ),
+            );
+        }
+        section
     }
 
     fn sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -362,6 +482,7 @@ impl SuperLinkApp {
         column = column.child(
             div()
                 .flex()
+                .flex_wrap()
                 .items_center()
                 .gap_1()
                 .px_2()
@@ -575,6 +696,19 @@ impl SuperLinkApp {
                 column = column.child(row);
             }
         }
+
+        // 表结构跟在连接树之后，只对当前连接生效。
+        column = column.child(
+            div()
+                .flex()
+                .flex_col()
+                .flex_1()
+                .min_h(px(0.0))
+                .border_t_1()
+                .border_color(theme.border)
+                .pt_2()
+                .child(self.table_tree(cx)),
+        );
 
         column
     }

@@ -634,6 +634,16 @@ impl QueryPage {
         self.on_saved = Some(Box::new(handler));
     }
 
+    /// 从结构树点选表后回填查询。
+    pub fn load_sql(&mut self, sql: String, cx: &mut Context<Self>) {
+        self.editor
+            .update(cx, |editor, cx| editor.set_text(sql, cx));
+        self.redacted_notice = None;
+        self.confirm_run = false;
+        self.status = "已回填表查询".into();
+        cx.notify();
+    }
+
     pub fn open_connection_form(&mut self, cx: &mut Context<Self>) {
         self.form_open = true;
         self.form_kind = "sqlite".into();

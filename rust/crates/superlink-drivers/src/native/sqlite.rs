@@ -113,6 +113,75 @@ impl NativeSqlite {
     }
 }
 
+/// 结构浏览用的表条目。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableEntry {
+    pub name: String,
+    pub kind: String,
+}
+
+/// 结构浏览用的列条目。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ColumnEntry {
+    pub name: String,
+    pub data_type: String,
+    pub nullable: bool,
+    pub primary_key: bool,
+    pub default_value: Option<String>,
+}
+
+impl NativeSqlite {
+    /// 只列用户对象，跳过 sqlite_ 内部表。
+    pub fn tables(&self) -> Result<Vec<TableEntry>, DriverError> {
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT name, type FROM sqlite_master
+                 WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%'
+                 ORDER BY name",
+            )
+            .map_err(|err| DriverError::Native(format!("读取表列表失败：{err}")))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok(TableEntry {
+                    name: row.get(0)?,
+                    kind: row.get(1)?,
+                })
+            })
+            .map_err(|err| DriverError::Native(format!("读取表列表失败：{err}")))?;
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(row.map_err(|err| DriverError::Native(format!("读取表名失败：{err}")))?);
+        }
+        Ok(entries)
+    }
+
+    /// PRAGMA table_info：cid, name, type, notnull, dflt_value, pk。
+    pub fn columns(&self, table: &str) -> Result<Vec<ColumnEntry>, DriverError> {
+        let quoted = table.replace('"', "\"\"");
+        let mut statement = self
+            .conn
+            .prepare(&format!("PRAGMA table_info(\"{quoted}\")"))
+            .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok(ColumnEntry {
+                    name: row.get(1)?,
+                    data_type: row.get::<_, String>(2).unwrap_or_default(),
+                    nullable: row.get::<_, i64>(3).unwrap_or(0) == 0,
+                    primary_key: row.get::<_, i64>(5).unwrap_or(0) > 0,
+                    default_value: row.get(4)?,
+                })
+            })
+            .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
+        let mut entries = Vec::new();
+        for row in rows {
+            entries.push(row.map_err(|err| DriverError::Native(format!("读取列定义失败：{err}")))?);
+        }
+        Ok(entries)
+    }
+}
+
 /// JSON 参数只支持标量；BLOB 用 base64 与 Go 侧保持一致。
 fn to_sql_params(args: &[Value]) -> Result<Vec<SqlValue>, DriverError> {
     args.iter()
@@ -217,6 +286,43 @@ mod tests {
         let driver = NativeSqlite::open(&config).unwrap();
         let error = driver.query("SELECT * FROM missing", &[], 0).unwrap_err();
         assert!(error.to_string().contains("missing"));
+        drop(driver);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn lists_tables_and_columns() {
+        let (config, path) = temp_config();
+        let driver = NativeSqlite::open(&config).unwrap();
+        driver
+            .query("CREATE TABLE alpha(id INTEGER PRIMARY KEY, name TEXT NOT NULL, score REAL DEFAULT 0)", &[], 0)
+            .unwrap();
+        driver
+            .query("CREATE VIEW beta AS SELECT id FROM alpha", &[], 0)
+            .unwrap();
+
+        let tables = driver.tables().unwrap();
+        assert_eq!(
+            tables,
+            vec![
+                TableEntry {
+                    name: "alpha".into(),
+                    kind: "table".into()
+                },
+                TableEntry {
+                    name: "beta".into(),
+                    kind: "view".into()
+                },
+            ]
+        );
+
+        let columns = driver.columns("alpha").unwrap();
+        assert_eq!(columns.len(), 3);
+        assert_eq!(columns[0].name, "id");
+        assert!(columns[0].primary_key);
+        assert_eq!(columns[1].name, "name");
+        assert!(!columns[1].nullable, "NOT NULL 列不可空");
+        assert_eq!(columns[2].default_value.as_deref(), Some("0"));
         drop(driver);
         let _ = std::fs::remove_file(path);
     }
