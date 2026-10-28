@@ -77,6 +77,22 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 Makefile 与 ci.yml 已同步改为「Go agent 检查 + Rust 检查」双轨。
 Go 完整应用与发布流水线只在 main 分支存在。
 
+## 驱动移植路线（2026-10-27 起）
+
+Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close），
+因此「把 Go 驱动改写成 Rust」不必一次性搬 119k 行，按运行时缺口逐个补：
+
+| 阶段 | 范围 | 状态 |
+|---|---|---|
+| 1 | SQLite 进程内实现 + 与 agent 结果一致性测试 | **已完成**（`SUPERLINK_NATIVE_SQLITE=1` 开启） |
+| 2 | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB/Sphinx/StarRocks）与 PG 协议族（PostgreSQL/Kingbase/GaussDB/OpenGauss/HighGo/Vastbase） | 待做，crate 成熟 |
+| 3 | HTTP 系（ClickHouse/Elasticsearch/Trino/TDengine/IoTDB） | 待做 |
+| 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
+| 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
+
+结构浏览（表/列/DDL/变更写回）在 Rust UI 尚未接入，那部分 Go 代码（upstream/db
+的 94k 行）暂不移植——等 UI 需要时再按功能补齐，避免提前搬运无消费者的代码。
+
 ## IPC 安全加固（2026-10-27）
 
 Rust 客户端与 Go agent 之间的 JSON-lines 通道完成一轮加固，威胁模型为

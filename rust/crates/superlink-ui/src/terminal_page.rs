@@ -273,7 +273,10 @@ impl TerminalPage {
         self.attempts = 0;
         self.auto_reconnect = true;
         self.begin(
-            Target::Remote { host: Box::new(host), policy },
+            Target::Remote {
+                host: Box::new(host),
+                policy,
+            },
             true,
             cx,
         );
@@ -479,7 +482,10 @@ impl TerminalPage {
         self.attempts = 0;
         self.auto_reconnect = true;
         self.begin(
-            Target::Remote { host: Box::new(host), policy },
+            Target::Remote {
+                host: Box::new(host),
+                policy,
+            },
             true,
             cx,
         );

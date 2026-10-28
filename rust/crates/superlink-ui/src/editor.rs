@@ -53,7 +53,11 @@ impl SqlEditor {
         }
     }
 
-    pub fn set_on_change(&mut self, handler: impl Fn(&str, &mut App) + 'static, _cx: &mut Context<Self>) {
+    pub fn set_on_change(
+        &mut self,
+        handler: impl Fn(&str, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
         self.on_change = Some(Box::new(handler));
     }
 
@@ -82,7 +86,11 @@ impl SqlEditor {
         }
     }
 
-    pub fn set_on_run(&mut self, handler: impl Fn(&mut Window, &mut App) + 'static, _cx: &mut Context<Self>) {
+    pub fn set_on_run(
+        &mut self,
+        handler: impl Fn(&mut Window, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
         self.on_run = Some(Box::new(handler));
     }
 

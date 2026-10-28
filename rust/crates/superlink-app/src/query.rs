@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
-use superlink_drivers::{DriverError, DriverSession};
+use superlink_drivers::{DriverError, DriverSession, NativeSqlite};
 
 use crate::profiles::Credentials;
 
@@ -63,10 +63,15 @@ impl QueryService {
             return Err(QueryError::Empty);
         }
         let kind = profile.sql_dialect().to_string();
+        let config = live_config(&profile.config, credentials);
+        // SQLite 已移植到进程内；其它数据源仍需 agent 二进制。
+        if kind == "sqlite" && native_sqlite_enabled() {
+            let driver = NativeSqlite::open(&config)?;
+            return Ok(driver.query(sql, &[], max_rows)?);
+        }
         let binary = self
             .agent_path(&kind)
             .ok_or_else(|| QueryError::Unsupported(kind.clone()))?;
-        let config = live_config(&profile.config, credentials);
         let budget = if max_rows == 0 {
             DEFAULT_MAX_ROWS
         } else {
@@ -79,6 +84,11 @@ impl QueryService {
         let _ = session.close();
         Ok(result)
     }
+}
+
+/// 原生 SQLite 驱动默认关闭，需显式开启以保留 agent 行为作为回退。
+fn native_sqlite_enabled() -> bool {
+    std::env::var_os("SUPERLINK_NATIVE_SQLITE").is_some()
 }
 
 /// The vault keeps the password out of metadata; the driver still needs it.
@@ -123,6 +133,68 @@ mod tests {
             service.execute(&profile, &Credentials::default(), "   ", 10),
             Err(QueryError::Empty)
         ));
+    }
+
+    /// 同一数据库分别走原生驱动与 Go agent，结果必须逐值一致。
+    #[test]
+    fn native_driver_matches_the_agent() {
+        let service = QueryService::new(drivers_dir());
+        if !service.supports("sqlite") {
+            eprintln!("skipping: sqlite agent not present");
+            return;
+        }
+        let database = std::env::temp_dir().join(format!(
+            "superlink-parity-{}-{}.db",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let _ = std::fs::remove_file(&database);
+        let config = ConnectionConfig {
+            kind: "sqlite".into(),
+            database: database.to_string_lossy().to_string(),
+            ..Default::default()
+        };
+        let profile = Profile {
+            config: config.clone(),
+            ..Default::default()
+        };
+        let credentials = Credentials::default();
+        service
+            .execute(
+                &profile,
+                &credentials,
+                "CREATE TABLE p(id INTEGER, name TEXT, score REAL, note TEXT)",
+                10,
+            )
+            .unwrap();
+        service
+            .execute(
+                &profile,
+                &credentials,
+                "INSERT INTO p VALUES (1,'a',1.5,NULL),(2,'b',2.5,'x')",
+                10,
+            )
+            .unwrap();
+
+        // agent 路径
+        let mut session =
+            DriverSession::open(service.agent_path("sqlite").expect("agent"), "sqlite").unwrap();
+        session.connect(&config).unwrap();
+        let via_agent = session
+            .query("SELECT id, name, score, note FROM p ORDER BY id", &[], 10)
+            .unwrap();
+        let _ = session.close();
+
+        // 原生路径
+        let native = NativeSqlite::open(&config).unwrap();
+        let via_native = native
+            .query("SELECT id, name, score, note FROM p ORDER BY id", &[], 10)
+            .unwrap();
+
+        assert_eq!(via_agent.columns, via_native.columns);
+        assert_eq!(via_agent.rows, via_native.rows);
+        assert_eq!(via_agent.truncated, via_native.truncated);
+        let _ = std::fs::remove_file(&database);
     }
 
     #[test]

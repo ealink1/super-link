@@ -17,6 +17,8 @@ pub enum DriverError {
     Identity { kind: String, actual: String },
     #[error("driver returned {0}")]
     Malformed(&'static str),
+    #[error("native driver: {0}")]
+    Native(String),
 }
 
 /// Capabilities reported by connect; they gate parameter binding and cancel.
@@ -139,12 +141,7 @@ fn named<const N: usize>(pairs: [(&str, Value); N]) -> Map<String, Value> {
 }
 
 /// 纯函数构建 query 请求帧，便于单测覆盖超时与预算字段。
-fn query_request(
-    sql: &str,
-    args: &[Value],
-    max_rows: u32,
-    timeout_ms: u64,
-) -> Map<String, Value> {
+fn query_request(sql: &str, args: &[Value], max_rows: u32, timeout_ms: u64) -> Map<String, Value> {
     let mut fields = Map::new();
     fields.insert("query".into(), json!(sql));
     if !args.is_empty() {

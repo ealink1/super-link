@@ -5950,14 +5950,17 @@ dependencies = [
 name = "superlink-drivers"
 version = "0.2.0"
 dependencies = [
+ "base64",
  "hex",
  "object 0.36.7",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2 0.10.9",
  "superlink-domain",
  "superlink-infra",
  "thiserror 2.0.21",
+ "uuid",
 ]
 
 [[package]]

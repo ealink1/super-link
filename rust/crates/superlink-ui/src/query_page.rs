@@ -626,7 +626,11 @@ impl QueryPage {
         panel
     }
 
-    pub fn set_on_saved(&mut self, handler: impl Fn(&str, &mut App) + 'static, _cx: &mut Context<Self>) {
+    pub fn set_on_saved(
+        &mut self,
+        handler: impl Fn(&str, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
         self.on_saved = Some(Box::new(handler));
     }
 
