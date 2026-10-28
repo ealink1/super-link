@@ -13,6 +13,8 @@ use mysql::{ClientIdentity, Opts, OptsBuilder, Row, SslOpts, Value as MyValue};
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
+use super::sqlite::{ColumnEntry, TableEntry};
+
 use crate::session::DriverError;
 
 /// 二进制字符集编号；非该字符集的文本列才按 UTF-8 输出。
@@ -181,6 +183,70 @@ fn ssl_opts(config: &ConnectionConfig) -> Result<Option<SslOpts>, DriverError> {
     Ok(Some(opts))
 }
 
+/// information_schema.tables 的 table_type 归一化。
+fn table_kind(raw: &str) -> &'static str {
+    if raw.eq_ignore_ascii_case("VIEW") || raw.eq_ignore_ascii_case("SYSTEM VIEW") {
+        "view"
+    } else {
+        "table"
+    }
+}
+
+impl NativeMysql {
+    /// 当前库的表与视图；未选择库时给出明确错误。
+    pub fn tables(&mut self) -> Result<Vec<TableEntry>, DriverError> {
+        let database: Option<String> = self
+            .conn
+            .query_first("SELECT DATABASE()")
+            .map_err(|err| DriverError::Native(format!("读取当前库失败：{err}")))?
+            .flatten();
+        let Some(database) = database.filter(|name| !name.is_empty()) else {
+            return Err(DriverError::Native("连接未选择数据库".into()));
+        };
+        let rows: Vec<(String, String)> = self
+            .conn
+            .exec(
+                "SELECT table_name, table_type FROM information_schema.tables
+                 WHERE table_schema = ? ORDER BY table_name",
+                (database,),
+            )
+            .map_err(|err| DriverError::Native(format!("读取表列表失败：{err}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|(name, kind)| TableEntry {
+                name,
+                kind: table_kind(&kind).to_string(),
+            })
+            .collect())
+    }
+
+    /// 列定义：名称、类型、可空、主键、默认值。
+    pub fn columns(&mut self, table: &str) -> Result<Vec<ColumnEntry>, DriverError> {
+        let rows: Vec<(String, String, String, String, Option<String>)> = self
+            .conn
+            .exec(
+                "SELECT column_name, column_type, is_nullable, column_key, column_default
+                 FROM information_schema.columns
+                 WHERE table_schema = DATABASE() AND table_name = ?
+                 ORDER BY ordinal_position",
+                (table,),
+            )
+            .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(name, data_type, nullable, key, default_value)| ColumnEntry {
+                    name,
+                    data_type,
+                    nullable: nullable.eq_ignore_ascii_case("YES"),
+                    primary_key: key.eq_ignore_ascii_case("PRI"),
+                    default_value,
+                },
+            )
+            .collect())
+    }
+}
+
 /// 文本协议下所有值都是字节，按列类型还原成 JSON 标量。
 fn decode_value(value: &MyValue, kind: ColumnType, charset: u16, unsigned: bool) -> Value {
     match value {
@@ -310,6 +376,14 @@ mod tests {
             use_ssl,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn normalizes_table_kinds() {
+        assert_eq!(table_kind("BASE TABLE"), "table");
+        assert_eq!(table_kind("VIEW"), "view");
+        assert_eq!(table_kind("SYSTEM VIEW"), "view");
+        assert_eq!(table_kind("view"), "view");
     }
 
     #[test]

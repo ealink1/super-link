@@ -58,21 +58,21 @@ impl QueryService {
     /// 结构浏览：目前只有原生 SQLite 提供；其余方言仍由 agent 承担。
     pub fn tables(&self, profile: &Profile) -> Result<Vec<TableEntry>, QueryError> {
         let kind = profile.sql_dialect().to_string();
-        if native_target(&kind, NativeFlags::from_env()) == Some(NativeKind::Sqlite) {
-            let driver = NativeSqlite::open(&profile.config)?;
-            return Ok(driver.tables()?);
+        match native_target(&kind, NativeFlags::from_env()) {
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.tables()?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.tables()?),
+            _ => Err(QueryError::Unsupported(kind)),
         }
-        Err(QueryError::Unsupported(kind))
     }
 
     /// 单表的列定义；与 tables 一样目前只支持原生 SQLite。
     pub fn columns(&self, profile: &Profile, table: &str) -> Result<Vec<ColumnEntry>, QueryError> {
         let kind = profile.sql_dialect().to_string();
-        if native_target(&kind, NativeFlags::from_env()) == Some(NativeKind::Sqlite) {
-            let driver = NativeSqlite::open(&profile.config)?;
-            return Ok(driver.columns(table)?);
+        match native_target(&kind, NativeFlags::from_env()) {
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.columns(table)?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.columns(table)?),
+            _ => Err(QueryError::Unsupported(kind)),
         }
-        Err(QueryError::Unsupported(kind))
     }
 
     pub fn execute(
