@@ -2,12 +2,12 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
-    App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString, Window,
-    WindowBounds, WindowOptions, div, prelude::*, px, size,
+    AnyElement, App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString,
+    Window, WindowBounds, WindowOptions, div, prelude::*, px, size,
 };
 use superlink_app::{
     DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryError,
-    QueryService, SettingsService,
+    QueryService, SettingsService, StructureService,
 };
 use superlink_domain::Profile;
 
@@ -35,6 +35,18 @@ impl Workspace {
     }
 }
 
+/// 表结构编辑面板的临时状态。
+struct StructureEdit {
+    table: String,
+    columns: Vec<superlink_drivers::ColumnEntry>,
+    name: Entity<SqlEditor>,
+    data_type: Entity<SqlEditor>,
+    nullable: bool,
+    pending_delete: Option<String>,
+    error: Option<SharedString>,
+    statements: Vec<String>,
+}
+
 pub struct SuperLinkApp {
     service: Arc<ProfileService>,
     query_page: Entity<QueryPage>,
@@ -52,6 +64,8 @@ pub struct SuperLinkApp {
     tables: Vec<superlink_drivers::TableEntry>,
     tables_note: Option<SharedString>,
     expanded_tables: HashSet<String>,
+    structure: Arc<StructureService>,
+    structure_edit: Option<StructureEdit>,
     table_columns: HashMap<String, superlink_drivers::TableStructure>,
     column_errors: HashMap<String, SharedString>,
     workspace: Workspace,
@@ -66,6 +80,7 @@ impl SuperLinkApp {
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
         history: Arc<HistoryService>,
+        structure: Arc<StructureService>,
         notebook: Arc<NotebookService>,
         hosts: Arc<HostService>,
         settings: Arc<SettingsService>,
@@ -134,6 +149,8 @@ impl SuperLinkApp {
             tables: Vec::new(),
             tables_note: None,
             expanded_tables: HashSet::new(),
+            structure: structure.clone(),
+            structure_edit: None,
             table_columns: HashMap::new(),
             column_errors: HashMap::new(),
             workspace: Workspace::Sql,
@@ -363,6 +380,152 @@ impl SuperLinkApp {
         }
     }
 
+    fn open_structure_editor(&mut self, table: String, cx: &mut Context<Self>) {
+        let name = cx.new(SqlEditor::new);
+        let data_type = cx.new(SqlEditor::new);
+        name.update(cx, |editor, cx| editor.set_placeholder("列名", cx));
+        data_type.update(cx, |editor, cx| editor.set_placeholder("类型，如 TEXT", cx));
+        let columns = self
+            .table_columns
+            .get(&table)
+            .map(|structure| structure.columns.clone())
+            .unwrap_or_default();
+        self.structure_edit = Some(StructureEdit {
+            table,
+            columns,
+            name,
+            data_type,
+            nullable: true,
+            pending_delete: None,
+            error: None,
+            statements: Vec::new(),
+        });
+        cx.notify();
+    }
+
+    fn close_structure_editor(&mut self, cx: &mut Context<Self>) {
+        self.structure_edit = None;
+        cx.notify();
+    }
+
+    /// 结构变更后刷新面板与表树缓存。
+    fn refresh_structure(&mut self, table: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+            return;
+        };
+        let queries = self.queries.clone();
+        let name = table.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.structure(&profile, &name) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                if let Ok(structure) = outcome {
+                    this.table_columns
+                        .insert(table.to_string(), structure.clone());
+                    if let Some(edit) = this.structure_edit.as_mut()
+                        && edit.table == table
+                    {
+                        edit.columns = structure.columns;
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn add_column(&mut self, cx: &mut Context<Self>) {
+        let Some(edit) = self.structure_edit.as_ref() else {
+            return;
+        };
+        let name = edit.name.read(cx).text().trim().to_string();
+        let data_type = edit.data_type.read(cx).text().trim().to_string();
+        let nullable = edit.nullable;
+        let table = edit.table.clone();
+        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+            return;
+        };
+        if name.is_empty() || data_type.is_empty() {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.error = Some("列名和类型都不能为空".into());
+            }
+            cx.notify();
+            return;
+        }
+        let service = self.structure.clone();
+        let table_for_task = table.clone();
+        let task = cx.background_executor().spawn(async move {
+            service.add_column(&profile, &table_for_task, &name, &data_type, nullable)
+        });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                if let Some(edit) = this.structure_edit.as_mut() {
+                    match outcome {
+                        Ok(statements) => {
+                            edit.error = None;
+                            edit.statements = statements;
+                            edit.pending_delete = None;
+                        }
+                        Err(err) => edit.error = Some(SharedString::from(err.to_string())),
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+        // 成功与否都刷新一次：失败时也能看到真实结构。
+        self.refresh_structure(table, cx);
+    }
+
+    fn delete_column(&mut self, column: String, cx: &mut Context<Self>) {
+        let Some(edit) = self.structure_edit.as_ref() else {
+            return;
+        };
+        // 第一次点击只进入确认态，避免误删。
+        if edit.pending_delete.as_deref() != Some(column.as_str()) {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.pending_delete = Some(column);
+                edit.error = None;
+            }
+            cx.notify();
+            return;
+        }
+        let table = edit.table.clone();
+        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+            return;
+        };
+        let service = self.structure.clone();
+        let table_for_task = table.clone();
+        let column_for_task = column.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { service.drop_column(&profile, &table_for_task, &column_for_task) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                if let Some(edit) = this.structure_edit.as_mut() {
+                    edit.pending_delete = None;
+                    match outcome {
+                        Ok(statements) => {
+                            edit.error = None;
+                            edit.statements = statements;
+                        }
+                        Err(err) => edit.error = Some(SharedString::from(err.to_string())),
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+        self.refresh_structure(table, cx);
+    }
+
     fn toggle_table(&mut self, name: String, cx: &mut Context<Self>) {
         if self.expanded_tables.remove(&name) {
             cx.notify();
@@ -402,6 +565,224 @@ impl SuperLinkApp {
             .ok();
         })
         .detach();
+    }
+
+    fn structure_panel(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let Some(edit) = self.structure_edit.as_ref() else {
+            return div().into_any_element();
+        };
+        let table = edit.table.clone();
+        let nullable = edit.nullable;
+        let pending = edit.pending_delete.clone();
+
+        let mut columns = div().flex().flex_col().gap_1();
+        for column in &edit.columns {
+            let name = column.name.clone();
+            let deleting = pending.as_deref() == Some(name.as_str());
+            columns = columns.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .bg(theme.canvas)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.text)
+                                    .child(SharedString::from(column.name.clone())),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(column.data_type.clone())),
+                            )
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted)
+                                    .child(if column.primary_key { "PK" } else { "" }),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("drop-{name}")))
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.warning_bg))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.delete_column(name.clone(), cx)
+                            }))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(if deleting {
+                                        theme.warning_text
+                                    } else {
+                                        theme.muted
+                                    })
+                                    .child(if deleting { "确认删除" } else { "删除" }),
+                            ),
+                    ),
+            );
+        }
+
+        div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h(px(0.0))
+            .p_4()
+            .gap_3()
+            .bg(theme.canvas)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_sm()
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child(format!("结构编辑 · {table}")),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        div()
+                            .id("close-structure")
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.close_structure_editor(cx)
+                            }))
+                            .child(div().text_xs().text_color(theme.muted).child("关闭")),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .w(px(160.0))
+                            .px_2()
+                            .h(px(28.0))
+                            .rounded_md()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.surface)
+                            .child(edit.name.clone()),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .w(px(160.0))
+                            .px_2()
+                            .h(px(28.0))
+                            .rounded_md()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.surface)
+                            .child(edit.data_type.clone()),
+                    )
+                    .child(
+                        div()
+                            .id("toggle-nullable")
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .border_1()
+                            .border_color(if nullable { theme.accent } else { theme.border })
+                            .bg(if nullable {
+                                theme.accent_soft
+                            } else {
+                                theme.surface
+                            })
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                if let Some(edit) = this.structure_edit.as_mut() {
+                                    edit.nullable = !edit.nullable;
+                                }
+                                cx.notify();
+                            }))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(if nullable { theme.accent } else { theme.muted })
+                                    .child(if nullable { "可空" } else { "非空" }),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("apply-add-column")
+                            .px_3()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(theme.accent)
+                            .on_click(cx.listener(|this, _event, _window, cx| this.add_column(cx)))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(theme.surface)
+                                    .child("添加列"),
+                            ),
+                    ),
+            )
+            .children(edit.error.as_ref().map(|error| {
+                div()
+                    .text_xs()
+                    .text_color(gpui::rgb(0xb42318))
+                    .child(error.clone())
+            }))
+            .children(if edit.statements.is_empty() {
+                None
+            } else {
+                Some(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_1()
+                        .child(div().text_xs().text_color(theme.muted).child("已执行"))
+                        .children(edit.statements.iter().map(|statement| {
+                            div()
+                                .text_xs()
+                                .text_color(theme.text)
+                                .child(SharedString::from(statement.clone()))
+                        })),
+                )
+            })
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .child(div().text_xs().text_color(theme.muted).child("当前列"))
+                    .child(columns),
+            )
+            .into_any_element()
     }
 
     /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。
@@ -510,6 +891,22 @@ impl SuperLinkApp {
             );
 
             if expanded {
+                let edit_name = entry.name.clone();
+                section = section.child(
+                    div()
+                        .id(SharedString::from(format!("edit-{}", entry.name)))
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .pl(px(30.0))
+                        .py(px(1.0))
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(theme.accent_soft))
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.open_structure_editor(edit_name.clone(), cx)
+                        }))
+                        .child(div().text_xs().text_color(theme.accent).child("编辑结构…")),
+                );
                 if let Some(error) = self.column_errors.get(&entry.name) {
                     section = section.child(
                         div()
@@ -1047,6 +1444,8 @@ impl Render for SuperLinkApp {
             )
             .child(if self.settings_open {
                 self.settings_view(cx).into_any_element()
+            } else if self.structure_edit.is_some() {
+                self.structure_panel(cx).into_any_element()
             } else if self.workspace == Workspace::Sql {
                 div()
                     .flex()
@@ -1095,11 +1494,13 @@ impl Render for SuperLinkApp {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     service: Arc<ProfileService>,
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
     history: Arc<HistoryService>,
+    structure: Arc<StructureService>,
     notebook: Arc<NotebookService>,
     hosts: Arc<HostService>,
     settings: Arc<SettingsService>,
@@ -1124,13 +1525,14 @@ pub fn run(
                         let queries = queries.clone();
                         let drafts = drafts.clone();
                         let history = history.clone();
+                        let structure = structure.clone();
                         let notebook = notebook.clone();
                         let hosts = hosts.clone();
                         let settings = settings.clone();
                         cx.new(|cx| {
                             SuperLinkApp::new(
-                                service, queries, drafts, history, notebook, hosts, settings,
-                                window, cx,
+                                service, queries, drafts, history, structure, notebook, hosts,
+                                settings, window, cx,
                             )
                         })
                     },

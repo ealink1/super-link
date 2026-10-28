@@ -43,6 +43,49 @@ impl StructureService {
         self.apply_with(profile, table, changes, NativeFlags::from_env())
     }
 
+    /// 便捷入口：新增一列。
+    pub fn add_column(
+        &self,
+        profile: &Profile,
+        table: &str,
+        name: &str,
+        data_type: &str,
+        nullable: bool,
+    ) -> Result<Vec<String>, StructureError> {
+        let change = StructureChange {
+            kind: "addColumn".into(),
+            column: ColumnDefinition {
+                name: name.trim().to_string(),
+                data_type: data_type.trim().to_string(),
+                nullable: if nullable { "YES" } else { "NO" }.to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        self.apply(profile, table, vec![change])
+    }
+
+    /// 便捷入口：删除一列（主键列会被校验器拒绝）。
+    pub fn drop_column(
+        &self,
+        profile: &Profile,
+        table: &str,
+        name: &str,
+    ) -> Result<Vec<String>, StructureError> {
+        let change = StructureChange {
+            kind: "dropColumn".into(),
+            original_name: name.to_string(),
+            column: ColumnDefinition {
+                name: name.to_string(),
+                data_type: String::new(),
+                nullable: "YES".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        self.apply(profile, table, vec![change])
+    }
+
     /// 显式传入开关，测试用它避免改动进程环境变量。
     pub(crate) fn apply_with(
         &self,
@@ -207,6 +250,37 @@ mod tests {
             sqlite: true,
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn convenience_helpers_add_and_drop() {
+        let (profile, path) = temp_db();
+        let service = StructureService::new();
+        let flags = sqlite_flags();
+        service
+            .apply_with(&profile, "items", vec![add_column("note")], flags)
+            .unwrap();
+        // 直接用便捷方法删除
+        let statements = service
+            .apply_with(
+                &profile,
+                "items",
+                vec![StructureChange {
+                    kind: "dropColumn".into(),
+                    original_name: "note".into(),
+                    column: ColumnDefinition {
+                        name: "note".into(),
+                        data_type: "TEXT".into(),
+                        nullable: "YES".into(),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                }],
+                flags,
+            )
+            .unwrap();
+        assert!(statements[0].contains("DROP COLUMN"));
+        let _ = std::fs::remove_file(path);
     }
 
     #[test]
