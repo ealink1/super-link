@@ -3,7 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use gpui::{App, Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px};
+use gpui::{
+    AnyElement, App, Context, Entity, FontWeight, Render, SharedString, Window, div, prelude::*, px,
+};
 use serde_json::Value;
 use superlink_app::{
     Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
@@ -28,6 +30,37 @@ struct QueryTab {
     text: String,
 }
 
+/// 结果区分区标签。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ResultTab {
+    Log,
+    Params,
+    #[default]
+    Result,
+    Fields,
+    Ddl,
+}
+
+impl ResultTab {
+    pub fn label(self) -> &'static str {
+        match self {
+            ResultTab::Log => "日志",
+            ResultTab::Params => "参数",
+            ResultTab::Result => "结果",
+            ResultTab::Fields => "字段",
+            ResultTab::Ddl => "DDL",
+        }
+    }
+
+    pub const ALL: [ResultTab; 5] = [
+        ResultTab::Log,
+        ResultTab::Params,
+        ResultTab::Result,
+        ResultTab::Fields,
+        ResultTab::Ddl,
+    ];
+}
+
 pub struct QueryPage {
     profiles: Arc<ProfileService>,
     queries: Arc<QueryService>,
@@ -42,6 +75,9 @@ pub struct QueryPage {
     result: Option<ResultSet>,
     error: Option<SharedString>,
     status: SharedString,
+    result_tab: ResultTab,
+    last_sql: Option<String>,
+    last_duration: Option<u64>,
     running: bool,
     history_open: bool,
     entries: Vec<History>,
@@ -87,6 +123,9 @@ impl QueryPage {
             tabs: Vec::new(),
             active: 0,
             result: None,
+            result_tab: ResultTab::default(),
+            last_sql: None,
+            last_duration: None,
             error: None,
             status: "选择连接后执行查询".into(),
             running: false,
@@ -321,11 +360,16 @@ impl QueryPage {
                     {
                         this.recent_sql.remove(&oldest);
                     }
-                    this.recent_sql.insert(id, original);
+                    this.recent_sql.insert(id, original.clone());
                 }
                 this.running = false;
+                this.last_sql = Some(original.clone());
+                if outcome.is_err() {
+                    this.last_duration = None;
+                }
                 match outcome {
                     Ok(result) => {
+                        this.last_duration = Some(result.duration_ns);
                         // A successful run means the literals were supplied.
                         this.redacted_notice = None;
                         this.status = format!(
@@ -1218,7 +1262,7 @@ impl QueryPage {
             .child(self.editor.clone())
     }
 
-    fn result_panel(&self) -> impl IntoElement {
+    fn result_panel(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = self.theme;
         let panel = div()
             .flex()
@@ -1235,118 +1279,255 @@ impl QueryPage {
                     .h(px(32.0))
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(
+                    .children(ResultTab::ALL.iter().map(|tab| {
+                        let active = *tab == self.result_tab;
                         div()
+                            .id(SharedString::from(format!("result-tab-{:?}", tab)))
                             .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("日志"),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("参数"),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(theme.accent)
+                            .text_color(if active { theme.accent } else { theme.muted })
+                            .font_weight(if active {
+                                FontWeight::BOLD
+                            } else {
+                                FontWeight::NORMAL
+                            })
                             .border_b_2()
-                            .border_color(theme.accent)
-                            .child("结果"),
-                    ),
+                            .border_color(if active { theme.accent } else { theme.surface })
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.result_tab = *tab;
+                                cx.notify();
+                            }))
+                            .child(tab.label())
+                    })),
             );
 
-        if let Some(error) = self.error.clone() {
-            return panel.child(
+        let content: AnyElement = match self.result_tab {
+            ResultTab::Log => {
+                let mut log = div().flex().flex_col().gap_2().p_3();
+                match (&self.last_sql, &self.error) {
+                    (Some(sql), error) => {
+                        let status_text: String = if let Some(err) = error {
+                            err.to_string()
+                        } else {
+                            format!(
+                                "成功 · {:.1} ms",
+                                self.last_duration
+                                    .map(|ns| ns as f64 / 1_000_000.0)
+                                    .unwrap_or_default()
+                            )
+                        };
+                        log = log.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child("状态"),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(if error.is_some() {
+                                            theme.danger
+                                        } else {
+                                            theme.text
+                                        })
+                                        .child(SharedString::from(status_text)),
+                                ),
+                        );
+                        log = log.child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("语句"),
+                        );
+                        log = log.child(
+                            div()
+                                .p_2()
+                                .rounded_md()
+                                .bg(theme.canvas)
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.text)
+                                .child(SharedString::from(sql.clone())),
+                        );
+                    }
+                    _ => {
+                        log = log.child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("还没有执行记录"),
+                        );
+                    }
+                }
+                log.into_any_element()
+            }
+            ResultTab::Params => div()
+                .p_3()
+                .text_size(px(crate::theme::TEXT_SIZE))
+                .text_color(theme.muted)
+                .child("当前查询未使用绑定参数；参数面板随后续参数支持开放。")
+                .into_any_element(),
+            ResultTab::Fields => {
+                let Some(result) = self.result.as_ref() else {
+                    return panel
+                        .child(
+                            div()
+                                .flex_1()
+                                .p_3()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("执行查询后显示字段"),
+                        )
+                        .into_any_element();
+                };
+                let mut fields = div().flex().flex_col().gap_1().p_3();
+                for (position, column) in result.columns.iter().enumerate() {
+                    fields = fields.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .w(px(28.0))
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(format!("{}", position + 1)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child(SharedString::from(column.name.clone())),
+                            ),
+                    );
+                }
+                fields.into_any_element()
+            }
+            ResultTab::Ddl => {
+                let Some(sql) = self.last_sql.as_ref() else {
+                    return panel
+                        .child(
+                            div()
+                                .flex_1()
+                                .p_3()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("执行查询后显示语句"),
+                        )
+                        .into_any_element();
+                };
                 div()
-                    .px_3()
-                    .py_2()
+                    .p_3()
                     .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.danger)
-                    .child(error),
-            );
-        }
-        let Some(result) = self.result.as_ref() else {
-            return panel.child(
-                div()
+                    .text_color(theme.text)
+                    .child(SharedString::from(sql.clone()))
+                    .into_any_element()
+            }
+            ResultTab::Result => {
+                if let Some(error) = self.error.clone() {
+                    return panel
+                        .child(
+                            div()
+                                .px_3()
+                                .py_2()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.danger)
+                                .child(error),
+                        )
+                        .into_any_element();
+                }
+                let Some(result) = self.result.as_ref() else {
+                    return panel
+                        .child(
+                            div()
+                                .flex()
+                                .flex_1()
+                                .items_center()
+                                .justify_center()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("执行查询后显示结果"),
+                        )
+                        .into_any_element();
+                };
+
+                let header = div()
                     .flex()
-                    .flex_1()
                     .items_center()
-                    .justify_center()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child("执行查询后显示结果"),
-            );
-        };
-
-        let header = div()
-            .flex()
-            .items_center()
-            .h(px(crate::theme::CONTROL_MIN))
-            .bg(theme.canvas)
-            .border_b_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .w(px(ROW_NUMBER_WIDTH))
-                    .px_2()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child("#"),
-            )
-            .children(result.columns.iter().map(|column| {
-                div()
-                    .w(px(COLUMN_WIDTH))
-                    .px_2()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(theme.muted)
-                    .child(SharedString::from(column.name.clone()))
-            }));
-
-        let rows = result
-            .rows
-            .iter()
-            .take(DISPLAY_ROWS)
-            .enumerate()
-            .map(|(index, row)| {
-                div()
-                    .flex()
-                    .items_center()
-                    .h(px(24.0))
-                    .bg(if index % 2 == 0 {
-                        theme.surface
-                    } else {
-                        theme.canvas
-                    })
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .bg(theme.canvas)
+                    .border_b_1()
+                    .border_color(theme.border)
                     .child(
                         div()
                             .w(px(ROW_NUMBER_WIDTH))
                             .px_2()
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
-                            .child(format!("{}", index + 1)),
+                            .child("#"),
                     )
-                    .children(row.iter().map(|cell| {
+                    .children(result.columns.iter().map(|column| {
                         div()
                             .w(px(COLUMN_WIDTH))
                             .px_2()
                             .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.text)
-                            .child(cell_text(cell))
-                    }))
-            });
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.muted)
+                            .child(SharedString::from(column.name.clone()))
+                    }));
 
-        panel.child(header).child(
-            div()
-                .flex()
-                .flex_col()
-                .flex_1()
-                .min_h(px(0.0))
-                .children(rows),
-        )
+                let rows = result
+                    .rows
+                    .iter()
+                    .take(DISPLAY_ROWS)
+                    .enumerate()
+                    .map(|(index, row)| {
+                        div()
+                            .flex()
+                            .items_center()
+                            .h(px(24.0))
+                            .bg(if index % 2 == 0 {
+                                theme.surface
+                            } else {
+                                theme.canvas
+                            })
+                            .child(
+                                div()
+                                    .w(px(ROW_NUMBER_WIDTH))
+                                    .px_2()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(format!("{}", index + 1)),
+                            )
+                            .children(row.iter().map(|cell| {
+                                div()
+                                    .w(px(COLUMN_WIDTH))
+                                    .px_2()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child(cell_text(cell))
+                            }))
+                    });
+
+                panel
+                    .child(header)
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_h(px(0.0))
+                            .children(rows),
+                    )
+                    .into_any_element()
+            }
+        };
+        content
     }
 }
 
@@ -1410,7 +1591,7 @@ impl Render for QueryPage {
                                     .flex_1()
                                     .min_w(px(0.0))
                                     .child(self.editor_panel())
-                                    .child(self.result_panel()),
+                                    .child(self.result_panel(cx)),
                             )
                             .children(self.history_open.then(|| self.history_panel(cx))),
                     )
