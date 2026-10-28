@@ -13,6 +13,25 @@ use superlink_sql::structure::build_structure_changes;
 
 use crate::query::{NativeFlags, NativeKind, native_target};
 
+/// 驱动列条目 → SQL 层列定义。
+pub fn table_info_from(columns: &[superlink_drivers::ColumnEntry]) -> TableInfo {
+    TableInfo {
+        columns: columns
+            .iter()
+            .map(|column| ColumnDefinition {
+                name: column.name.clone(),
+                data_type: column.data_type.clone(),
+                nullable: if column.nullable { "YES" } else { "NO" }.to_string(),
+                key: if column.primary_key { "PRI" } else { "" }.to_string(),
+                default: column.default_value.clone(),
+                has_default: column.default_value.is_some(),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StructureError {
     #[error(transparent)]
@@ -90,7 +109,7 @@ impl StructureService {
     }
 
     /// 显式传入开关，测试用它避免改动进程环境变量。
-    pub(crate) fn apply_with(
+    pub fn apply_with(
         &self,
         profile: &Profile,
         database: &str,

@@ -44,7 +44,13 @@ struct StructureEdit {
     name: Entity<SqlEditor>,
     data_type: Entity<SqlEditor>,
     nullable: bool,
+    /// 变更集：预览并确认后一次性提交。
+    pending: Vec<superlink_sql::StructureChange>,
+    preview: Option<String>,
+    confirmed: bool,
     pending_delete: Option<String>,
+    rename_from: Option<String>,
+    rename_editor: Option<Entity<SqlEditor>>,
     error: Option<SharedString>,
     statements: Vec<String>,
 }
@@ -530,7 +536,12 @@ impl SuperLinkApp {
             name,
             data_type,
             nullable: true,
+            pending: Vec::new(),
+            preview: None,
+            confirmed: false,
             pending_delete: None,
+            rename_from: None,
+            rename_editor: None,
             error: None,
             statements: Vec::new(),
         });
@@ -762,19 +773,14 @@ impl SuperLinkApp {
         .detach();
     }
 
-    fn add_column(&mut self, cx: &mut Context<Self>) {
+    /// 新增列进入变更集（不立即执行）。
+    fn queue_add_column(&mut self, cx: &mut Context<Self>) {
         let Some(edit) = self.structure_edit.as_ref() else {
             return;
         };
         let name = edit.name.read(cx).text().trim().to_string();
         let data_type = edit.data_type.read(cx).text().trim().to_string();
         let nullable = edit.nullable;
-        let conn = edit.conn;
-        let database = edit.database.clone();
-        let table = edit.table.clone();
-        let Some(profile) = self.profiles.get(conn).cloned() else {
-            return;
-        };
         if name.is_empty() || data_type.is_empty() {
             if let Some(edit) = self.structure_edit.as_mut() {
                 edit.error = Some("列名和类型都不能为空".into());
@@ -782,47 +788,37 @@ impl SuperLinkApp {
             cx.notify();
             return;
         }
-        let service = self.structure.clone();
-        let db_for_task = database.clone();
-        let table_for_task = table.clone();
-        let task = cx.background_executor().spawn(async move {
-            service.add_column(
-                &profile,
-                &db_for_task,
-                &table_for_task,
-                &name,
-                &data_type,
-                nullable,
-            )
-        });
-        cx.spawn(async move |this, cx| {
-            let outcome = task.await;
-            this.update(cx, |this, cx| {
-                if let Some(edit) = this.structure_edit.as_mut() {
-                    match outcome {
-                        Ok(statements) => {
-                            edit.error = None;
-                            edit.statements = statements;
-                            edit.pending_delete = None;
-                        }
-                        Err(err) => edit.error = Some(SharedString::from(err.to_string())),
-                    }
-                }
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
-        // 成功与否都刷新一次：失败时也能看到真实结构。
-        self.refresh_structure(conn, database, table, cx);
+        if let Some(edit) = self.structure_edit.as_mut() {
+            edit.pending.push(superlink_sql::StructureChange {
+                kind: "addColumn".into(),
+                column: superlink_sql::ColumnDefinition {
+                    name: name.clone(),
+                    data_type: data_type.clone(),
+                    nullable: if nullable { "YES" } else { "NO" }.to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            edit.preview = None;
+            edit.confirmed = false;
+            edit.error = None;
+            edit.name
+                .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+            edit.data_type
+                .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+        }
+        cx.notify();
     }
 
-    fn delete_column(&mut self, column: String, cx: &mut Context<Self>) {
-        let Some(edit) = self.structure_edit.as_ref() else {
-            return;
+    /// 删除列进入变更集（两步确认）。
+    fn queue_drop_column(&mut self, column: String, cx: &mut Context<Self>) {
+        let confirm_needed = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            edit.pending_delete.as_deref() != Some(column.as_str())
         };
-        // 第一次点击只进入确认态，避免误删。
-        if edit.pending_delete.as_deref() != Some(column.as_str()) {
+        if confirm_needed {
             if let Some(edit) = self.structure_edit.as_mut() {
                 edit.pending_delete = Some(column);
                 edit.error = None;
@@ -830,28 +826,204 @@ impl SuperLinkApp {
             cx.notify();
             return;
         }
-        let conn = edit.conn;
-        let database = edit.database.clone();
-        let table = edit.table.clone();
+        if let Some(edit) = self.structure_edit.as_mut() {
+            edit.pending.push(superlink_sql::StructureChange {
+                kind: "dropColumn".into(),
+                original_name: column.clone(),
+                column: superlink_sql::ColumnDefinition {
+                    name: column,
+                    data_type: String::new(),
+                    nullable: "YES".into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            edit.pending_delete = None;
+            edit.preview = None;
+            edit.confirmed = false;
+            edit.error = None;
+        }
+        cx.notify();
+    }
+
+    /// 改名进入变更集：第一次点击出现内联输入，第二次确认。
+    fn queue_rename_column(&mut self, column: String, cx: &mut Context<Self>) {
+        let rename_requested = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            edit.rename_from.as_deref() == Some(column.as_str())
+        };
+        if !rename_requested {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                let editor = cx.new(SqlEditor::new);
+                editor.update(cx, |editor, cx| {
+                    editor.set_text(column.clone(), cx);
+                    editor.set_placeholder("新列名", cx)
+                });
+                edit.rename_from = Some(column);
+                edit.rename_editor = Some(editor);
+                edit.error = None;
+            }
+            cx.notify();
+            return;
+        }
+        let new_name = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            let Some(editor) = edit.rename_editor.as_ref() else {
+                return;
+            };
+            editor.read(cx).text().trim().to_string()
+        };
+        if new_name.is_empty() || new_name == column {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.error = Some("请输入与原列名不同的新列名".into());
+            }
+            cx.notify();
+            return;
+        }
+        if let Some(edit) = self.structure_edit.as_mut() {
+            let original = edit
+                .columns
+                .iter()
+                .find(|entry| entry.name == column)
+                .cloned()
+                .unwrap_or_default();
+            edit.pending.push(superlink_sql::StructureChange {
+                kind: "alterColumn".into(),
+                original_name: column.clone(),
+                column: superlink_sql::ColumnDefinition {
+                    name: new_name,
+                    data_type: original.data_type,
+                    nullable: if original.nullable { "YES" } else { "NO" }.to_string(),
+                    key: if original.primary_key { "PRI" } else { "" }.to_string(),
+                    default: original.default_value.clone(),
+                    has_default: original.default_value.is_some(),
+                    comment: original.comment.clone().unwrap_or_default(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+            edit.rename_from = None;
+            edit.rename_editor = None;
+            edit.preview = None;
+            edit.confirmed = false;
+            edit.error = None;
+        }
+        cx.notify();
+    }
+
+    fn remove_pending_change(&mut self, position: usize, cx: &mut Context<Self>) {
+        if let Some(edit) = self.structure_edit.as_mut() {
+            if position < edit.pending.len() {
+                edit.pending.remove(position);
+                edit.preview = None;
+                edit.confirmed = false;
+            }
+        }
+        cx.notify();
+    }
+
+    /// 受保护提交第一步：生成 SQL 预览。
+    fn build_structure_preview(&mut self, cx: &mut Context<Self>) {
+        let payload = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            if edit.pending.is_empty() {
+                if let Some(edit) = self.structure_edit.as_mut() {
+                    edit.error = Some("没有结构变更".into());
+                }
+                cx.notify();
+                return;
+            }
+            let kind = self
+                .profiles
+                .get(edit.conn)
+                .map(|profile| profile.sql_dialect().to_string())
+                .unwrap_or_default();
+            let info = superlink_app::structure::table_info_from(&edit.columns);
+            let (schema, name) = match edit.table.split_once('.') {
+                Some((schema, name)) => (schema.to_string(), name.to_string()),
+                None => (String::new(), edit.table.clone()),
+            };
+            let request = superlink_sql::StructureRequest {
+                object: superlink_sql::Object {
+                    name,
+                    kind: "table".into(),
+                    schema,
+                    ..Default::default()
+                },
+                changes: edit.pending.clone(),
+                ..Default::default()
+            };
+            superlink_sql::structure::build_structure_changes(&kind, &request, &info)
+                .map(|statements| superlink_sql::structure::preview_structure(&statements))
+        };
+        if let Some(edit) = self.structure_edit.as_mut() {
+            match payload {
+                Ok(preview) => {
+                    edit.preview = Some(preview);
+                    edit.confirmed = false;
+                    edit.error = None;
+                }
+                Err(err) => edit.error = Some(SharedString::from(err.to_string())),
+            }
+        }
+        cx.notify();
+    }
+
+    /// 受保护提交第二步：确认后在单事务内执行；失败整体回滚。
+    fn commit_structure(&mut self, cx: &mut Context<Self>) {
+        let payload = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            if edit.preview.is_none() {
+                if let Some(edit) = self.structure_edit.as_mut() {
+                    edit.error = Some("请先生成 SQL 预览".into());
+                }
+                cx.notify();
+                return;
+            }
+            if !edit.confirmed {
+                if let Some(edit) = self.structure_edit.as_mut() {
+                    edit.confirmed = true;
+                }
+                cx.notify();
+                return;
+            }
+            (
+                edit.conn,
+                edit.database.clone(),
+                edit.table.clone(),
+                edit.pending.clone(),
+            )
+        };
+        let (conn, database, table, changes) = payload;
+        let refresh_db = database.clone();
+        let refresh_table = table.clone();
         let Some(profile) = self.profiles.get(conn).cloned() else {
             return;
         };
         let service = self.structure.clone();
-        let db_for_task = database.clone();
-        let table_for_task = table.clone();
-        let column_for_task = column.clone();
-        let task = cx.background_executor().spawn(async move {
-            service.drop_column(&profile, &db_for_task, &table_for_task, &column_for_task)
-        });
+        let flags = superlink_app::query::NativeFlags::from_env();
+        let task = cx
+            .background_executor()
+            .spawn(async move { service.apply_with(&profile, &database, &table, changes, flags) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
                 if let Some(edit) = this.structure_edit.as_mut() {
-                    edit.pending_delete = None;
                     match outcome {
                         Ok(statements) => {
-                            edit.error = None;
                             edit.statements = statements;
+                            edit.pending.clear();
+                            edit.preview = None;
+                            edit.confirmed = false;
+                            edit.error = None;
                         }
                         Err(err) => edit.error = Some(SharedString::from(err.to_string())),
                     }
@@ -861,9 +1033,8 @@ impl SuperLinkApp {
             .ok();
         })
         .detach();
-        self.refresh_structure(conn, database, table, cx);
+        self.refresh_structure(conn, refresh_db, refresh_table, cx);
     }
-
     fn workbench_panel(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = self.theme;
         let Some(bench) = self.workbench.as_ref() else {
@@ -1385,84 +1556,23 @@ impl SuperLinkApp {
             return div().into_any_element();
         };
         let table = edit.table.clone();
+        let confirmed = edit.confirmed;
         let nullable = edit.nullable;
-        let pending = edit.pending_delete.clone();
 
-        let mut columns = div().flex().flex_col().gap_1();
-        for column in &edit.columns {
-            let name = column.name.clone();
-            let deleting = pending.as_deref() == Some(name.as_str());
-            columns = columns.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .bg(theme.canvas)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child(SharedString::from(column.name.clone())),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(SharedString::from(column.data_type.clone())),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(if column.primary_key { "PK" } else { "" }),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("drop-{name}")))
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.warning_bg))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.delete_column(name.clone(), cx)
-                            }))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(if deleting {
-                                        theme.warning_text
-                                    } else {
-                                        theme.muted
-                                    })
-                                    .child(if deleting { "确认删除" } else { "删除" }),
-                            ),
-                    ),
-            );
-        }
-
-        div()
+        // 顶部：标题 + 关闭
+        let mut panel = div()
             .flex()
             .flex_col()
             .flex_1()
             .min_h(px(0.0))
-            .p_4()
-            .gap_3()
-            .bg(theme.canvas)
+            .bg(theme.surface)
             .child(
                 div()
                     .flex()
                     .items_center()
                     .gap_2()
+                    .px_3()
+                    .py_2()
                     .child(
                         div()
                             .text_size(px(crate::theme::TEXT_SIZE))
@@ -1489,127 +1599,372 @@ impl SuperLinkApp {
                                     .child("关闭"),
                             ),
                     ),
-            )
-            .child(
+            );
+
+        // 错误提示
+        if let Some(error) = &edit.error {
+            panel = panel.child(
+                div()
+                    .mx_3()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.danger)
+                    .child(error.clone()),
+            );
+        }
+
+        // 添加列表单
+        panel = panel.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .px_3()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w(px(150.0))
+                        .h(px(crate::theme::CONTROL_MIN))
+                        .px_2()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.surface)
+                        .child(edit.name.clone()),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w(px(150.0))
+                        .h(px(crate::theme::CONTROL_MIN))
+                        .px_2()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.surface)
+                        .child(edit.data_type.clone()),
+                )
+                .child(
+                    div()
+                        .id("toggle-nullable")
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .border_1()
+                        .border_color(if edit.nullable {
+                            theme.accent
+                        } else {
+                            theme.border
+                        })
+                        .bg(if nullable {
+                            theme.accent_soft
+                        } else {
+                            theme.surface
+                        })
+                        .on_click(cx.listener(|this, _event, _window, cx| {
+                            if let Some(edit) = this.structure_edit.as_mut() {
+                                edit.nullable = !edit.nullable;
+                            }
+                            cx.notify();
+                        }))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(if nullable { theme.accent } else { theme.muted })
+                                .child(if nullable { "可空" } else { "非空" }),
+                        ),
+                )
+                .child(
+                    div()
+                        .id("queue-add-column")
+                        .px_3()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .bg(theme.accent)
+                        .on_click(
+                            cx.listener(|this, _event, _window, cx| this.queue_add_column(cx)),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(theme.surface)
+                                .child("加入变更集"),
+                        ),
+                ),
+        );
+
+        // 变更集
+        let mut changes = div().flex().flex_col().gap_1().px_3();
+        changes = changes.child(
+            div()
+                .text_size(px(crate::theme::TEXT_SIZE))
+                .text_color(theme.muted)
+                .child(format!("变更集 ({})", edit.pending.len())),
+        );
+        for (position, change) in edit.pending.iter().enumerate() {
+            let summary = match change.kind.as_str() {
+                "addColumn" => format!("+ 添加列 {}", change.column.name),
+                "dropColumn" => format!("- 删除列 {}", change.original_name),
+                "alterColumn" => {
+                    format!("~ 重命名 {} → {}", change.original_name, change.column.name)
+                }
+                other => format!("… {other}"),
+            };
+            changes = changes.child(
                 div()
                     .flex()
                     .items_center()
-                    .gap_2()
+                    .justify_between()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .bg(theme.canvas)
                     .child(
                         div()
-                            .flex()
-                            .items_center()
-                            .w(px(160.0))
-                            .px_2()
-                            .h(px(crate::theme::CONTROL_MIN))
-                            .rounded_md()
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.surface)
-                            .child(edit.name.clone()),
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child(SharedString::from(summary)),
                     )
                     .child(
                         div()
-                            .flex()
-                            .items_center()
-                            .w(px(160.0))
-                            .px_2()
-                            .h(px(crate::theme::CONTROL_MIN))
-                            .rounded_md()
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.surface)
-                            .child(edit.data_type.clone()),
-                    )
-                    .child(
-                        div()
-                            .id("toggle-nullable")
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
+                            .id(SharedString::from(format!("pending-x-{position}")))
                             .cursor_pointer()
-                            .border_1()
-                            .border_color(if nullable { theme.accent } else { theme.border })
-                            .bg(if nullable {
-                                theme.accent_soft
-                            } else {
-                                theme.surface
-                            })
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                if let Some(edit) = this.structure_edit.as_mut() {
-                                    edit.nullable = !edit.nullable;
-                                }
-                                cx.notify();
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.remove_pending_change(position, cx)
                             }))
                             .child(
                                 div()
                                     .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(if nullable { theme.accent } else { theme.muted })
-                                    .child(if nullable { "可空" } else { "非空" }),
+                                    .text_color(theme.muted)
+                                    .child("×"),
                             ),
-                    )
+                    ),
+            );
+        }
+        panel = panel.child(changes);
+
+        // 预览与受保护提交
+        panel =
+            panel.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
                     .child(
                         div()
-                            .id("apply-add-column")
+                            .id("build-preview")
                             .px_3()
                             .py_1()
                             .rounded_md()
                             .cursor_pointer()
-                            .bg(theme.accent)
-                            .on_click(cx.listener(|this, _event, _window, cx| this.add_column(cx)))
+                            .border_1()
+                            .border_color(theme.border)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.build_structure_preview(cx)
+                            }))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child("生成 SQL 预览"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("commit-structure")
+                            .px_3()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(if edit.preview.is_some() {
+                                theme.accent
+                            } else {
+                                theme.border
+                            })
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.commit_structure(cx)),
+                            )
                             .child(
                                 div()
                                     .text_size(px(crate::theme::TEXT_SIZE))
                                     .font_weight(FontWeight::BOLD)
-                                    .text_color(theme.surface)
-                                    .child("添加列"),
+                                    .text_color(if edit.preview.is_some() {
+                                        theme.surface
+                                    } else {
+                                        theme.muted
+                                    })
+                                    .child(if confirmed { "确认提交" } else { "提交" }),
                             ),
                     ),
-            )
-            .children(edit.error.as_ref().map(|error| {
+            );
+        if let Some(preview) = &edit.preview {
+            panel = panel.child(
                 div()
+                    .mx_3()
+                    .p_2()
+                    .rounded_md()
+                    .bg(theme.canvas)
                     .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.danger)
-                    .child(error.clone())
-            }))
-            .children(if edit.statements.is_empty() {
-                None
-            } else {
-                Some(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("已执行"),
-                        )
-                        .children(edit.statements.iter().map(|statement| {
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.text)
-                                .child(SharedString::from(statement.clone()))
-                        })),
-                )
-            })
-            .child(
+                    .text_color(theme.text)
+                    .child(SharedString::from(preview.clone())),
+            );
+        }
+
+        // 已执行
+        if !edit.statements.is_empty() {
+            panel = panel.child(
                 div()
                     .flex()
                     .flex_col()
                     .gap_1()
-                    .flex_1()
-                    .min_h(px(0.0))
+                    .mx_3()
                     .child(
                         div()
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
-                            .child("当前列"),
+                            .child("已执行"),
                     )
-                    .child(columns),
-            )
-            .into_any_element()
+                    .children(edit.statements.iter().map(|statement| {
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child(SharedString::from(statement.clone()))
+                    })),
+            );
+        }
+
+        // 当前列 + 每列的删除/改名
+        let mut columns = div()
+            .flex()
+            .flex_col()
+            .gap_1()
+            .px_3()
+            .flex_1()
+            .min_h(px(0.0));
+        columns = columns.child(
+            div()
+                .text_size(px(crate::theme::TEXT_SIZE))
+                .text_color(theme.muted)
+                .child("当前列"),
+        );
+        for column in &edit.columns {
+            let name = column.name.clone();
+            let rename_name = name.clone();
+            let drop_name = name.clone();
+            let renaming = edit.rename_from.as_deref() == Some(name.as_str());
+            let deleting = edit.pending_delete.as_deref() == Some(name.as_str());
+            let meta = if column.primary_key {
+                format!("{} · PK", column.data_type)
+            } else if column.nullable {
+                column.data_type.clone()
+            } else {
+                format!("{} · NOT NULL", column.data_type)
+            };
+            columns = columns.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .bg(theme.canvas)
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child(SharedString::from(column.name.clone())),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child(SharedString::from(meta)),
+                    )
+                    .children(column.comment.as_ref().map(|comment| {
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child(SharedString::from(comment.clone()))
+                    }))
+                    .child(div().flex_1())
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("rename-{}", name)))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.accent)
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.queue_rename_column(rename_name.clone(), cx)
+                            }))
+                            .child("改名"),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("drop-{}", name.clone())))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(if deleting { theme.danger } else { theme.muted })
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.queue_drop_column(drop_name.clone(), cx)
+                            }))
+                            .child(if deleting { "确认删除" } else { "删除" }),
+                    ),
+            );
+            if renaming {
+                if let Some(editor) = &edit.rename_editor {
+                    columns = columns.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .pl(px(20.0))
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .w(px(150.0))
+                                    .h(px(crate::theme::CONTROL_MIN))
+                                    .px_2()
+                                    .rounded_md()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .bg(theme.surface)
+                                    .child(editor.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("rename-ok-{}", name.clone())))
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .bg(theme.accent)
+                                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                                        this.queue_rename_column(name.clone(), cx)
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.surface)
+                                            .child("确认改名"),
+                                    ),
+                            ),
+                    );
+                }
+            }
+        }
+
+        panel.child(columns).into_any_element()
     }
 
     /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。

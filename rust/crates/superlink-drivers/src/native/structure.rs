@@ -8,7 +8,7 @@ pub struct TableEntry {
 }
 
 /// 列定义。
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ColumnEntry {
     pub name: String,
     pub data_type: String,

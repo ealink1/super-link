@@ -153,7 +153,7 @@ impl QueryService {
 
 /// 原生驱动默认关闭，需显式开启以保留 agent 行为作为回退。
 #[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct NativeFlags {
+pub struct NativeFlags {
     pub sqlite: bool,
     pub postgres: bool,
     pub mysql: bool,
@@ -162,7 +162,8 @@ pub(crate) struct NativeFlags {
 }
 
 impl NativeFlags {
-    pub(crate) fn from_env() -> Self {
+    /// 供跨 crate 的提交入口使用（UI 面板在预览后触发）。
+    pub fn from_env() -> Self {
         let on = |key: &str| std::env::var_os(key).is_some();
         Self {
             sqlite: on("SUPERLINK_NATIVE_SQLITE"),
@@ -175,7 +176,7 @@ impl NativeFlags {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum NativeKind {
+pub enum NativeKind {
     Sqlite,
     Postgres,
     Mysql,
@@ -188,7 +189,7 @@ pub(crate) enum NativeKind {
 /// PostgreSQL 协议族只纳入认证兼容的方言：Kingbase/Vastbase 使用 md5/scram。
 /// GaussDB/openGauss（sha256 挑战）与 HighGo（SM3）需要专用认证，
 /// tokio-postgres 无法完成握手，继续走 agent。
-pub(crate) fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind> {
+pub fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind> {
     let key = kind.trim().to_ascii_lowercase();
     let key = match key.as_str() {
         "postgresql" | "pg" => "postgres",
