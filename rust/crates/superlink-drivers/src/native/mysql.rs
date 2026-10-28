@@ -241,6 +241,7 @@ impl NativeMysql {
                     nullable: nullable.eq_ignore_ascii_case("YES"),
                     primary_key: key.eq_ignore_ascii_case("PRI"),
                     default_value,
+                    comment: None,
                 },
             )
             .collect())

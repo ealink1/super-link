@@ -260,6 +260,7 @@ impl NativeSqlite {
                     nullable: row.get::<_, i64>(3).unwrap_or(0) == 0,
                     primary_key: row.get::<_, i64>(5).unwrap_or(0) > 0,
                     default_value: row.get(4)?,
+                    comment: None,
                 })
             })
             .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;

@@ -56,7 +56,17 @@ impl NativePostgres {
             }
             None => params.connect(NoTls),
         }
-        .map_err(|err| DriverError::Native(format!("连接 PostgreSQL 失败：{err}")))?;
+        .map_err(|err| {
+            let text = err.to_string();
+            // 握手即断开基本只有两类原因：openGauss/GaussDB 的 sha256 认证，
+            // 或服务端要求非标准 SSL 协商——两者都需要 Go agent 才能连上。
+            let hint = if text.contains("connection closed") || text.contains("communicating") {
+                "（服务端在握手阶段断开：openGauss/GaussDB 的 sha256 认证或非标准 SSL 协商不受支持，请改用 agent）"
+            } else {
+                ""
+            };
+            DriverError::Native(format!("连接 PostgreSQL 失败：{text}{hint}"))
+        })?;
         Ok(Self { client })
     }
 
@@ -221,6 +231,30 @@ impl NativePostgres {
         })
     }
 
+    /// COMMENT ON COLUMN 的注释，按列名返回（无注释的列不出现或为 None）。
+    fn column_comments(
+        &mut self,
+        schema: &str,
+        table: &str,
+    ) -> Result<Vec<(String, Option<String>)>, DriverError> {
+        let rows = self
+            .client
+            .query(
+                "SELECT a.attname, d.description
+                 FROM pg_class c
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+                 LEFT JOIN pg_description d ON d.objoid = c.oid AND d.objsubid = a.attnum
+                 WHERE n.nspname = $1 AND c.relname = $2",
+                &[&schema, &table],
+            )
+            .map_err(|err| DriverError::Native(format!("读取列注释失败：{err}")))?;
+        Ok(rows
+            .into_iter()
+            .map(|row| (row.get::<_, String>(0), row.get::<_, Option<String>>(1)))
+            .collect())
+    }
+
     /// pg_index + unnest(indkey)：表达式索引（attnum = 0）会被内连接过滤掉。
     fn indexes(&mut self, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
         let (schema, name) = split_table(table);
@@ -317,6 +351,8 @@ impl NativePostgres {
             .map(|row| row.get::<_, String>(0))
             .collect();
 
+        let comments = self.column_comments(&schema, &name)?;
+
         Ok(rows
             .into_iter()
             .map(|row| {
@@ -324,12 +360,17 @@ impl NativePostgres {
                 let data_type: String = row.get(1);
                 let nullable: String = row.get(2);
                 let default_value: Option<String> = row.get(3);
+                let comment = comments
+                    .iter()
+                    .find(|(name, _)| name == &column)
+                    .and_then(|(_, comment)| comment.clone());
                 ColumnEntry {
                     primary_key: primary.iter().any(|name| name == &column),
                     name: column,
                     data_type,
                     nullable: nullable.eq_ignore_ascii_case("YES"),
                     default_value,
+                    comment,
                 }
             })
             .collect())

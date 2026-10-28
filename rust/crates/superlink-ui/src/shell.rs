@@ -547,7 +547,13 @@ impl SuperLinkApp {
                                         .text_xs()
                                         .text_color(theme.muted)
                                         .child(SharedString::from(meta)),
-                                ),
+                                )
+                                .children(column.comment.as_ref().map(|comment| {
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(comment.clone()))
+                                })),
                         );
                     }
                     if columns.is_empty() {
