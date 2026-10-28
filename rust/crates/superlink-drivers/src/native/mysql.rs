@@ -248,6 +248,24 @@ impl NativeMysql {
     }
 }
 
+impl NativeMysql {
+    /// 单事务执行多条语句。
+    pub fn execute_batch(&mut self, statements: &[String]) -> Result<(), DriverError> {
+        let mut transaction = self
+            .conn
+            .start_transaction(mysql::TxOpts::default())
+            .map_err(|err| DriverError::Native(format!("开启事务失败：{err}")))?;
+        for statement in statements {
+            transaction
+                .query_drop(statement.as_str())
+                .map_err(|err| DriverError::Native(format!("执行失败：{err}")))?;
+        }
+        transaction
+            .commit()
+            .map_err(|err| DriverError::Native(format!("提交失败：{err}")))
+    }
+}
+
 /// information_schema.statistics 的索引定义。
 impl NativeMysql {
     pub fn structure(&mut self, table: &str) -> Result<TableStructure, DriverError> {

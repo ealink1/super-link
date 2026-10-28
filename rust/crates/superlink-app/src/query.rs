@@ -143,7 +143,7 @@ pub(crate) struct NativeFlags {
 }
 
 impl NativeFlags {
-    fn from_env() -> Self {
+    pub(crate) fn from_env() -> Self {
         let on = |key: &str| std::env::var_os(key).is_some();
         Self {
             sqlite: on("SUPERLINK_NATIVE_SQLITE"),

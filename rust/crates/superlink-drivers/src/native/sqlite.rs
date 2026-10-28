@@ -141,6 +141,22 @@ impl NativeSqlite {
         Ok(entries)
     }
 
+    /// 在单个事务里执行多条 DDL/DML；失败即整体回滚。
+    pub fn execute_batch(&self, statements: &[String]) -> Result<(), DriverError> {
+        let transaction = self
+            .conn
+            .unchecked_transaction()
+            .map_err(|err| DriverError::Native(format!("开启事务失败：{err}")))?;
+        for statement in statements {
+            transaction
+                .execute_batch(statement)
+                .map_err(|err| DriverError::Native(format!("执行失败：{err}")))?;
+        }
+        transaction
+            .commit()
+            .map_err(|err| DriverError::Native(format!("提交失败：{err}")))
+    }
+
     /// 一次取齐列、索引与外键。
     pub fn structure(&self, table: &str) -> Result<TableStructure, DriverError> {
         Ok(TableStructure {

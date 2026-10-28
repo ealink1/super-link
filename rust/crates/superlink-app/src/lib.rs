@@ -10,6 +10,7 @@ pub mod queries;
 pub mod query;
 pub mod settings;
 pub mod shell_hosts;
+pub mod structure;
 
 pub use history::{HistoryService, placeholder_count, redact};
 pub use notebook::{NotebookError, NotebookService};
@@ -18,3 +19,4 @@ pub use queries::{DraftService, QueryLibrary};
 pub use query::{QueryError, QueryService};
 pub use settings::SettingsService;
 pub use shell_hosts::{HostCredentials, HostError, HostService};
+pub use structure::{StructureError, StructureService};

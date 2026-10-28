@@ -196,6 +196,24 @@ fn table_kind(raw: &str) -> &'static str {
     }
 }
 
+impl NativePostgres {
+    /// 单事务执行多条语句；PG 的 DDL 是事务性的，失败可完整回滚。
+    pub fn execute_batch(&mut self, statements: &[String]) -> Result<(), DriverError> {
+        let mut transaction = self
+            .client
+            .transaction()
+            .map_err(|err| DriverError::Native(format!("开启事务失败：{err}")))?;
+        for statement in statements {
+            transaction
+                .batch_execute(statement)
+                .map_err(|err| DriverError::Native(format!("执行失败：{err}")))?;
+        }
+        transaction
+            .commit()
+            .map_err(|err| DriverError::Native(format!("提交失败：{err}")))
+    }
+}
+
 /// 结构浏览：系统 schema 之外的普通表与视图。
 impl NativePostgres {
     pub fn tables(&mut self) -> Result<Vec<TableEntry>, DriverError> {
