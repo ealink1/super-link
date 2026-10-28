@@ -81,6 +81,7 @@ mod tests {
     #[test]
     fn light_matches_the_fyne_overrides() {
         let theme = Theme::light();
+        assert_eq!(theme.success_soft, rgb(0xe8f5ec).into());
         assert_eq!(theme.canvas, rgb(0xfafaf8).into());
         assert_eq!(theme.surface, rgb(0xffffff).into());
         assert_eq!(theme.button, rgb(0xf7f8f6).into());
@@ -147,6 +148,8 @@ pub struct Theme {
     pub danger: Hsla,
     /// Fyne ColorNameSuccess。
     pub success: Hsla,
+    /// 浅绿选中底（QA 记录的「浅绿选中行」）。
+    pub success_soft: Hsla,
     pub placeholder: Hsla,
     pub warning_bg: Hsla,
     pub warning_border: Hsla,
@@ -187,6 +190,7 @@ impl Theme {
             hover: rgba(0x0000000f).into(),
             danger: rgb(0xf44336).into(),
             success: rgb(0x43f436).into(),
+            success_soft: rgb(0xe8f5ec).into(),
             placeholder: rgb(0x888888).into(),
             warning_bg: rgb(0xfff1d6).into(),
             warning_border: rgb(0xe0a94a).into(),
@@ -208,6 +212,7 @@ impl Theme {
             hover: rgba(0xffffff0f).into(),
             danger: rgb(0xf44336).into(),
             success: rgb(0x43f436).into(),
+            success_soft: rgb(0x1f3327).into(),
             placeholder: rgb(0xb2b2b2).into(),
             warning_bg: rgb(0x3a2e1a).into(),
             warning_border: rgb(0x5c4a2a).into(),

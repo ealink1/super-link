@@ -1039,6 +1039,11 @@ impl QueryPage {
                     .on_click(
                         cx.listener(move |this, _event, _window, cx| this.switch_tab(index, cx)),
                     )
+                    .child(div().size(px(6.0)).rounded_full().bg(if active {
+                        theme.success
+                    } else {
+                        theme.border
+                    }))
                     .child(
                         div()
                             .text_size(px(crate::theme::TEXT_SIZE))
@@ -1097,6 +1102,15 @@ impl QueryPage {
                 }
             })
             .unwrap_or_else(|| "数据库 / Namespace".to_string());
+        // 行数上限轮换档位
+        let limit = self.settings.row_limit();
+        let next_limit = match limit {
+            100 => 500,
+            500 => 1_000,
+            1_000 => 5_000,
+            5_000 => 10_000,
+            _ => 100,
+        };
 
         div()
             .flex()
@@ -1107,119 +1121,38 @@ impl QueryPage {
             .bg(theme.surface)
             .border_b_1()
             .border_color(theme.border)
+            // 连接下拉
             .child(
                 div()
-                    .id("new-query")
+                    .id("profile-pill")
                     .flex()
                     .items_center()
                     .gap_1()
                     .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| this.add_tab(cx)))
-                    .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("新建查询"),
-                    ),
-            )
-            .child(
-                div()
-                    .id("save-query")
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| {
-                        this.save_active(cx);
-                        this.status = "已保存到草稿".into();
-                        cx.notify();
-                    }))
-                    .child(icons::icon("shell/save.svg", 14.0, theme.muted))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("保存"),
-                    ),
-            )
-            .child(
-                div()
-                    .id("history")
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(if self.history_open {
-                        theme.accent_soft
-                    } else {
-                        theme.surface
-                    })
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| this.toggle_history(cx)))
-                    .child(
-                        div()
-                            .id("export-csv")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(
-                                cx.listener(|this, _event, _window, cx| this.export_result_csv(cx)),
-                            )
-                            .child(icons::icon("superlink/copy.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child("导出 CSV"),
-                            ),
-                    )
-                    .child(icons::icon(
-                        "superlink/history.svg",
-                        14.0,
-                        if self.history_open {
-                            theme.accent
-                        } else {
-                            theme.muted
-                        },
-                    ))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(if self.history_open {
-                                theme.accent
-                            } else {
-                                theme.muted
-                            })
-                            .child("执行历史"),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .py_1()
+                    .h(px(crate::theme::CONTROL_MIN))
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
+                    .bg(theme.surface)
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        let list = this.profiles.list().unwrap_or_default();
+                        if list.is_empty() {
+                            return;
+                        }
+                        let current = this
+                            .profile
+                            .as_ref()
+                            .map(|profile| profile.name.clone())
+                            .unwrap_or_default();
+                        let index = list
+                            .iter()
+                            .position(|profile| profile.name == current)
+                            .map(|position| position + 1)
+                            .unwrap_or(0);
+                        let next = list[index % list.len()].clone();
+                        this.select_profile(next, cx);
+                    }))
                     .child(icons::icon(
                         icons::datasource_icon(profile_kind.as_str()),
                         14.0,
@@ -1230,39 +1163,60 @@ impl QueryPage {
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
                             .child(SharedString::from(profile_label)),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("▾"),
                     ),
             )
+            // 数据库 / Namespace
             .child(
                 div()
                     .px_2()
-                    .py_1()
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .flex()
+                    .items_center()
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
+                    .bg(theme.surface)
                     .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(SharedString::from(database)),
             )
+            // 行数上限（点击轮换）
             .child(
                 div()
+                    .id("limit-pill")
                     .px_2()
-                    .py_1()
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .flex()
+                    .items_center()
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
+                    .bg(theme.surface)
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.settings.set_row_limit(next_limit);
+                        this.status = format!("结果行数上限 → {}", next_limit).into();
+                        cx.notify();
+                    }))
                     .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
-                    .child(format!("{}", self.settings.row_limit())),
+                    .child(SharedString::from(format!("{limit} ▾"))),
             )
+            // 运行：蓝色圆形按钮
             .child(
                 div()
                     .id("run-query")
+                    .size(px(crate::theme::CONTROL_MIN))
                     .flex()
                     .items_center()
-                    .gap_1()
-                    .px_3()
-                    .py_1()
-                    .rounded_md()
+                    .justify_center()
+                    .rounded_full()
                     .cursor_pointer()
                     .bg(if self.running {
                         theme.border
@@ -1270,18 +1224,74 @@ impl QueryPage {
                         theme.accent
                     })
                     .on_click(cx.listener(|this, _event, _window, cx| this.run(cx)))
-                    .child(icons::icon("superlink/send.svg", 13.0, theme.surface))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(theme.surface)
-                            .child(if self.running {
-                                "执行中"
-                            } else {
-                                "运行 ⌘R"
-                            }),
-                    ),
+                    .child(icons::icon("superlink/send.svg", 14.0, theme.surface)),
+            )
+            // 保存：圆形图标按钮
+            .child(
+                div()
+                    .id("save-query")
+                    .size(px(crate::theme::CONTROL_MIN))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .cursor_pointer()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.button)
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| {
+                        this.save_active(cx);
+                        this.status = "已保存到草稿".into();
+                        cx.notify();
+                    }))
+                    .child(icons::icon("shell/save.svg", 14.0, theme.muted)),
+            )
+            // 导出 CSV：圆形图标按钮
+            .child(
+                div()
+                    .id("export-csv")
+                    .size(px(crate::theme::CONTROL_MIN))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .cursor_pointer()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.button)
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| this.export_result_csv(cx)))
+                    .child(icons::icon("superlink/copy.svg", 14.0, theme.muted)),
+            )
+            // 执行历史：圆形图标按钮
+            .child(
+                div()
+                    .id("history")
+                    .size(px(crate::theme::CONTROL_MIN))
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded_full()
+                    .cursor_pointer()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(if self.history_open {
+                        theme.accent_soft
+                    } else {
+                        theme.button
+                    })
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| this.toggle_history(cx)))
+                    .child(icons::icon(
+                        "superlink/history.svg",
+                        14.0,
+                        if self.history_open {
+                            theme.accent
+                        } else {
+                            theme.muted
+                        },
+                    )),
             )
             .child(div().flex_1())
             .child(
@@ -1292,6 +1302,25 @@ impl QueryPage {
             )
     }
 
+    /// 编辑器与结果区之间的状态行（对齐 Fyne 时期的位置）。
+    fn status_row(&self) -> impl IntoElement {
+        let theme = self.theme;
+        let limit = self.settings.row_limit().max(100);
+        let text = if self.status.is_empty() {
+            SharedString::from(format!("就绪 · 结果最多 {} 行 / 64 MiB", limit * 10_000))
+        } else {
+            self.status.clone()
+        };
+        div()
+            .px_3()
+            .py_1()
+            .text_size(px(crate::theme::TEXT_SIZE))
+            .text_color(theme.muted)
+            .bg(theme.surface)
+            .border_t_1()
+            .border_color(theme.border)
+            .child(text)
+    }
     fn editor_panel(&self) -> impl IntoElement {
         let theme = self.theme;
         div()
@@ -1328,15 +1357,21 @@ impl QueryPage {
                         let active = *tab == self.result_tab;
                         div()
                             .id(SharedString::from(format!("result-tab-{:?}", tab)))
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
                             .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(if active { theme.accent } else { theme.muted })
+                            .text_color(if active { theme.success } else { theme.muted })
                             .font_weight(if active {
                                 FontWeight::BOLD
                             } else {
                                 FontWeight::NORMAL
                             })
-                            .border_b_2()
-                            .border_color(if active { theme.accent } else { theme.surface })
+                            .bg(if active {
+                                theme.success_soft
+                            } else {
+                                theme.surface
+                            })
                             .cursor_pointer()
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.result_tab = *tab;
@@ -1636,6 +1671,7 @@ impl Render for QueryPage {
                                     .flex_1()
                                     .min_w(px(0.0))
                                     .child(self.editor_panel())
+                                    .child(self.status_row())
                                     .child(self.result_panel(cx)),
                             )
                             .children(self.history_open.then(|| self.history_panel(cx))),

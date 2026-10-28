@@ -2455,7 +2455,7 @@ impl SuperLinkApp {
                                 "superlink/table.svg"
                             },
                             12.0,
-                            theme.muted,
+                            theme.success,
                         ))
                         .child(
                             div()
@@ -2806,94 +2806,6 @@ impl SuperLinkApp {
         column = column.child(
             div()
                 .flex()
-                .flex_wrap()
-                .items_center()
-                .gap_1()
-                .px_2()
-                .pb_2()
-                .child(
-                    div()
-                        .id("new-query-side")
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .px_2()
-                        .py_1()
-                        .rounded_md()
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(theme.accent_soft))
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.query_page.update(cx, |page, cx| page.add_tab(cx));
-                            this.workspace = Workspace::Sql;
-                            cx.notify();
-                        }))
-                        .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
-                        .child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("新建查询"),
-                        ),
-                )
-                .child(
-                    div()
-                        .id("new-connection-side")
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .px_2()
-                        .py_1()
-                        .rounded_md()
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(theme.accent_soft))
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.query_page
-                                .update(cx, |page, cx| page.open_connection_form(cx));
-                            this.workspace = Workspace::Sql;
-                            cx.notify();
-                        }))
-                        .child(icons::icon(
-                            "superlink/new-connection.svg",
-                            14.0,
-                            theme.muted,
-                        ))
-                        .child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("新建连接"),
-                        ),
-                )
-                .child(
-                    div()
-                        .id("history-side")
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .px_2()
-                        .py_1()
-                        .rounded_md()
-                        .cursor_pointer()
-                        .hover(move |style| style.bg(theme.accent_soft))
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.workspace = Workspace::Sql;
-                            this.query_page
-                                .update(cx, |page, cx| page.toggle_history(cx));
-                            cx.notify();
-                        }))
-                        .child(icons::icon("superlink/history.svg", 14.0, theme.muted))
-                        .child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("执行历史"),
-                        ),
-                ),
-        );
-
-        column = column.child(
-            div()
-                .flex()
                 .items_center()
                 .gap_1()
                 .mx_2()
@@ -3014,6 +2926,7 @@ impl SuperLinkApp {
                             .flex()
                             .items_center()
                             .gap_1()
+                            .child(div().size(px(6.0)).rounded_full().bg(theme.success))
                             .child(
                                 div()
                                     .id(SharedString::from(format!("fold-conn-{index}")))
@@ -3061,6 +2974,34 @@ impl SuperLinkApp {
                 }
             }
         }
+
+        column = column.child(
+            div()
+                .id("saved-queries")
+                .flex()
+                .items_center()
+                .gap_1()
+                .mx_2()
+                .mt_1()
+                .px_2()
+                .py_1()
+                .rounded_md()
+                .cursor_pointer()
+                .hover(move |style| style.bg(theme.accent_soft))
+                .on_click(cx.listener(|this, _event, _window, cx| {
+                    this.workspace = Workspace::Sql;
+                    this.query_page
+                        .update(cx, |page, cx| page.toggle_history(cx));
+                    cx.notify();
+                }))
+                .child(icons::icon("superlink/history.svg", 13.0, theme.muted))
+                .child(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child("全部已存查询"),
+                ),
+        );
 
         column
     }
@@ -3174,6 +3115,92 @@ impl Render for SuperLinkApp {
                                 self.error
                                     .clone()
                                     .unwrap_or_else(|| SharedString::from("原生 Rust 工作台")),
+                            ),
+                    ),
+            )
+            .child(
+                // 全局操作栏（对齐 Fyne 时期的顶部工具栏）
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_3()
+                    .h(px(40.0))
+                    .bg(theme.surface)
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .id("global-new-query")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.workspace = Workspace::Sql;
+                                this.query_page.update(cx, |page, cx| page.add_tab(cx));
+                                cx.notify();
+                            }))
+                            .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child("新建查询"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("global-new-connection")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.workspace = Workspace::Sql;
+                                this.query_page
+                                    .update(cx, |page, cx| page.open_connection_form(cx));
+                                cx.notify();
+                            }))
+                            .child(icons::icon("superlink/link.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child("新建连接"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("global-history")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.workspace = Workspace::Sql;
+                                this.query_page
+                                    .update(cx, |page, cx| page.toggle_history(cx));
+                                cx.notify();
+                            }))
+                            .child(icons::icon("superlink/history.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child("执行历史"),
                             ),
                     ),
             )
