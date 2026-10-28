@@ -1,4 +1,4 @@
-.PHONY: agents build-agents run test vet selfcheck rust-test
+.PHONY: agents build-agents run test vet selfcheck rust-test live-pg
 
 # 驱动 agent：SQLite 随包构建，其余按需
 build-agents:
@@ -21,6 +21,10 @@ test:
 vet:
 	go vet ./...
 	cargo clippy --manifest-path rust/Cargo.toml --all-targets
+
+# 真实 PG/Kingbase 冒烟：SUPERLINK_TEST_PG_KIND=kingbase SUPERLINK_TEST_PG_PASSWORD=... make live-pg
+live-pg:
+	cd rust && SUPERLINK_TEST_PG=1 cargo test -p superlink-drivers passes_the_battery -- --nocapture
 
 selfcheck:
 	python3 tools/check-architecture.py

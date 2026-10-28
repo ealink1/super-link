@@ -93,6 +93,16 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
 
+真实实例冒烟（连接、类型解码、DDL/DML、行预算、错误路径）：
+
+```sh
+# PostgreSQL
+SUPERLINK_TEST_PG_PASSWORD=... make live-pg
+# Kingbase（默认端口 54321）
+SUPERLINK_TEST_PG_KIND=kingbase SUPERLINK_TEST_PG_PORT=54321 \
+  SUPERLINK_TEST_PG_USER=system SUPERLINK_TEST_PG_DB=test SUPERLINK_TEST_PG_PASSWORD=... make live-pg
+```
+
 方言路由以目录键为准（`postgres` 而非 `postgresql`），并在路由层统一归一化别名；
 修复了此前 PG 原生分支因键名不匹配而永不命中的问题。
 

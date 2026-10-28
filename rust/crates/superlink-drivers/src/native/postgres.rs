@@ -542,39 +542,87 @@ mod tests {
         assert_eq!(decode_numeric(&raw).unwrap(), "NaN");
     }
 
-    /// 需要真实服务：SUPERLINK_TEST_PG_DSN=host=127.0.0.1 port=5432 user=postgres dbname=postgres
-    #[test]
-    fn queries_a_live_server_when_configured() {
-        let Ok(dsn) = std::env::var("SUPERLINK_TEST_PG_DSN") else {
-            eprintln!("skipping: SUPERLINK_TEST_PG_DSN not set");
-            return;
+    /// 真实实例的连接参数；SUPERLINK_TEST_PG=1 开启，
+    /// SUPERLINK_TEST_PG_KIND=kingbase 切换方言（默认端口随之变为 54321）。
+    fn live_config() -> Option<ConnectionConfig> {
+        // SUPERLINK_TEST_PG=1 开启；PG_KIND=kingbase/vastbase 可切换方言。
+        std::env::var("SUPERLINK_TEST_PG").ok()?;
+        let kind = std::env::var("SUPERLINK_TEST_PG_KIND").unwrap_or_else(|_| "postgres".into());
+        let default_port = if kind.eq_ignore_ascii_case("kingbase") {
+            54321
+        } else {
+            5432
         };
-        let _ = dsn;
-        let config = ConnectionConfig {
-            kind: "postgresql".into(),
+        Some(ConnectionConfig {
+            kind,
             host: std::env::var("SUPERLINK_TEST_PG_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
             port: std::env::var("SUPERLINK_TEST_PG_PORT")
                 .ok()
                 .and_then(|value| value.parse().ok())
-                .unwrap_or(5432),
+                .unwrap_or(default_port),
             user: std::env::var("SUPERLINK_TEST_PG_USER").unwrap_or_else(|_| "postgres".into()),
             password: std::env::var("SUPERLINK_TEST_PG_PASSWORD").unwrap_or_default(),
             database: std::env::var("SUPERLINK_TEST_PG_DB").unwrap_or_else(|_| "postgres".into()),
             ..Default::default()
-        };
-        let mut driver = NativePostgres::open(&config).unwrap();
-        let result = driver
+        })
+    }
+
+    /// 真实实例冒烟：类型解码 + DDL/DML + 行预算 + 错误路径。
+    fn live_battery(driver: &mut NativePostgres) {
+        let values = driver
             .query(
                 "SELECT 1::int4 AS i, 2.5::numeric AS n, 'x'::text AS t, true AS b",
                 &[],
                 10,
             )
             .unwrap();
-        assert_eq!(result.columns.len(), 4);
-        assert_eq!(result.rows[0][0], json!(1));
-        assert_eq!(result.rows[0][1], json!("2.5"));
-        assert_eq!(result.rows[0][2], json!("x"));
-        assert_eq!(result.rows[0][3], json!(true));
+        assert_eq!(values.columns.len(), 4);
+        assert_eq!(values.rows[0][0], json!(1));
+        assert_eq!(values.rows[0][1], json!("2.5"));
+        assert_eq!(values.rows[0][2], json!("x"));
+        assert_eq!(values.rows[0][3], json!(true));
+
+        driver
+            .query(
+                "CREATE TEMP TABLE sl_probe(a int, b numeric(10,2), c varchar(20))",
+                &[],
+                0,
+            )
+            .unwrap();
+        let inserted = driver
+            .query("INSERT INTO sl_probe VALUES (1, 12.34, '甲'), (2, 0.50, '乙')", &[], 0)
+            .unwrap();
+        assert_eq!(inserted.rows_affected, 2, "DDL/DML 的 rows_affected");
+
+        let rows = driver
+            .query("SELECT a, b, c FROM sl_probe ORDER BY a", &[], 10)
+            .unwrap();
+        assert_eq!(rows.rows.len(), 2);
+        assert_eq!(rows.rows[0], vec![json!(1), json!("12.34"), json!("甲")]);
+        assert_eq!(rows.rows[1][1], json!("0.50"), "numeric 需保留标度");
+
+        let limited = driver
+            .query(
+                "SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe",
+                &[],
+                2,
+            )
+            .unwrap();
+        assert_eq!(limited.rows.len(), 2);
+        assert!(limited.truncated, "行预算需触发截断");
+
+        let error = driver.query("SELECT * FROM missing_table", &[], 0).unwrap_err();
+        assert!(!error.to_string().is_empty(), "错误需带服务端信息");
+    }
+
+    #[test]
+    fn passes_the_battery_on_a_live_pg_server() {
+        let Some(config) = live_config() else {
+            eprintln!("skipping: SUPERLINK_TEST_PG not set");
+            return;
+        };
+        let mut driver = NativePostgres::open(&config).unwrap();
+        live_battery(&mut driver);
     }
 
     #[test]
