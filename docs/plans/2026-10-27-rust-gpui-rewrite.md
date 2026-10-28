@@ -95,6 +95,26 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
 
+### 待实机验证清单（2026-10-28）
+
+| 项 | 状态 | 卡点 |
+|---|---|---|
+| PostgreSQL 列注释 | 代码完成，未实机 | 本机无 PG；远程 5432 握手即断开（疑似 GaussDB sha256 认证） |
+| PostgreSQL 索引/外键 | 代码完成，未实机 | 同上 |
+| ClickHouse 驱动 | 代码完成，未实机 | 用户选择跳过 |
+| Elasticsearch 驱动 | 代码完成，未实机 | 无实例 |
+| Kingbase / Vastbase | 代码完成，未实机 | 远程 54321 同样握手断开 |
+
+PG 列注释的最小验证步骤（在独立测试库执行，勿在生产库跑）：
+
+```sql
+CREATE SCHEMA sl_verify;
+CREATE TABLE sl_verify.t(id int primary key, note text);
+COMMENT ON COLUMN sl_verify.t.note IS '列注释验证';
+-- 在应用里展开 sl_verify.t，note 列后应显示「列注释验证」
+DROP SCHEMA sl_verify CASCADE;
+```
+
 真实实例冒烟（连接、类型解码、DDL/DML、行预算、错误路径）：
 
 ```sh
