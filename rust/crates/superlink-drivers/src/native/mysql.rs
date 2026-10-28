@@ -136,8 +136,15 @@ impl NativeMysql {
             }
             output.push(values);
         }
-        let affected = result.affected_rows();
+        // QueryResult::affected_rows 在无结果集时读不到 OK 包（返回 0），
+        // 影响行数要取连接级的上一个 OK 包。
+        let has_columns = !columns.is_empty();
         drop(result);
+        let affected = if has_columns {
+            0
+        } else {
+            self.conn.affected_rows()
+        };
 
         Ok(ResultSet {
             columns,
@@ -200,18 +207,29 @@ fn decode_bytes(bytes: &[u8], kind: ColumnType, charset: u16, unsigned: bool) ->
         | ColumnType::MYSQL_TYPE_INT24
         | ColumnType::MYSQL_TYPE_LONGLONG
         | ColumnType::MYSQL_TYPE_YEAR => decode_integer(bytes, unsigned),
+        ColumnType::MYSQL_TYPE_DATE
+        | ColumnType::MYSQL_TYPE_DATETIME
+        | ColumnType::MYSQL_TYPE_TIMESTAMP => {
+            let text = String::from_utf8_lossy(bytes);
+            json!(normalize_temporal(&text))
+        }
         ColumnType::MYSQL_TYPE_FLOAT | ColumnType::MYSQL_TYPE_DOUBLE => {
             let text = String::from_utf8_lossy(bytes);
             text.parse::<f64>()
                 .map(|value| json!(value))
                 .unwrap_or_else(|_| json!(text.as_ref()))
         }
+        // BINARY/VARBINARY 也按 VAR_STRING/STRING + 二进制字符集上报，
+        // 因此判定依据是字符集而不是列类型；DECIMAL 与日期时间仍是文本。
         ColumnType::MYSQL_TYPE_BIT
         | ColumnType::MYSQL_TYPE_GEOMETRY
         | ColumnType::MYSQL_TYPE_TINY_BLOB
         | ColumnType::MYSQL_TYPE_MEDIUM_BLOB
         | ColumnType::MYSQL_TYPE_LONG_BLOB
-        | ColumnType::MYSQL_TYPE_BLOB => {
+        | ColumnType::MYSQL_TYPE_BLOB
+        | ColumnType::MYSQL_TYPE_STRING
+        | ColumnType::MYSQL_TYPE_VAR_STRING
+        | ColumnType::MYSQL_TYPE_VARCHAR => {
             if charset == BINARY_CHARSET {
                 json!(BASE64.encode(bytes))
             } else {
@@ -220,6 +238,17 @@ fn decode_bytes(bytes: &[u8], kind: ColumnType, charset: u16, unsigned: bool) ->
         }
         _ => json!(String::from_utf8_lossy(bytes)),
     }
+}
+
+/// 文本协议返回 "YYYY-MM-DD HH:MM:SS"，统一成 ISO 的 T 分隔。
+fn normalize_temporal(text: &str) -> String {
+    let bytes = text.as_bytes();
+    if bytes.len() >= 19 && bytes[10] == b' ' {
+        let mut owned = text.to_string();
+        owned.replace_range(10..11, "T");
+        return owned;
+    }
+    text.to_string()
 }
 
 fn decode_integer(bytes: &[u8], unsigned: bool) -> Value {
@@ -347,10 +376,40 @@ mod tests {
     }
 
     #[test]
-    fn encodes_binary_blobs_as_base64() {
+    fn encodes_binary_columns_as_base64() {
+        // BLOB 与 VARBINARY 都以二进制字符集上报
         assert_eq!(
             decode_bytes(&[1, 2], ColumnType::MYSQL_TYPE_BLOB, BINARY_CHARSET, false),
             json!("AQI=")
+        );
+        assert_eq!(
+            decode_bytes(
+                &[1, 2],
+                ColumnType::MYSQL_TYPE_VAR_STRING,
+                BINARY_CHARSET,
+                false
+            ),
+            json!("AQI=")
+        );
+        // 文本列（非二进制字符集）保持字符串
+        assert_eq!(
+            decode_bytes(
+                "甲".as_bytes(),
+                ColumnType::MYSQL_TYPE_VAR_STRING,
+                45,
+                false
+            ),
+            json!("甲")
+        );
+        // DECIMAL 是文本，不应 base64
+        assert_eq!(
+            decode_bytes(
+                b"12.34",
+                ColumnType::MYSQL_TYPE_NEWDECIMAL,
+                BINARY_CHARSET,
+                false
+            ),
+            json!("12.34")
         );
     }
 
@@ -381,7 +440,11 @@ mod tests {
             .unwrap();
         assert_eq!(values.columns.len(), 4);
         assert_eq!(values.rows[0][0], json!(1));
-        assert_eq!(values.rows[0][1], json!("12.34"), "DECIMAL 需保留字符串与标度");
+        assert_eq!(
+            values.rows[0][1],
+            json!("12.34"),
+            "DECIMAL 需保留字符串与标度"
+        );
         assert_eq!(values.rows[0][2], json!("x"));
         assert_eq!(values.rows[0][3], Value::Null);
 
@@ -411,9 +474,10 @@ mod tests {
         assert_eq!(rows.rows[0][3], json!("2026-10-27T13:05:09"));
         assert_eq!(rows.rows[1][1], json!("0.50"), "标度必须保留");
 
+        // MySQL 不允许同一条语句重复引用临时表，截断用不依赖表的 UNION。
         let limited = driver
             .query(
-                "SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe UNION ALL SELECT a FROM sl_probe",
+                "SELECT 1 AS x UNION ALL SELECT 2 UNION ALL SELECT 3",
                 &[],
                 2,
             )
@@ -421,7 +485,9 @@ mod tests {
         assert_eq!(limited.rows.len(), 2);
         assert!(limited.truncated, "行预算需触发截断");
 
-        let error = driver.query("SELECT * FROM missing_table", &[], 0).unwrap_err();
+        let error = driver
+            .query("SELECT * FROM missing_table", &[], 0)
+            .unwrap_err();
         assert!(!error.to_string().is_empty(), "错误需带服务端信息");
     }
 
@@ -433,6 +499,27 @@ mod tests {
         };
         let mut driver = NativeMysql::open(&config).unwrap();
         live_battery(&mut driver);
+    }
+
+    #[test]
+    fn normalizes_text_protocol_timestamps() {
+        assert_eq!(
+            decode_bytes(
+                b"2026-10-27 13:05:09",
+                ColumnType::MYSQL_TYPE_DATETIME,
+                63,
+                false
+            ),
+            json!("2026-10-27T13:05:09")
+        );
+        assert_eq!(
+            decode_bytes(b"2026-10-27", ColumnType::MYSQL_TYPE_DATE, 63, false),
+            json!("2026-10-27")
+        );
+        assert_eq!(
+            normalize_temporal("2026-10-27 13:05:09.123"),
+            "2026-10-27T13:05:09.123"
+        );
     }
 
     #[test]
