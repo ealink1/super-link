@@ -13,8 +13,11 @@ use superlink_sql::structure::build_structure_changes;
 
 use crate::query::{NativeFlags, NativeKind, native_target};
 
-/// 驱动列条目 → SQL 层列定义。
-pub fn table_info_from(columns: &[superlink_drivers::ColumnEntry]) -> TableInfo {
+/// 驱动列/索引条目 → SQL 层表信息。
+pub fn table_info_from(
+    columns: &[superlink_drivers::ColumnEntry],
+    indexes: &[superlink_drivers::IndexEntry],
+) -> TableInfo {
     TableInfo {
         columns: columns
             .iter()
@@ -28,7 +31,16 @@ pub fn table_info_from(columns: &[superlink_drivers::ColumnEntry]) -> TableInfo 
                 ..Default::default()
             })
             .collect(),
-        ..Default::default()
+        indexes: indexes
+            .iter()
+            .map(|index| superlink_sql::IndexDefinition {
+                name: index.name.clone(),
+                column_name: index.columns.first().cloned().unwrap_or_default(),
+                non_unique: if index.unique { 0 } else { 1 },
+                seq_in_index: 1,
+                ..Default::default()
+            })
+            .collect(),
     }
 }
 

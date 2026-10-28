@@ -42,8 +42,12 @@ struct StructureEdit {
     database: String,
     table: String,
     columns: Vec<superlink_drivers::ColumnEntry>,
+    indexes: Vec<superlink_drivers::IndexEntry>,
     name: Entity<SqlEditor>,
     data_type: Entity<SqlEditor>,
+    index_name: Entity<SqlEditor>,
+    index_columns: Entity<SqlEditor>,
+    index_unique: bool,
     nullable: bool,
     /// 变更集：预览并确认后一次性提交。
     pending: Vec<superlink_sql::StructureChange>,
@@ -568,20 +572,36 @@ impl SuperLinkApp {
     ) {
         let name = cx.new(SqlEditor::new);
         let data_type = cx.new(SqlEditor::new);
+        let index_name = cx.new(SqlEditor::new);
+        let index_columns = cx.new(SqlEditor::new);
         name.update(cx, |editor, cx| editor.set_placeholder("列名", cx));
+        index_name.update(cx, |editor, cx| editor.set_placeholder("索引名", cx));
+        index_columns.update(cx, |editor, cx| editor.set_placeholder("列，逗号分隔", cx));
         data_type.update(cx, |editor, cx| editor.set_placeholder("类型，如 TEXT", cx));
-        let columns = self
+        index_name.update(cx, |editor, cx| {
+            editor.set_text(String::new(), cx);
+            editor.set_placeholder("索引名", cx)
+        });
+        index_columns.update(cx, |editor, cx| {
+            editor.set_text(String::new(), cx);
+            editor.set_placeholder("列，逗号分隔", cx)
+        });
+        let (columns, indexes) = self
             .table_structures
             .get(&(conn, table.clone()))
-            .map(|structure| structure.columns.clone())
+            .map(|structure| (structure.columns.clone(), structure.indexes.clone()))
             .unwrap_or_default();
         self.structure_edit = Some(StructureEdit {
             conn,
             database,
             table,
             columns,
+            indexes,
             name,
             data_type,
+            index_name,
+            index_columns,
+            index_unique: false,
             nullable: true,
             pending: Vec::new(),
             preview: None,
@@ -608,10 +628,10 @@ impl SuperLinkApp {
         table: String,
         cx: &mut Context<Self>,
     ) {
-        let columns = self
+        let (columns, _indexes) = self
             .table_structures
             .get(&(conn, table.clone()))
-            .map(|structure| structure.columns.clone())
+            .map(|structure| (structure.columns.clone(), structure.indexes.clone()))
             .unwrap_or_default();
         self.structure_edit = None;
         self.wb_column.update(cx, |editor, cx| {
@@ -1034,6 +1054,95 @@ impl SuperLinkApp {
         cx.notify();
     }
 
+    /// 添加索引进入变更集。
+    fn queue_add_index(&mut self, cx: &mut Context<Self>) {
+        let Some(edit) = self.structure_edit.as_ref() else {
+            return;
+        };
+        let name = edit.index_name.read(cx).text().trim().to_string();
+        let columns_text = edit.index_columns.read(cx).text().trim().to_string();
+        let unique = edit.index_unique;
+        if name.is_empty() || columns_text.is_empty() {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.error = Some("索引名和列都不能为空".into());
+            }
+            cx.notify();
+            return;
+        }
+        let columns: Vec<superlink_sql::IndexColumn> = columns_text
+            .split(',')
+            .map(|column| superlink_sql::IndexColumn {
+                name: column.trim().to_string(),
+                descending: false,
+            })
+            .filter(|column| !column.name.is_empty())
+            .collect();
+        if columns.is_empty() {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.error = Some("索引列不能为空".into());
+            }
+            cx.notify();
+            return;
+        }
+        if let Some(edit) = self.structure_edit.as_mut() {
+            edit.pending.push(superlink_sql::StructureChange {
+                kind: "addIndex".into(),
+                index: superlink_sql::NewIndex {
+                    name: name.clone(),
+                    method: String::new(),
+                    columns,
+                    unique,
+                },
+                ..Default::default()
+            });
+            edit.preview = None;
+            edit.confirmed = false;
+            edit.error = None;
+            edit.index_name
+                .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+            edit.index_columns
+                .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+        }
+        cx.notify();
+    }
+
+    /// 删除索引进入变更集（两步确认）。
+    fn queue_drop_index(&mut self, name: String, cx: &mut Context<Self>) {
+        let confirm_needed = {
+            let Some(edit) = self.structure_edit.as_ref() else {
+                return;
+            };
+            edit.pending_delete.as_deref() != Some(format!("index:{name}").as_str())
+        };
+        if confirm_needed {
+            if let Some(edit) = self.structure_edit.as_mut() {
+                edit.pending_delete = Some(format!("index:{name}"));
+                edit.error = None;
+            }
+            cx.notify();
+            return;
+        }
+        if let Some(edit) = self.structure_edit.as_mut() {
+            edit.pending.push(superlink_sql::StructureChange {
+                kind: "dropIndex".into(),
+                original_name: name.clone(),
+                ..Default::default()
+            });
+            edit.pending_delete = None;
+            edit.preview = None;
+            edit.confirmed = false;
+            edit.error = None;
+        }
+        cx.notify();
+    }
+
+    fn toggle_index_unique(&mut self, cx: &mut Context<Self>) {
+        if let Some(edit) = self.structure_edit.as_mut() {
+            edit.index_unique = !edit.index_unique;
+        }
+        cx.notify();
+    }
+
     fn remove_pending_change(&mut self, position: usize, cx: &mut Context<Self>) {
         if let Some(edit) = self.structure_edit.as_mut() {
             if position < edit.pending.len() {
@@ -1063,7 +1172,7 @@ impl SuperLinkApp {
                 .get(edit.conn)
                 .map(|profile| profile.sql_dialect().to_string())
                 .unwrap_or_default();
-            let info = superlink_app::structure::table_info_from(&edit.columns);
+            let info = superlink_app::structure::table_info_from(&edit.columns, &edit.indexes);
             let (schema, name) = match edit.table.split_once('.') {
                 Some((schema, name)) => (schema.to_string(), name.to_string()),
                 None => (String::new(), edit.table.clone()),
@@ -1864,6 +1973,137 @@ impl SuperLinkApp {
                         ),
                 ),
         );
+
+        // 索引：现有索引（可删）+ 添加索引表单
+        let mut index_section = div().flex().flex_col().gap_1().px_3();
+        index_section = index_section.child(
+            div()
+                .text_size(px(crate::theme::TEXT_SIZE))
+                .text_color(theme.muted)
+                .child("索引"),
+        );
+        for index in &edit.indexes {
+            let name = index.name.clone();
+            let deletable =
+                !name.eq_ignore_ascii_case("PRIMARY") && !name.starts_with("sqlite_autoindex");
+            let deleting = edit.pending_delete.as_deref() == Some(format!("index:{name}").as_str());
+            let mut row = div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .px_2()
+                .py_1()
+                .rounded_md()
+                .bg(theme.canvas)
+                .child(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.text)
+                        .child(SharedString::from(index.name.clone())),
+                )
+                .child(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child(SharedString::from(index.columns.join(", "))),
+                );
+            if deletable {
+                row = row.child(
+                    div()
+                        .id(SharedString::from(format!("index-drop-{name}")))
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(if deleting { theme.danger } else { theme.muted })
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.queue_drop_index(name.clone(), cx)
+                        }))
+                        .child(if deleting { "确认删除" } else { "删除" }),
+                );
+            }
+            index_section = index_section.child(row);
+        }
+        index_section = index_section.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w(px(140.0))
+                        .h(px(crate::theme::CONTROL_MIN))
+                        .px_2()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.surface)
+                        .child(edit.index_name.clone()),
+                )
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w(px(180.0))
+                        .h(px(crate::theme::CONTROL_MIN))
+                        .px_2()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.surface)
+                        .child(edit.index_columns.clone()),
+                )
+                .child(
+                    div()
+                        .id("toggle-index-unique")
+                        .px_2()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .border_1()
+                        .border_color(if edit.index_unique {
+                            theme.accent
+                        } else {
+                            theme.border
+                        })
+                        .bg(if edit.index_unique {
+                            theme.accent_soft
+                        } else {
+                            theme.surface
+                        })
+                        .on_click(
+                            cx.listener(|this, _event, _window, cx| this.toggle_index_unique(cx)),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(if edit.index_unique {
+                                    theme.accent
+                                } else {
+                                    theme.muted
+                                })
+                                .child("唯一"),
+                        ),
+                )
+                .child(
+                    div()
+                        .id("queue-add-index")
+                        .px_3()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .bg(theme.accent)
+                        .on_click(cx.listener(|this, _event, _window, cx| this.queue_add_index(cx)))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(theme.surface)
+                                .child("添加索引"),
+                        ),
+                ),
+        );
+        panel = panel.child(index_section);
 
         // 变更集
         let mut changes = div().flex().flex_col().gap_1().px_3();
