@@ -43,6 +43,7 @@ python3 tools/build.py --skip-app   # 只构建驱动 agent
 - 后端：驱动校验/会话、AES 凭据、SQLite 元数据、SQL 词法与补全、导入导出、
   更新验签、SSH/SFTP/PTY 已全部就位并有测试
 - 驱动移植：SQLite（`SUPERLINK_NATIVE_SQLITE=1`）与 PostgreSQL（`SUPERLINK_NATIVE_PG=1`，
-  仅明文连接）已有进程内实现；SQLite 与 agent 结果逐值一致，其余数据源继续走 agent
+  含 TLS/verify-full 与客户端证书）已有进程内实现；SQLite 与 agent 结果逐值一致，
+  其余数据源继续走 agent
 - UI：SQL（编辑/运行/结果/历史/新建连接表单）、Shell（主机卡片/终端）、Note（预览）
 - 尚未对齐：多行编辑器、表目录、SFTP/监控面板、Note 编辑、发布打包

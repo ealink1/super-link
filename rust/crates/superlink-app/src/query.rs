@@ -69,7 +69,7 @@ impl QueryService {
             let driver = NativeSqlite::open(&config)?;
             return Ok(driver.query(sql, &[], max_rows)?);
         }
-        if kind == "postgresql" && native_pg_enabled() && NativePostgres::supports(&config) {
+        if kind == "postgresql" && native_pg_enabled() {
             let mut driver = NativePostgres::open(&config)?;
             return Ok(driver.query(sql, &[], max_rows)?);
         }

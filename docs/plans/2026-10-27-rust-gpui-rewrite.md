@@ -85,11 +85,15 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 阶段 | 范围 | 状态 |
 |---|---|---|
 | 1 | SQLite 进程内实现 + 与 agent 结果一致性测试 | **已完成**（`SUPERLINK_NATIVE_SQLITE=1` 开启） |
-| 2 | PostgreSQL 进程内实现（类型化取值、NUMERIC/UUID 二进制解码、行预算） | **已完成**（`SUPERLINK_NATIVE_PG=1`，仅明文连接） |
+| 2 | PostgreSQL 进程内实现（类型化取值、NUMERIC/UUID 二进制解码、行预算、TLS） | **已完成**（`SUPERLINK_NATIVE_PG=1`） |
 | 2b | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB/Sphinx/StarRocks）与 PG 方言族（Kingbase/GaussDB/OpenGauss/HighGo/Vastbase 认证差异） | 待做 |
 | 3 | HTTP 系（ClickHouse/Elasticsearch/Trino/TDengine/IoTDB） | 待做 |
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
+
+PostgreSQL 的 sslMode 语义：disable/allow/prefer 走明文（不尝试先 TLS 后降级）、
+require 加密但不校验证书、verify-ca 与 verify-full 等价（rustls 无法只校验链），
+支持 `sslCA` 自定义根与 `sslCert/sslKey` 客户端证书（必须成对配置）。
 
 结构浏览（表/列/DDL/变更写回）在 Rust UI 尚未接入，那部分 Go 代码（upstream/db
 的 94k 行）暂不移植——等 UI 需要时再按功能补齐，避免提前搬运无消费者的代码。

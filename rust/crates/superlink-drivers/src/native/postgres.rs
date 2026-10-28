@@ -10,6 +10,10 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use fallible_iterator::FallibleIterator;
 use postgres::types::{FromSql, Type, WrongType};
 use postgres::{Client, Config, NoTls, Row};
+use postgres_rustls::MakeTlsConnector;
+use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
+use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme};
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
@@ -20,17 +24,6 @@ pub struct NativePostgres {
 }
 
 impl NativePostgres {
-    /// 只有不需要 TLS 的连接才由本驱动接管。
-    pub fn supports(config: &ConnectionConfig) -> bool {
-        if config.use_ssl {
-            return false;
-        }
-        !matches!(
-            config.ssl_mode.to_ascii_lowercase().as_str(),
-            "require" | "verify-ca" | "verify-full"
-        )
-    }
-
     pub fn open(config: &ConnectionConfig) -> Result<Self, DriverError> {
         let host = if config.host.trim().is_empty() {
             "127.0.0.1"
@@ -52,9 +45,16 @@ impl NativePostgres {
             params.dbname(config.database.trim());
         }
         params.connect_timeout(Duration::from_secs(10));
-        let client = params
-            .connect(NoTls)
-            .map_err(|err| DriverError::Native(format!("连接 PostgreSQL 失败：{err}")))?;
+        let client = match tls_config(config)? {
+            Some(tls) => {
+                let connector = MakeTlsConnector::new(tokio_rustls::TlsConnector::from(
+                    std::sync::Arc::new(tls),
+                ));
+                params.connect(connector)
+            }
+            None => params.connect(NoTls),
+        }
+        .map_err(|err| DriverError::Native(format!("连接 PostgreSQL 失败：{err}")))?;
         Ok(Self { client })
     }
 
@@ -120,6 +120,153 @@ impl NativePostgres {
             truncated,
             duration_ns: started.elapsed().as_nanos() as u64,
         })
+    }
+}
+
+/// libpq 风格的 sslMode 归一化。prefer/allow 走明文：不做「先 TLS 再降级」的
+/// 二次连接，行为与 libpq 在服务端允许明文时一致。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SslMode {
+    Plain,
+    Require,
+    Verify,
+}
+
+fn ssl_mode(config: &ConnectionConfig) -> Result<SslMode, DriverError> {
+    let raw = config.ssl_mode.trim().to_ascii_lowercase();
+    let raw = if raw.is_empty() {
+        if config.use_ssl {
+            "require".to_string()
+        } else {
+            "disable".to_string()
+        }
+    } else {
+        raw
+    };
+    match raw.as_str() {
+        "disable" | "allow" | "prefer" | "false" => Ok(SslMode::Plain),
+        "require" | "true" => Ok(SslMode::Require),
+        "verify-ca" | "verify-full" => Ok(SslMode::Verify),
+        other => Err(DriverError::Native(format!("未知的 sslMode：{other}"))),
+    }
+}
+
+fn tls_config(config: &ConnectionConfig) -> Result<Option<ClientConfig>, DriverError> {
+    match ssl_mode(config)? {
+        SslMode::Plain => Ok(None),
+        // require 只加密不校验证书（与 libpq 一致），因此用接受任意证书的校验器。
+        SslMode::Require => Ok(Some(build_tls(config, false)?)),
+        // verify-ca 也做完整校验：rustls 无法只校验链而跳过主机名，宁可更严。
+        SslMode::Verify => Ok(Some(build_tls(config, true)?)),
+    }
+}
+
+fn build_tls(config: &ConnectionConfig, verify: bool) -> Result<ClientConfig, DriverError> {
+    let provider = std::sync::Arc::new(rustls::crypto::ring::default_provider());
+    let builder = ClientConfig::builder_with_provider(provider.clone())
+        .with_safe_default_protocol_versions()
+        .map_err(|err| DriverError::Native(format!("TLS 初始化失败：{err}")))?;
+
+    let builder = if verify {
+        let mut roots = RootCertStore::empty();
+        if !config.ssl_ca_path.trim().is_empty() {
+            let pem = std::fs::read(config.ssl_ca_path.trim())
+                .map_err(|err| DriverError::Native(format!("读取 CA 失败：{err}")))?;
+            let certs = rustls_pemfile::certs(&mut pem.as_slice())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| DriverError::Native(format!("解析 CA 失败：{err}")))?;
+            if certs.is_empty() {
+                return Err(DriverError::Native("CA 文件没有证书".into()));
+            }
+            for cert in certs {
+                roots
+                    .add(cert)
+                    .map_err(|err| DriverError::Native(format!("加载 CA 失败：{err}")))?;
+            }
+        } else {
+            for cert in rustls_native_certs::load_native_certs().certs {
+                let _ = roots.add(cert);
+            }
+        }
+        builder.with_root_certificates(roots)
+    } else {
+        builder
+            .dangerous()
+            .with_custom_certificate_verifier(std::sync::Arc::new(AcceptAnyCerts(provider)))
+    };
+
+    let has_cert = !config.ssl_cert_path.trim().is_empty();
+    let has_key = !config.ssl_key_path.trim().is_empty();
+    if has_cert != has_key {
+        return Err(DriverError::Native("客户端证书与私钥必须同时配置".into()));
+    }
+    let builder = match (has_cert, has_key) {
+        (true, true) => {
+            let cert_pem = std::fs::read(config.ssl_cert_path.trim())
+                .map_err(|err| DriverError::Native(format!("读取客户端证书失败：{err}")))?;
+            let key_pem = std::fs::read(config.ssl_key_path.trim())
+                .map_err(|err| DriverError::Native(format!("读取客户端私钥失败：{err}")))?;
+            let certs = rustls_pemfile::certs(&mut cert_pem.as_slice())
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| DriverError::Native(format!("解析客户端证书失败：{err}")))?;
+            let key = rustls_pemfile::private_key(&mut key_pem.as_slice())
+                .map_err(|err| DriverError::Native(format!("解析客户端私钥失败：{err}")))?
+                .ok_or_else(|| DriverError::Native("客户端私钥为空".into()))?;
+            builder
+                .with_client_auth_cert(certs, key)
+                .map_err(|err| DriverError::Native(format!("客户端证书无效：{err}")))?
+        }
+        _ => builder.with_no_client_auth(),
+    };
+    Ok(builder)
+}
+
+/// sslmode=require 的语义：加密但不对证书做身份校验。
+#[derive(Debug)]
+struct AcceptAnyCerts(std::sync::Arc<rustls::crypto::CryptoProvider>);
+
+impl ServerCertVerifier for AcceptAnyCerts {
+    fn verify_server_cert(
+        &self,
+        _end_entity: &CertificateDer<'_>,
+        _intermediates: &[CertificateDer<'_>],
+        _server_name: &ServerName<'_>,
+        _ocsp_response: &[u8],
+        _now: UnixTime,
+    ) -> Result<ServerCertVerified, rustls::Error> {
+        Ok(ServerCertVerified::assertion())
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls12_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        rustls::crypto::verify_tls13_signature(
+            message,
+            cert,
+            dss,
+            &self.0.signature_verification_algorithms,
+        )
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.0.signature_verification_algorithms.supported_schemes()
     }
 }
 
@@ -333,12 +480,50 @@ mod tests {
     }
 
     #[test]
-    fn only_plaintext_connections_are_supported() {
-        assert!(NativePostgres::supports(&config("disable", false)));
-        assert!(NativePostgres::supports(&config("prefer", false)));
-        assert!(!NativePostgres::supports(&config("require", false)));
-        assert!(!NativePostgres::supports(&config("verify-full", false)));
-        assert!(!NativePostgres::supports(&config("disable", true)));
+    fn maps_sslmode_to_a_plan() {
+        assert_eq!(ssl_mode(&config("disable", false)).unwrap(), SslMode::Plain);
+        assert_eq!(ssl_mode(&config("prefer", false)).unwrap(), SslMode::Plain);
+        assert_eq!(ssl_mode(&config("allow", false)).unwrap(), SslMode::Plain);
+        assert_eq!(
+            ssl_mode(&config("require", false)).unwrap(),
+            SslMode::Require
+        );
+        assert_eq!(
+            ssl_mode(&config("verify-full", false)).unwrap(),
+            SslMode::Verify
+        );
+        assert_eq!(
+            ssl_mode(&config("verify-ca", false)).unwrap(),
+            SslMode::Verify
+        );
+        // 空值按 useSSL 推断
+        assert_eq!(ssl_mode(&config("", true)).unwrap(), SslMode::Require);
+        assert_eq!(ssl_mode(&config("", false)).unwrap(), SslMode::Plain);
+        assert!(ssl_mode(&config("bogus", false)).is_err());
+    }
+
+    #[test]
+    fn builds_tls_configs_for_both_verification_modes() {
+        let require = tls_config(&config("require", false)).unwrap();
+        assert!(require.is_some());
+        let verify = tls_config(&config("verify-full", false)).unwrap();
+        assert!(verify.is_some());
+        assert!(tls_config(&config("disable", false)).unwrap().is_none());
+    }
+
+    #[test]
+    fn requires_cert_and_key_together() {
+        let mut half = config("require", false);
+        half.ssl_cert_path = "/tmp/client.pem".into();
+        let error = tls_config(&half).unwrap_err().to_string();
+        assert!(error.contains("同时配置"), "{error}");
+    }
+
+    #[test]
+    fn rejects_missing_ca_files() {
+        let mut bad = config("verify-full", false);
+        bad.ssl_ca_path = "/no/such/ca.pem".into();
+        assert!(tls_config(&bad).is_err());
     }
 
     #[test]
