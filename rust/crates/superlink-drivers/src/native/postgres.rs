@@ -17,7 +17,7 @@ use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
-use super::structure::{ColumnEntry, TableEntry};
+use super::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
 
 use crate::session::DriverError;
 
@@ -134,6 +134,50 @@ fn qualify(schema: &str, name: &str) -> String {
     }
 }
 
+/// schema.table 拆分；无前缀按 public 处理。
+fn split_table(table: &str) -> (String, String) {
+    match table.split_once('.') {
+        Some((schema, name)) => (schema.to_string(), name.to_string()),
+        None => ("public".to_string(), table.to_string()),
+    }
+}
+
+/// (索引名, 是否唯一, 列名) 按索引名合并，保持列顺序。
+fn group_indexes(rows: Vec<(String, bool, String)>) -> Vec<IndexEntry> {
+    let mut list: Vec<IndexEntry> = Vec::new();
+    for (name, unique, column) in rows {
+        match list.iter_mut().find(|entry| entry.name == name) {
+            Some(entry) => entry.columns.push(column),
+            None => list.push(IndexEntry {
+                columns: vec![column],
+                name,
+                unique,
+            }),
+        }
+    }
+    list
+}
+
+/// (约束名, 本地列, 引用表, 引用列) 按约束名合并。
+fn group_foreign_keys(rows: Vec<(String, String, String, String)>) -> Vec<ForeignKeyEntry> {
+    let mut list: Vec<ForeignKeyEntry> = Vec::new();
+    for (name, column, referenced_table, referenced_column) in rows {
+        match list.iter_mut().find(|entry| entry.name == name) {
+            Some(entry) => {
+                entry.columns.push(column);
+                entry.referenced_columns.push(referenced_column);
+            }
+            None => list.push(ForeignKeyEntry {
+                columns: vec![column],
+                name,
+                referenced_table,
+                referenced_columns: vec![referenced_column],
+            }),
+        }
+    }
+    list
+}
+
 fn table_kind(raw: &str) -> &'static str {
     if raw.eq_ignore_ascii_case("VIEW") {
         "view"
@@ -169,12 +213,82 @@ impl NativePostgres {
             .collect())
     }
 
+    pub fn structure(&mut self, table: &str) -> Result<TableStructure, DriverError> {
+        Ok(TableStructure {
+            columns: self.columns(table)?,
+            indexes: self.indexes(table)?,
+            foreign_keys: self.foreign_keys(table)?,
+        })
+    }
+
+    /// pg_index + unnest(indkey)：表达式索引（attnum = 0）会被内连接过滤掉。
+    fn indexes(&mut self, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
+        let (schema, name) = split_table(table);
+        let rows = self
+            .client
+            .query(
+                "SELECT i.relname, ix.indisunique, a.attname
+                 FROM pg_class t
+                 JOIN pg_namespace n ON n.oid = t.relnamespace
+                 JOIN pg_index ix ON ix.indrelid = t.oid
+                 JOIN pg_class i ON i.oid = ix.indexrelid
+                 JOIN LATERAL unnest(ix.indkey) WITH ORDINALITY AS k(attnum, ord) ON true
+                 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+                 WHERE n.nspname = $1 AND t.relname = $2
+                 ORDER BY i.relname, k.ord",
+                &[&schema, &name],
+            )
+            .map_err(|err| DriverError::Native(format!("读取索引失败：{err}")))?;
+        Ok(group_indexes(
+            rows.into_iter()
+                .map(|row| {
+                    (
+                        row.get::<_, String>(0),
+                        row.get::<_, bool>(1),
+                        row.get::<_, String>(2),
+                    )
+                })
+                .collect(),
+        ))
+    }
+
+    /// pg_constraint 的 conkey/confkey 位置对齐，复合外键不会串列。
+    fn foreign_keys(&mut self, table: &str) -> Result<Vec<ForeignKeyEntry>, DriverError> {
+        let (schema, name) = split_table(table);
+        let rows = self
+            .client
+            .query(
+                "SELECT con.conname, att.attname, fcl.relname, fatt.attname
+                 FROM pg_constraint con
+                 JOIN pg_class cl ON cl.oid = con.conrelid
+                 JOIN pg_namespace ns ON ns.oid = cl.relnamespace
+                 JOIN LATERAL unnest(con.conkey, con.confkey) WITH ORDINALITY
+                      AS k(attnum, fattnum, ord) ON true
+                 JOIN pg_attribute att ON att.attrelid = con.conrelid AND att.attnum = k.attnum
+                 JOIN pg_attribute fatt ON fatt.attrelid = con.confrelid AND fatt.attnum = k.fattnum
+                 JOIN pg_class fcl ON fcl.oid = con.confrelid
+                 WHERE con.contype = 'f' AND ns.nspname = $1 AND cl.relname = $2
+                 ORDER BY con.conname, k.ord",
+                &[&schema, &name],
+            )
+            .map_err(|err| DriverError::Native(format!("读取外键失败：{err}")))?;
+        Ok(group_foreign_keys(
+            rows.into_iter()
+                .map(|row| {
+                    (
+                        row.get::<_, String>(0),
+                        row.get::<_, String>(1),
+                        row.get::<_, String>(2),
+                        row.get::<_, String>(3),
+                    )
+                })
+                .collect(),
+        ))
+    }
+
     /// 列定义；主键通过 table_constraints 单独查询后合并。
     pub fn columns(&mut self, table: &str) -> Result<Vec<ColumnEntry>, DriverError> {
-        let (schema, name) = match table.split_once('.') {
-            Some((schema, name)) => (schema.to_string(), name.to_string()),
-            None => ("public".to_string(), table.to_string()),
-        };
+        let (schema, name) = split_table(table);
         let rows = self
             .client
             .query(
@@ -584,6 +698,40 @@ mod tests {
         assert_eq!(qualify("app", "users"), "app.users");
         assert_eq!(table_kind("BASE TABLE"), "table");
         assert_eq!(table_kind("VIEW"), "view");
+    }
+
+    #[test]
+    fn groups_composite_indexes_in_column_order() {
+        let grouped = group_indexes(vec![
+            ("idx_a".into(), false, "a".into()),
+            ("idx_a".into(), false, "b".into()),
+            ("idx_pk".into(), true, "id".into()),
+        ]);
+        assert_eq!(grouped.len(), 2);
+        assert_eq!(grouped[0].columns, vec!["a".to_string(), "b".to_string()]);
+        assert!(!grouped[0].unique);
+        assert!(grouped[1].unique);
+    }
+
+    #[test]
+    fn groups_composite_foreign_keys_by_position() {
+        let grouped = group_foreign_keys(vec![
+            ("fk_pair".into(), "a".into(), "other".into(), "x".into()),
+            ("fk_pair".into(), "b".into(), "other".into(), "y".into()),
+        ]);
+        assert_eq!(grouped.len(), 1);
+        assert_eq!(grouped[0].columns, vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            grouped[0].referenced_columns,
+            vec!["x".to_string(), "y".to_string()]
+        );
+        assert_eq!(grouped[0].referenced_table, "other");
+    }
+
+    #[test]
+    fn splits_schema_qualified_names() {
+        assert_eq!(split_table("users"), ("public".into(), "users".into()));
+        assert_eq!(split_table("app.users"), ("app".into(), "users".into()));
     }
 
     #[test]

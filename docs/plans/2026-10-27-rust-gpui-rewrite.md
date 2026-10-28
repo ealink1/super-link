@@ -124,8 +124,9 @@ Sphinx/StarRocks 虽同协议但行为差异待验证后再纳入开关。
 点击表名左侧箭头展开列定义（名称 · 类型 · PK/NOT NULL），点击表名回填查询；
 列定义按需异步加载并缓存，切换连接时清空。
 结构查询现由原生 SQLite、MySQL（information_schema + DATABASE()）
-与 PostgreSQL（information_schema + table_constraints 判主键，非 public schema
-用 schema.table 限定）提供，其余方言显示「尚未接入 Rust 驱动」。
+与 PostgreSQL（information_schema 列表/列、pg_index 与 pg_constraint 取索引与外键，
+非 public schema 用 schema.table 限定）提供，其余方言显示「尚未接入 Rust 驱动」。
+PG 的表达式索引（attnum=0）不在索引列表内；索引排序方向、ENABLE 状态未展示。
 索引/外键/DDL 与其它方言的结构浏览仍未接入，那部分 Go 代码（upstream/db
 的 94k 行）暂不移植——等 UI 需要时再按功能补齐，避免提前搬运无消费者的代码。
 

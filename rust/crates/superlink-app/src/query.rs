@@ -73,12 +73,7 @@ impl QueryService {
             Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.structure(table)?),
             Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.structure(table)?),
             Some(NativeKind::Postgres) => {
-                let mut driver = NativePostgres::open(&profile.config)?;
-                // PG 的索引/外键尚未移植，先返回列定义。
-                Ok(TableStructure {
-                    columns: driver.columns(table)?,
-                    ..Default::default()
-                })
+                Ok(NativePostgres::open(&profile.config)?.structure(table)?)
             }
             _ => Err(QueryError::Unsupported(kind)),
         }
