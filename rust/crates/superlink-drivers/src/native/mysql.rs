@@ -13,7 +13,7 @@ use mysql::{ClientIdentity, Opts, OptsBuilder, Row, SslOpts, Value as MyValue};
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
-use super::sqlite::{ColumnEntry, TableEntry};
+use super::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
 
 use crate::session::DriverError;
 
@@ -244,6 +244,83 @@ impl NativeMysql {
                 },
             )
             .collect())
+    }
+}
+
+/// information_schema.statistics 的索引定义。
+impl NativeMysql {
+    pub fn structure(&mut self, table: &str) -> Result<TableStructure, DriverError> {
+        Ok(TableStructure {
+            columns: self.columns(table)?,
+            indexes: self.indexes(table)?,
+            foreign_keys: self.foreign_keys(table)?,
+        })
+    }
+
+    fn indexes(&mut self, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
+        let rows: Vec<(String, i64, Option<String>)> = self
+            .conn
+            .exec(
+                "SELECT index_name, non_unique, column_name
+                 FROM information_schema.statistics
+                 WHERE table_schema = DATABASE() AND table_name = ?
+                 ORDER BY index_name, seq_in_index",
+                (table,),
+            )
+            .map_err(|err| DriverError::Native(format!("读取索引失败：{err}")))?;
+        let mut list: Vec<IndexEntry> = Vec::new();
+        for (name, non_unique, column) in rows {
+            let unique = non_unique == 0;
+            match list.iter_mut().find(|entry| entry.name == name) {
+                Some(entry) => {
+                    if let Some(column) = column {
+                        entry.columns.push(column);
+                    }
+                }
+                None => list.push(IndexEntry {
+                    columns: column.into_iter().collect(),
+                    name,
+                    unique,
+                }),
+            }
+        }
+        Ok(list)
+    }
+
+    fn foreign_keys(&mut self, table: &str) -> Result<Vec<ForeignKeyEntry>, DriverError> {
+        // (约束名, 本地列, 引用表, 引用列)
+        type FkRow = (String, Option<String>, Option<String>, Option<String>);
+        let rows: Vec<FkRow> = self
+            .conn
+            .exec(
+                "SELECT constraint_name, column_name, referenced_table_name, referenced_column_name
+                 FROM information_schema.key_column_usage
+                 WHERE table_schema = DATABASE() AND table_name = ?
+                   AND referenced_table_name IS NOT NULL
+                 ORDER BY constraint_name, ordinal_position",
+                (table,),
+            )
+            .map_err(|err| DriverError::Native(format!("读取外键失败：{err}")))?;
+        let mut list: Vec<ForeignKeyEntry> = Vec::new();
+        for (name, column, referenced_table, referenced_column) in rows {
+            match list.iter_mut().find(|entry| entry.name == name) {
+                Some(entry) => {
+                    if let Some(column) = column {
+                        entry.columns.push(column);
+                    }
+                    if let Some(column) = referenced_column {
+                        entry.referenced_columns.push(column);
+                    }
+                }
+                None => list.push(ForeignKeyEntry {
+                    columns: column.into_iter().collect(),
+                    name,
+                    referenced_table: referenced_table.unwrap_or_default(),
+                    referenced_columns: referenced_column.into_iter().collect(),
+                }),
+            }
+        }
+        Ok(list)
     }
 }
 

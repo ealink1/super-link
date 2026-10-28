@@ -52,7 +52,7 @@ pub struct SuperLinkApp {
     tables: Vec<superlink_drivers::TableEntry>,
     tables_note: Option<SharedString>,
     expanded_tables: HashSet<String>,
-    table_columns: HashMap<String, Vec<superlink_drivers::ColumnEntry>>,
+    table_columns: HashMap<String, superlink_drivers::TableStructure>,
     column_errors: HashMap<String, SharedString>,
     workspace: Workspace,
     theme: Theme,
@@ -338,7 +338,7 @@ impl SuperLinkApp {
                     }
                     Err(QueryError::Unsupported(kind)) => {
                         this.tables_note = Some(SharedString::from(format!(
-                            "{kind} 的结构浏览仍由 agent 承担"
+                            "{kind} 的结构浏览尚未接入 Rust 驱动"
                         )));
                     }
                     Err(err) => this.tables_note = Some(SharedString::from(err.to_string())),
@@ -383,7 +383,7 @@ impl SuperLinkApp {
         let table = name.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { queries.columns(&profile, &table) });
+            .spawn(async move { queries.structure(&profile, &table) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -519,7 +519,8 @@ impl SuperLinkApp {
                             .text_color(theme.muted)
                             .child(error.clone()),
                     );
-                } else if let Some(columns) = self.table_columns.get(&entry.name) {
+                } else if let Some(structure) = self.table_columns.get(&entry.name) {
+                    let columns = &structure.columns;
                     for column in columns {
                         let meta = if column.primary_key {
                             format!("{} · PK", column.data_type)
@@ -557,6 +558,83 @@ impl SuperLinkApp {
                                 .text_color(theme.muted)
                                 .child("没有列"),
                         );
+                    }
+
+                    if !structure.indexes.is_empty() {
+                        section = section.child(
+                            div()
+                                .pl(px(30.0))
+                                .pt_1()
+                                .text_xs()
+                                .text_color(theme.muted)
+                                .child("索引"),
+                        );
+                        for index in &structure.indexes {
+                            let columns = index.columns.join(", ");
+                            let label = if index.unique {
+                                format!("{columns} · 唯一")
+                            } else {
+                                columns
+                            };
+                            section = section.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .pl(px(38.0))
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.text)
+                                            .child(SharedString::from(index.name.clone())),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.muted)
+                                            .child(SharedString::from(label)),
+                                    ),
+                            );
+                        }
+                    }
+
+                    if !structure.foreign_keys.is_empty() {
+                        section = section.child(
+                            div()
+                                .pl(px(30.0))
+                                .pt_1()
+                                .text_xs()
+                                .text_color(theme.muted)
+                                .child("外键"),
+                        );
+                        for key in &structure.foreign_keys {
+                            let from = key.columns.join(", ");
+                            let to = format!(
+                                "{}({})",
+                                key.referenced_table,
+                                key.referenced_columns.join(", ")
+                            );
+                            section = section.child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .pl(px(38.0))
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.text)
+                                            .child(SharedString::from(from)),
+                                    )
+                                    .child(div().text_xs().text_color(theme.muted).child("→"))
+                                    .child(
+                                        div()
+                                            .text_xs()
+                                            .text_color(theme.muted)
+                                            .child(SharedString::from(to)),
+                                    ),
+                            );
+                        }
                     }
                 } else {
                     section = section.child(

@@ -17,7 +17,7 @@ use rustls::{ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme
 use serde_json::{Value, json};
 use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
-use super::sqlite::{ColumnEntry, TableEntry};
+use super::structure::{ColumnEntry, TableEntry};
 
 use crate::session::DriverError;
 

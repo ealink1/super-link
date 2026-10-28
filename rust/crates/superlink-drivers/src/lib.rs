@@ -7,7 +7,7 @@ pub mod native;
 pub mod registry;
 pub mod session;
 
-pub use native::sqlite::{ColumnEntry, TableEntry};
+pub use native::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
 pub use native::{
     NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres, NativeSqlite,
 };

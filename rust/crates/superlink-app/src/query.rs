@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
 use superlink_drivers::{
-    ColumnEntry, DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql,
-    NativePostgres, NativeSqlite, TableEntry,
+    DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres,
+    NativeSqlite, TableEntry, TableStructure,
 };
 
 use crate::profiles::Credentials;
@@ -67,13 +67,18 @@ impl QueryService {
     }
 
     /// 单表的列定义；与 tables 一样目前只支持原生 SQLite。
-    pub fn columns(&self, profile: &Profile, table: &str) -> Result<Vec<ColumnEntry>, QueryError> {
+    pub fn structure(&self, profile: &Profile, table: &str) -> Result<TableStructure, QueryError> {
         let kind = profile.sql_dialect().to_string();
         match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.columns(table)?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.columns(table)?),
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.structure(table)?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.structure(table)?),
             Some(NativeKind::Postgres) => {
-                Ok(NativePostgres::open(&profile.config)?.columns(table)?)
+                let mut driver = NativePostgres::open(&profile.config)?;
+                // PG 的索引/外键尚未移植，先返回列定义。
+                Ok(TableStructure {
+                    columns: driver.columns(table)?,
+                    ..Default::default()
+                })
             }
             _ => Err(QueryError::Unsupported(kind)),
         }

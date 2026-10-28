@@ -14,6 +14,8 @@ use superlink_domain::{Column, ConnectionConfig, ResultSet};
 
 use crate::session::DriverError;
 
+use super::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
+
 /// SQLite built into the process; no agent binary needed.
 pub struct NativeSqlite {
     conn: Connection,
@@ -113,23 +115,6 @@ impl NativeSqlite {
     }
 }
 
-/// 结构浏览用的表条目。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TableEntry {
-    pub name: String,
-    pub kind: String,
-}
-
-/// 结构浏览用的列条目。
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ColumnEntry {
-    pub name: String,
-    pub data_type: String,
-    pub nullable: bool,
-    pub primary_key: bool,
-    pub default_value: Option<String>,
-}
-
 impl NativeSqlite {
     /// 只列用户对象，跳过 sqlite_ 内部表。
     pub fn tables(&self) -> Result<Vec<TableEntry>, DriverError> {
@@ -154,6 +139,110 @@ impl NativeSqlite {
             entries.push(row.map_err(|err| DriverError::Native(format!("读取表名失败：{err}")))?);
         }
         Ok(entries)
+    }
+
+    /// 一次取齐列、索引与外键。
+    pub fn structure(&self, table: &str) -> Result<TableStructure, DriverError> {
+        Ok(TableStructure {
+            columns: self.columns(table)?,
+            indexes: self.indexes(table)?,
+            foreign_keys: self.foreign_keys(table)?,
+        })
+    }
+
+    /// PRAGMA index_list + index_info；跳过 sqlite_autoindex 与主键自动索引。
+    fn indexes(&self, table: &str) -> Result<Vec<IndexEntry>, DriverError> {
+        let quoted = table.replace('"', "\"\"");
+        let mut statement = self
+            .conn
+            .prepare(&format!("PRAGMA index_list(\"{quoted}\")"))
+            .map_err(|err| DriverError::Native(format!("读取索引失败：{err}")))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(1)?,
+                    row.get::<_, i64>(2)? == 1,
+                    row.get::<_, String>(3).unwrap_or_default(),
+                ))
+            })
+            .map_err(|err| DriverError::Native(format!("读取索引失败：{err}")))?;
+        let mut list = Vec::new();
+        for row in rows {
+            let (name, unique, origin) =
+                row.map_err(|err| DriverError::Native(format!("读取索引名失败：{err}")))?;
+            if origin == "pk" || name.starts_with("sqlite_autoindex") {
+                continue;
+            }
+            let mut info = self
+                .conn
+                .prepare(&format!(
+                    "PRAGMA index_info(\"{}\" )",
+                    name.replace('"', "\"\"")
+                ))
+                .map_err(|err| DriverError::Native(format!("读取索引列失败：{err}")))?;
+            let columns = info
+                .query_map([], |row| row.get::<_, Option<String>>(2))
+                .map_err(|err| DriverError::Native(format!("读取索引列失败：{err}")))?
+                .filter_map(|value| value.ok().flatten())
+                .collect();
+            list.push(IndexEntry {
+                name,
+                columns,
+                unique,
+            });
+        }
+        Ok(list)
+    }
+
+    /// PRAGMA foreign_key_list：id, seq, table, from, to。
+    fn foreign_keys(&self, table: &str) -> Result<Vec<ForeignKeyEntry>, DriverError> {
+        let quoted = table.replace('"', "\"\"");
+        let mut statement = self
+            .conn
+            .prepare(&format!("PRAGMA foreign_key_list(\"{quoted}\")"))
+            .map_err(|err| DriverError::Native(format!("读取外键失败：{err}")))?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?,
+                ))
+            })
+            .map_err(|err| DriverError::Native(format!("读取外键失败：{err}")))?;
+        let mut grouped: Vec<(i64, String, Vec<String>, Vec<String>)> = Vec::new();
+        for row in rows {
+            let (id, target, from, to) =
+                row.map_err(|err| DriverError::Native(format!("读取外键行失败：{err}")))?;
+            match grouped.iter_mut().find(|entry| entry.0 == id) {
+                Some(entry) => {
+                    if let Some(from) = from {
+                        entry.2.push(from);
+                    }
+                    if let Some(to) = to {
+                        entry.3.push(to);
+                    }
+                }
+                None => grouped.push((
+                    id,
+                    target,
+                    from.into_iter().collect(),
+                    to.into_iter().collect(),
+                )),
+            }
+        }
+        Ok(grouped
+            .into_iter()
+            .map(
+                |(id, referenced_table, columns, referenced_columns)| ForeignKeyEntry {
+                    name: format!("fk_{table}_{id}"),
+                    columns,
+                    referenced_table,
+                    referenced_columns,
+                },
+            )
+            .collect())
     }
 
     /// PRAGMA table_info：cid, name, type, notnull, dflt_value, pk。
@@ -323,6 +412,58 @@ mod tests {
         assert_eq!(columns[1].name, "name");
         assert!(!columns[1].nullable, "NOT NULL 列不可空");
         assert_eq!(columns[2].default_value.as_deref(), Some("0"));
+        drop(driver);
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn reports_indexes_and_foreign_keys() {
+        let (config, path) = temp_config();
+        let driver = NativeSqlite::open(&config).unwrap();
+        driver.query("PRAGMA foreign_keys = ON", &[], 0).unwrap();
+        driver
+            .query(
+                "CREATE TABLE users(id INTEGER PRIMARY KEY, name TEXT)",
+                &[],
+                0,
+            )
+            .unwrap();
+        driver
+            .query(
+                "CREATE TABLE orders(
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES users(id),
+                    amount REAL
+                 )",
+                &[],
+                0,
+            )
+            .unwrap();
+        driver
+            .query(
+                "CREATE UNIQUE INDEX idx_orders_user ON orders(user_id)",
+                &[],
+                0,
+            )
+            .unwrap();
+
+        let structure = driver.structure("orders").unwrap();
+        assert_eq!(structure.columns.len(), 3);
+        assert_eq!(structure.indexes.len(), 1, "应只保留显式索引");
+        assert_eq!(structure.indexes[0].name, "idx_orders_user");
+        assert!(structure.indexes[0].unique);
+        assert_eq!(structure.indexes[0].columns, vec!["user_id".to_string()]);
+
+        assert_eq!(structure.foreign_keys.len(), 1);
+        assert_eq!(
+            structure.foreign_keys[0].columns,
+            vec!["user_id".to_string()]
+        );
+        assert_eq!(structure.foreign_keys[0].referenced_table, "users");
+        assert_eq!(
+            structure.foreign_keys[0].referenced_columns,
+            vec!["id".to_string()]
+        );
         drop(driver);
         let _ = std::fs::remove_file(path);
     }
