@@ -64,18 +64,21 @@ impl QueryService {
         }
         let kind = profile.sql_dialect().to_string();
         let config = live_config(&profile.config, credentials);
-        // SQLite 已移植到进程内；其它数据源仍需 agent 二进制。
-        if kind == "sqlite" && native_sqlite_enabled() {
-            let driver = NativeSqlite::open(&config)?;
-            return Ok(driver.query(sql, &[], max_rows)?);
-        }
-        if MYSQL_FAMILY.contains(&kind.as_str()) && native_mysql_enabled() {
-            let mut driver = NativeMysql::open(&config)?;
-            return Ok(driver.query(sql, &[], max_rows)?);
-        }
-        if kind == "postgresql" && native_pg_enabled() {
-            let mut driver = NativePostgres::open(&config)?;
-            return Ok(driver.query(sql, &[], max_rows)?);
+        // 已移植的方言走进程内驱动，其余仍需 agent 二进制。
+        match native_target(&kind, NativeFlags::from_env()) {
+            Some(NativeKind::Sqlite) => {
+                let driver = NativeSqlite::open(&config)?;
+                return Ok(driver.query(sql, &[], max_rows)?);
+            }
+            Some(NativeKind::Postgres) => {
+                let mut driver = NativePostgres::open(&config)?;
+                return Ok(driver.query(sql, &[], max_rows)?);
+            }
+            Some(NativeKind::Mysql) => {
+                let mut driver = NativeMysql::open(&config)?;
+                return Ok(driver.query(sql, &[], max_rows)?);
+            }
+            None => {}
         }
         let binary = self
             .agent_path(&kind)
@@ -95,20 +98,50 @@ impl QueryService {
 }
 
 /// 原生驱动默认关闭，需显式开启以保留 agent 行为作为回退。
-fn native_sqlite_enabled() -> bool {
-    std::env::var_os("SUPERLINK_NATIVE_SQLITE").is_some()
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct NativeFlags {
+    pub sqlite: bool,
+    pub postgres: bool,
+    pub mysql: bool,
 }
 
-fn native_pg_enabled() -> bool {
-    std::env::var_os("SUPERLINK_NATIVE_PG").is_some()
+impl NativeFlags {
+    fn from_env() -> Self {
+        let on = |key: &str| std::env::var_os(key).is_some();
+        Self {
+            sqlite: on("SUPERLINK_NATIVE_SQLITE"),
+            postgres: on("SUPERLINK_NATIVE_PG"),
+            mysql: on("SUPERLINK_NATIVE_MYSQL"),
+        }
+    }
 }
 
-fn native_mysql_enabled() -> bool {
-    std::env::var_os("SUPERLINK_NATIVE_MYSQL").is_some()
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum NativeKind {
+    Sqlite,
+    Postgres,
+    Mysql,
 }
 
-/// 共用 MySQL 线协议的方言族；Sphinx/StarRocks 待验证后再纳入。
-const MYSQL_FAMILY: [&str; 4] = ["mysql", "mariadb", "oceanbase", "tidb"];
+/// 方言 → 原生驱动的路由。
+///
+/// PostgreSQL 协议族只纳入认证兼容的方言：Kingbase/Vastbase 使用 md5/scram。
+/// GaussDB/openGauss（sha256 挑战）与 HighGo（SM3）需要专用认证，
+/// tokio-postgres 无法完成握手，继续走 agent。
+pub(crate) fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind> {
+    let key = kind.trim().to_ascii_lowercase();
+    let key = match key.as_str() {
+        "postgresql" | "pg" => "postgres",
+        other => other,
+    };
+    match key {
+        "sqlite" if flags.sqlite => Some(NativeKind::Sqlite),
+        "postgres" | "kingbase" | "vastbase" if flags.postgres => Some(NativeKind::Postgres),
+        // Sphinx/StarRocks 同协议但行为差异未验证，暂不纳入。
+        "mysql" | "mariadb" | "oceanbase" | "tidb" if flags.mysql => Some(NativeKind::Mysql),
+        _ => None,
+    }
+}
 
 /// The vault keeps the password out of metadata; the driver still needs it.
 fn live_config(config: &ConnectionConfig, credentials: &Credentials) -> ConnectionConfig {
@@ -142,6 +175,71 @@ mod tests {
             .execute(&profile, &Credentials::default(), "SELECT 1", 10)
             .unwrap_err();
         assert!(matches!(error, QueryError::Unsupported(_)));
+    }
+
+    fn all_on() -> NativeFlags {
+        NativeFlags {
+            sqlite: true,
+            postgres: true,
+            mysql: true,
+        }
+    }
+
+    #[test]
+    fn routes_migrated_dialects_to_native_drivers() {
+        assert_eq!(native_target("sqlite", all_on()), Some(NativeKind::Sqlite));
+        // 目录键是 postgres，别名 postgresql 也必须命中
+        assert_eq!(
+            native_target("postgres", all_on()),
+            Some(NativeKind::Postgres)
+        );
+        assert_eq!(
+            native_target("PostgreSQL", all_on()),
+            Some(NativeKind::Postgres)
+        );
+        assert_eq!(
+            native_target("kingbase", all_on()),
+            Some(NativeKind::Postgres)
+        );
+        assert_eq!(
+            native_target("vastbase", all_on()),
+            Some(NativeKind::Postgres)
+        );
+        assert_eq!(native_target("mysql", all_on()), Some(NativeKind::Mysql));
+        assert_eq!(native_target("mariadb", all_on()), Some(NativeKind::Mysql));
+        assert_eq!(
+            native_target("oceanbase", all_on()),
+            Some(NativeKind::Mysql)
+        );
+        assert_eq!(native_target("tidb", all_on()), Some(NativeKind::Mysql));
+    }
+
+    #[test]
+    fn keeps_incompatible_authentication_on_the_agent() {
+        // sha256 / SM3 认证：tokio-postgres 无法握手
+        assert_eq!(native_target("gaussdb", all_on()), None);
+        assert_eq!(native_target("opengauss", all_on()), None);
+        assert_eq!(native_target("highgo", all_on()), None);
+        // 未验证的 MySQL 兼容服务
+        assert_eq!(native_target("sphinx", all_on()), None);
+        assert_eq!(native_target("starrocks", all_on()), None);
+    }
+
+    #[test]
+    fn flags_gate_each_driver() {
+        let none = NativeFlags::default();
+        assert_eq!(native_target("sqlite", none), None);
+        assert_eq!(native_target("postgres", none), None);
+        assert_eq!(native_target("mysql", none), None);
+        let only_pg = NativeFlags {
+            postgres: true,
+            ..Default::default()
+        };
+        assert_eq!(
+            native_target("kingbase", only_pg),
+            Some(NativeKind::Postgres)
+        );
+        assert_eq!(native_target("mysql", only_pg), None);
     }
 
     #[test]

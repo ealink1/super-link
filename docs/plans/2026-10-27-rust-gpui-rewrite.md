@@ -87,10 +87,14 @@ Rust 端只用到 agent 的 four-method 子集（metadata/connect/query/close）
 | 1 | SQLite 进程内实现 + 与 agent 结果一致性测试 | **已完成**（`SUPERLINK_NATIVE_SQLITE=1` 开启） |
 | 2 | PostgreSQL 进程内实现（类型化取值、NUMERIC/UUID 二进制解码、行预算、TLS） | **已完成**（`SUPERLINK_NATIVE_PG=1`） |
 | 2b | MySQL 协议族（MySQL/MariaDB/OceanBase/TiDB，含 TLS） | **已完成**（`SUPERLINK_NATIVE_MYSQL=1`；Sphinx/StarRocks 待验证） |
-| 2c | PG 方言族（Kingbase/GaussDB/OpenGauss/HighGo/Vastbase 认证差异） | 待做 |
+| 2c | PG 方言族：Kingbase/Vastbase 复用 PG 驱动 | **已完成**（同 `SUPERLINK_NATIVE_PG`） |
+| 2d | GaussDB/OpenGauss（sha256 挑战）、HighGo（SM3） | 保留 agent：tokio-postgres 无法完成这两类认证握手 |
 | 3 | HTTP 系（ClickHouse/Elasticsearch/Trino/TDengine/IoTDB） | 待做 |
 | 4 | Oracle/SQL Server/MongoDB/Redis | 待做（Oracle 依赖 instant client） |
 | 5 | IRIS/Caché、Diros 及 MQ 探测类 | 单独评估，多无 Rust 客户端 |
+
+方言路由以目录键为准（`postgres` 而非 `postgresql`），并在路由层统一归一化别名；
+修复了此前 PG 原生分支因键名不匹配而永不命中的问题。
 
 PostgreSQL 的 sslMode 语义：disable/allow/prefer 走明文（不尝试先 TLS 后降级）、
 require 加密但不校验证书、verify-ca 与 verify-full 等价（rustls 无法只校验链），
