@@ -693,6 +693,29 @@ impl QueryPage {
         self.on_saved = Some(Box::new(handler));
     }
 
+    /// 把当前结果导出为 CSV 到数据目录。
+    fn export_result_csv(&mut self, cx: &mut Context<Self>) {
+        let Some(result) = self.result.as_ref() else {
+            self.status = "没有可导出的结果".into();
+            cx.notify();
+            return;
+        };
+        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let root = superlink_app::transfer::data_root();
+        let path = root.join("exports").join(format!("查询-{stamp}.csv"));
+        let path_display = path.display().to_string();
+        let outcome = superlink_app::transfer::export_result_csv(result, &path);
+        match outcome {
+            Ok(count) => {
+                self.status = format!("已导出 {count} 行 → {path_display}").into();
+            }
+            Err(err) => {
+                self.status = format!("导出失败：{err}").into();
+            }
+        }
+        cx.notify();
+    }
+
     /// 从结构树点选表后回填查询。
     pub fn load_sql(&mut self, sql: String, cx: &mut Context<Self>) {
         self.editor
@@ -1145,6 +1168,28 @@ impl QueryPage {
                     })
                     .hover(move |style| style.bg(theme.accent_soft))
                     .on_click(cx.listener(|this, _event, _window, cx| this.toggle_history(cx)))
+                    .child(
+                        div()
+                            .id("export-csv")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.export_result_csv(cx)),
+                            )
+                            .child(icons::icon("superlink/copy.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("导出 CSV"),
+                            ),
+                    )
                     .child(icons::icon(
                         "superlink/history.svg",
                         14.0,

@@ -11,6 +11,7 @@ pub mod query;
 pub mod settings;
 pub mod shell_hosts;
 pub mod structure;
+pub mod transfer;
 
 pub use history::{HistoryService, placeholder_count, redact};
 pub use notebook::{NotebookError, NotebookService};
@@ -20,3 +21,4 @@ pub use query::{QueryError, QueryService};
 pub use settings::SettingsService;
 pub use shell_hosts::{HostCredentials, HostError, HostService};
 pub use structure::{StructureError, StructureService};
+pub use transfer::{data_root, diagnostics, drivers_dir};

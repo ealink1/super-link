@@ -6225,6 +6225,7 @@ dependencies = [
  "serde_json",
  "superlink-domain",
  "superlink-drivers",
+ "superlink-files",
  "superlink-infra",
  "superlink-sql",
  "thiserror 2.0.21",

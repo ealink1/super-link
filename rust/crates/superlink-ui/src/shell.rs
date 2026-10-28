@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
@@ -82,6 +83,7 @@ pub struct SuperLinkApp {
     workbench: Option<crate::workbench::Workbench>,
     wb_column: Entity<SqlEditor>,
     wb_value: Entity<SqlEditor>,
+    wb_import: Entity<SqlEditor>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -173,6 +175,13 @@ impl SuperLinkApp {
             workbench: None,
             wb_column: cx.new(SqlEditor::new),
             wb_value: cx.new(SqlEditor::new),
+            wb_import: {
+                let editor = cx.new(SqlEditor::new);
+                editor.update(cx, |editor, cx| {
+                    editor.set_placeholder("导入文件路径（CSV）", cx)
+                });
+                editor
+            },
             workspace: Workspace::Sql,
             theme,
             error,
@@ -333,6 +342,44 @@ impl SuperLinkApp {
                             )
                             .child(limit_row),
                     ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .p_3()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child("诊断与版本"),
+                    )
+                    .children(superlink_app::transfer::diagnostics().into_iter().map(
+                        |(label, value)| {
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(label)),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child(SharedString::from(value)),
+                                )
+                        },
+                    )),
             )
     }
 
@@ -575,6 +622,8 @@ impl SuperLinkApp {
             editor.set_text(String::new(), cx);
             editor.set_placeholder("值", cx)
         });
+        self.wb_import
+            .update(cx, |editor, cx| editor.set_text(String::new(), cx));
         let cached_columns = !columns.is_empty();
         self.workbench = Some(crate::workbench::Workbench::new(
             conn,
@@ -715,6 +764,76 @@ impl SuperLinkApp {
         if let Some(bench) = self.workbench.as_mut() {
             bench.toggle_sort(&column);
         }
+        self.fetch_workbench_data(cx);
+    }
+
+    /// 导入 CSV 到当前表：生成 INSERT 后执行，然后刷新数据。
+    fn import_workbench_csv(&mut self, cx: &mut Context<Self>) {
+        let path = self
+            .wb_import
+            .read(cx)
+            .text()
+            .trim()
+            .trim_matches('"')
+            .to_string();
+        let Some(bench) = self.workbench.as_ref() else {
+            return;
+        };
+        if path.is_empty() {
+            if let Some(bench) = self.workbench.as_mut() {
+                bench.error = Some("请填写导入文件的路径".into());
+            }
+            cx.notify();
+            return;
+        }
+        let conn = bench.conn;
+        let table = bench.table.clone();
+        let columns = bench.columns.clone();
+        let Some(profile) = self.profiles.get(conn).cloned() else {
+            return;
+        };
+        let kind = profile.sql_dialect();
+        let outcome =
+            superlink_app::transfer::import_csv_to_table(Path::new(&path), kind, &table, &columns);
+        let (sql, _rows) = match outcome {
+            Ok(result) => result,
+            Err(err) => {
+                if let Some(bench) = self.workbench.as_mut() {
+                    bench.error = Some(SharedString::from(err));
+                }
+                cx.notify();
+                return;
+            }
+        };
+        let queries = self.queries.clone();
+        let credentials = self
+            .service
+            .credentials(&profile)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.execute(&profile, &credentials, &sql, 10) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                if let Some(bench) = this.workbench.as_mut() {
+                    match outcome {
+                        Ok(_) => {
+                            bench.error = None;
+                            bench.page = 1;
+                        }
+                        Err(err) => {
+                            bench.error = Some(SharedString::from(format!("导入执行失败：{err}")));
+                        }
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
         self.fetch_workbench_data(cx);
     }
 
@@ -1256,6 +1375,52 @@ impl SuperLinkApp {
                     }
                     panel = panel.child(chips);
                 }
+
+                panel = panel.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .px_3()
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("导入 CSV"),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .w(px(320.0))
+                                .h(px(crate::theme::CONTROL_MIN))
+                                .px_2()
+                                .rounded_md()
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(theme.surface)
+                                .child(self.wb_import.clone()),
+                        )
+                        .child(
+                            div()
+                                .id("wb-import")
+                                .px_3()
+                                .py_1()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .border_1()
+                                .border_color(theme.border)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.import_workbench_csv(cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
+                                        .text_color(theme.text)
+                                        .child("导入"),
+                                ),
+                        ),
+                );
 
                 if bench.loading {
                     panel = panel.child(
