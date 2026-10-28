@@ -412,7 +412,7 @@ impl QueryPage {
             ))
             .child(
                 div()
-                    .text_sm()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .font_weight(FontWeight::MEDIUM)
                     .text_color(theme.warning_text)
                     .child(format!(
@@ -455,7 +455,7 @@ impl QueryPage {
             ))
             .child(
                 div()
-                    .text_sm()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .font_weight(FontWeight::MEDIUM)
                     .text_color(theme.warning_text)
                     .child(format!(
@@ -473,7 +473,12 @@ impl QueryPage {
                     .border_1()
                     .border_color(theme.warning_border)
                     .on_click(cx.listener(|this, _event, _window, cx| this.cancel_execution(cx)))
-                    .child(div().text_xs().text_color(theme.warning_text).child("取消")),
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.warning_text)
+                            .child("取消"),
+                    ),
             )
             .child(
                 div()
@@ -486,7 +491,7 @@ impl QueryPage {
                     .on_click(cx.listener(|this, _event, _window, cx| this.confirm_execution(cx)))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::MEDIUM)
                             .text_color(theme.surface)
                             .child("仍然执行"),
@@ -535,7 +540,12 @@ impl QueryPage {
                             .items_center()
                             .gap_1()
                             .child(icons::icon("superlink/history.svg", 13.0, theme.muted))
-                            .child(div().text_xs().text_color(theme.muted).child("执行历史")),
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("执行历史"),
+                            ),
                     )
                     .child(
                         div()
@@ -556,7 +566,7 @@ impl QueryPage {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("还没有执行记录"),
             );
@@ -605,7 +615,7 @@ impl QueryPage {
                             .justify_between()
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(if entry.success {
                                         theme.accent
                                     } else {
@@ -613,11 +623,16 @@ impl QueryPage {
                                     })
                                     .child(if entry.success { "成功" } else { "失败" }),
                             )
-                            .child(div().text_xs().text_color(theme.muted).child(time)),
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(time),
+                            ),
                     )
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
                             .child(SharedString::from(text)),
                     ),
@@ -768,7 +783,7 @@ impl QueryPage {
             .child(
                 div()
                     .w(px(72.0))
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(label.to_string()),
             )
@@ -810,7 +825,7 @@ impl QueryPage {
                     }))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if active { theme.surface } else { theme.text })
                             .child(descriptor.name),
                     )
@@ -842,7 +857,7 @@ impl QueryPage {
                             .justify_between()
                             .child(
                                 div()
-                                    .text_sm()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(theme.text)
                                     .child("新建连接"),
@@ -874,11 +889,12 @@ impl QueryPage {
                     .child(self.form_row("用户名", &self.form_user))
                     .child(self.form_row("数据库", &self.form_database))
                     .child(self.form_row("密码", &self.form_password))
-                    .children(
-                        self.form_error
-                            .clone()
-                            .map(|error| div().text_xs().text_color(theme.danger).child(error)),
-                    )
+                    .children(self.form_error.clone().map(|error| {
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.danger)
+                            .child(error)
+                    }))
                     .child(
                         div()
                             .flex()
@@ -896,7 +912,12 @@ impl QueryPage {
                                     .on_click(cx.listener(|this, _event, _window, cx| {
                                         this.close_connection_form(cx)
                                     }))
-                                    .child(div().text_xs().text_color(theme.text).child("取消")),
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.text)
+                                            .child("取消"),
+                                    ),
                             )
                             .child(
                                 div()
@@ -911,7 +932,7 @@ impl QueryPage {
                                     }))
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(theme.surface)
                                             .child("保存"),
@@ -953,7 +974,7 @@ impl QueryPage {
                     )
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if active { theme.text } else { theme.muted })
                             .child(title),
                     )
@@ -1032,7 +1053,12 @@ impl QueryPage {
                     .hover(move |style| style.bg(theme.accent_soft))
                     .on_click(cx.listener(|this, _event, _window, cx| this.add_tab(cx)))
                     .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
-                    .child(div().text_xs().text_color(theme.muted).child("新建查询")),
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("新建查询"),
+                    ),
             )
             .child(
                 div()
@@ -1051,7 +1077,12 @@ impl QueryPage {
                         cx.notify();
                     }))
                     .child(icons::icon("shell/save.svg", 14.0, theme.muted))
-                    .child(div().text_xs().text_color(theme.muted).child("保存")),
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("保存"),
+                    ),
             )
             .child(
                 div()
@@ -1081,7 +1112,7 @@ impl QueryPage {
                     ))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if self.history_open {
                                 theme.accent
                             } else {
@@ -1107,7 +1138,7 @@ impl QueryPage {
                     ))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
                             .child(SharedString::from(profile_label)),
                     ),
@@ -1119,7 +1150,7 @@ impl QueryPage {
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(SharedString::from(database)),
             )
@@ -1130,7 +1161,7 @@ impl QueryPage {
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(format!("{}", self.settings.row_limit())),
             )
@@ -1153,7 +1184,7 @@ impl QueryPage {
                     .child(icons::icon("superlink/send.svg", 13.0, theme.surface))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.surface)
                             .child(if self.running {
@@ -1166,7 +1197,7 @@ impl QueryPage {
             .child(div().flex_1())
             .child(
                 div()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(self.status.clone()),
             )
@@ -1204,11 +1235,21 @@ impl QueryPage {
                     .h(px(32.0))
                     .border_b_1()
                     .border_color(theme.border)
-                    .child(div().text_xs().text_color(theme.muted).child("日志"))
-                    .child(div().text_xs().text_color(theme.muted).child("参数"))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("日志"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("参数"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.accent)
                             .border_b_2()
@@ -1222,7 +1263,7 @@ impl QueryPage {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.danger)
                     .child(error),
             );
@@ -1234,7 +1275,7 @@ impl QueryPage {
                     .flex_1()
                     .items_center()
                     .justify_center()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("执行查询后显示结果"),
             );
@@ -1243,7 +1284,7 @@ impl QueryPage {
         let header = div()
             .flex()
             .items_center()
-            .h(px(28.0))
+            .h(px(crate::theme::CONTROL_MIN))
             .bg(theme.canvas)
             .border_b_1()
             .border_color(theme.border)
@@ -1251,7 +1292,7 @@ impl QueryPage {
                 div()
                     .w(px(ROW_NUMBER_WIDTH))
                     .px_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("#"),
             )
@@ -1259,7 +1300,7 @@ impl QueryPage {
                 div()
                     .w(px(COLUMN_WIDTH))
                     .px_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .font_weight(FontWeight::BOLD)
                     .text_color(theme.muted)
                     .child(SharedString::from(column.name.clone()))
@@ -1284,7 +1325,7 @@ impl QueryPage {
                         div()
                             .w(px(ROW_NUMBER_WIDTH))
                             .px_2()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child(format!("{}", index + 1)),
                     )
@@ -1292,7 +1333,7 @@ impl QueryPage {
                         div()
                             .w(px(COLUMN_WIDTH))
                             .px_2()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
                             .child(cell_text(cell))
                     }))

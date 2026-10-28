@@ -208,7 +208,7 @@ impl SuperLinkApp {
                         }))
                         .child(
                             div()
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(if active { theme.surface } else { theme.text })
                                 .child(label),
                         ),
@@ -235,7 +235,7 @@ impl SuperLinkApp {
                     }))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if active { theme.surface } else { theme.text })
                             .child(format!("{limit} 行")),
                     ),
@@ -267,7 +267,7 @@ impl SuperLinkApp {
                             .child(icons::icon("superlink/settings.svg", 16.0, theme.muted))
                             .child(
                                 div()
-                                    .text_sm()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(theme.text)
                                     .child("设置"),
@@ -292,7 +292,12 @@ impl SuperLinkApp {
                             .flex()
                             .flex_col()
                             .gap_2()
-                            .child(div().text_xs().text_color(theme.muted).child("外观"))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("外观"),
+                            )
                             .child(mode_row),
                     )
                     .child(
@@ -302,7 +307,7 @@ impl SuperLinkApp {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.muted)
                                     .child("结果行数上限"),
                             )
@@ -596,19 +601,19 @@ impl SuperLinkApp {
                             .gap_2()
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.text)
                                     .child(SharedString::from(column.name.clone())),
                             )
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.muted)
                                     .child(SharedString::from(column.data_type.clone())),
                             )
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.muted)
                                     .child(if column.primary_key { "PK" } else { "" }),
                             ),
@@ -626,7 +631,7 @@ impl SuperLinkApp {
                             }))
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(if deleting {
                                         theme.warning_text
                                     } else {
@@ -653,7 +658,7 @@ impl SuperLinkApp {
                     .gap_2()
                     .child(
                         div()
-                            .text_sm()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.text)
                             .child(format!("结构编辑 · {table}")),
@@ -670,7 +675,12 @@ impl SuperLinkApp {
                             .on_click(cx.listener(|this, _event, _window, cx| {
                                 this.close_structure_editor(cx)
                             }))
-                            .child(div().text_xs().text_color(theme.muted).child("关闭")),
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("关闭"),
+                            ),
                     ),
             )
             .child(
@@ -684,7 +694,7 @@ impl SuperLinkApp {
                             .items_center()
                             .w(px(160.0))
                             .px_2()
-                            .h(px(28.0))
+                            .h(px(crate::theme::CONTROL_MIN))
                             .rounded_md()
                             .border_1()
                             .border_color(theme.border)
@@ -697,7 +707,7 @@ impl SuperLinkApp {
                             .items_center()
                             .w(px(160.0))
                             .px_2()
-                            .h(px(28.0))
+                            .h(px(crate::theme::CONTROL_MIN))
                             .rounded_md()
                             .border_1()
                             .border_color(theme.border)
@@ -726,7 +736,7 @@ impl SuperLinkApp {
                             }))
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(if nullable { theme.accent } else { theme.muted })
                                     .child(if nullable { "可空" } else { "非空" }),
                             ),
@@ -742,7 +752,7 @@ impl SuperLinkApp {
                             .on_click(cx.listener(|this, _event, _window, cx| this.add_column(cx)))
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .font_weight(FontWeight::BOLD)
                                     .text_color(theme.surface)
                                     .child("添加列"),
@@ -751,7 +761,7 @@ impl SuperLinkApp {
             )
             .children(edit.error.as_ref().map(|error| {
                 div()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.danger)
                     .child(error.clone())
             }))
@@ -763,10 +773,15 @@ impl SuperLinkApp {
                         .flex()
                         .flex_col()
                         .gap_1()
-                        .child(div().text_xs().text_color(theme.muted).child("已执行"))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("已执行"),
+                        )
                         .children(edit.statements.iter().map(|statement| {
                             div()
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.text)
                                 .child(SharedString::from(statement.clone()))
                         })),
@@ -779,7 +794,12 @@ impl SuperLinkApp {
                     .gap_1()
                     .flex_1()
                     .min_h(px(0.0))
-                    .child(div().text_xs().text_color(theme.muted).child("当前列"))
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child("当前列"),
+                    )
                     .child(columns),
             )
             .into_any_element()
@@ -793,10 +813,15 @@ impl SuperLinkApp {
                 .flex()
                 .items_center()
                 .justify_between()
-                .child(div().text_xs().text_color(theme.muted).child("表"))
                 .child(
                     div()
-                        .text_xs()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child("表"),
+                )
+                .child(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
                         .text_color(theme.muted)
                         .child(format!("{}", self.tables.len())),
                 ),
@@ -806,7 +831,7 @@ impl SuperLinkApp {
             return section.child(
                 div()
                     .px_1()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(note.clone()),
             );
@@ -815,7 +840,7 @@ impl SuperLinkApp {
             return section.child(
                 div()
                     .px_1()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("没有表"),
             );
@@ -847,11 +872,12 @@ impl SuperLinkApp {
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.toggle_table(toggle_name.clone(), cx)
                             }))
-                            .child(div().text_xs().text_color(theme.muted).child(if expanded {
-                                "▾"
-                            } else {
-                                "▸"
-                            })),
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child(if expanded { "▾" } else { "▸" }),
+                            ),
                     )
                     .child(
                         div()
@@ -883,7 +909,7 @@ impl SuperLinkApp {
                             ))
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.text)
                                     .child(SharedString::from(entry.name.clone())),
                             ),
@@ -905,14 +931,19 @@ impl SuperLinkApp {
                         .on_click(cx.listener(move |this, _event, _window, cx| {
                             this.open_structure_editor(edit_name.clone(), cx)
                         }))
-                        .child(div().text_xs().text_color(theme.accent).child("编辑结构…")),
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.accent)
+                                .child("编辑结构…"),
+                        ),
                 );
                 if let Some(error) = self.column_errors.get(&entry.name) {
                     section = section.child(
                         div()
                             .pl(px(30.0))
                             .py_1()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child(error.clone()),
                     );
@@ -935,19 +966,19 @@ impl SuperLinkApp {
                                 .py(px(1.0))
                                 .child(
                                     div()
-                                        .text_xs()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.text)
                                         .child(SharedString::from(column.name.clone())),
                                 )
                                 .child(
                                     div()
-                                        .text_xs()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.muted)
                                         .child(SharedString::from(meta)),
                                 )
                                 .children(column.comment.as_ref().map(|comment| {
                                     div()
-                                        .text_xs()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.muted)
                                         .child(SharedString::from(comment.clone()))
                                 })),
@@ -957,7 +988,7 @@ impl SuperLinkApp {
                         section = section.child(
                             div()
                                 .pl(px(30.0))
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.muted)
                                 .child("没有列"),
                         );
@@ -968,7 +999,7 @@ impl SuperLinkApp {
                             div()
                                 .pl(px(30.0))
                                 .pt_1()
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.muted)
                                 .child("索引"),
                         );
@@ -987,13 +1018,13 @@ impl SuperLinkApp {
                                     .pl(px(38.0))
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .text_color(theme.text)
                                             .child(SharedString::from(index.name.clone())),
                                     )
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .text_color(theme.muted)
                                             .child(SharedString::from(label)),
                                     ),
@@ -1006,7 +1037,7 @@ impl SuperLinkApp {
                             div()
                                 .pl(px(30.0))
                                 .pt_1()
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.muted)
                                 .child("外键"),
                         );
@@ -1025,14 +1056,19 @@ impl SuperLinkApp {
                                     .pl(px(38.0))
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .text_color(theme.text)
                                             .child(SharedString::from(from)),
                                     )
-                                    .child(div().text_xs().text_color(theme.muted).child("→"))
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.muted)
+                                            .child("→"),
+                                    )
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .text_color(theme.muted)
                                             .child(SharedString::from(to)),
                                     ),
@@ -1043,7 +1079,7 @@ impl SuperLinkApp {
                     section = section.child(
                         div()
                             .pl(px(30.0))
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child("加载中…"),
                     );
@@ -1073,7 +1109,7 @@ impl SuperLinkApp {
                 .h(px(44.0))
                 .child(
                     div()
-                        .text_sm()
+                        .text_size(px(crate::theme::TEXT_SIZE))
                         .font_weight(FontWeight::BOLD)
                         .text_color(theme.muted)
                         .child("连接"),
@@ -1087,7 +1123,7 @@ impl SuperLinkApp {
                         .px_1()
                         .rounded_md()
                         .cursor_pointer()
-                        .text_xs()
+                        .text_size(px(crate::theme::TEXT_SIZE))
                         .text_color(theme.muted)
                         .hover(move |style| style.bg(theme.accent_soft))
                         .on_click(cx.listener(|this, _event, _window, cx| {
@@ -1124,7 +1160,12 @@ impl SuperLinkApp {
                             cx.notify();
                         }))
                         .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
-                        .child(div().text_xs().text_color(theme.muted).child("新建查询")),
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("新建查询"),
+                        ),
                 )
                 .child(
                     div()
@@ -1148,7 +1189,12 @@ impl SuperLinkApp {
                             14.0,
                             theme.muted,
                         ))
-                        .child(div().text_xs().text_color(theme.muted).child("新建连接")),
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("新建连接"),
+                        ),
                 )
                 .child(
                     div()
@@ -1168,7 +1214,12 @@ impl SuperLinkApp {
                             cx.notify();
                         }))
                         .child(icons::icon("superlink/history.svg", 14.0, theme.muted))
-                        .child(div().text_xs().text_color(theme.muted).child("执行历史")),
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child("执行历史"),
+                        ),
                 ),
         );
 
@@ -1180,7 +1231,7 @@ impl SuperLinkApp {
                 .mx_2()
                 .mb_2()
                 .px_2()
-                .h(px(28.0))
+                .h(px(crate::theme::CONTROL_MIN))
                 .rounded_md()
                 .border_1()
                 .border_color(theme.border)
@@ -1194,7 +1245,7 @@ impl SuperLinkApp {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("还没有连接。数据库层接入后，这里会列出本机工作区。"),
             );
@@ -1240,21 +1291,22 @@ impl SuperLinkApp {
                         }
                         cx.notify();
                     }))
-                    .child(div().text_xs().text_color(theme.muted).child(if collapsed {
-                        "▸"
-                    } else {
-                        "▾"
-                    }))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child(if collapsed { "▸" } else { "▾" }),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.muted)
                             .child(SharedString::from(group.clone())),
                     )
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child(format!("{}", entries.len())),
                     ),
@@ -1301,7 +1353,7 @@ impl SuperLinkApp {
                             ))
                             .child(
                                 div()
-                                    .text_sm()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(if active { theme.accent } else { theme.text })
                                     .child(name),
                             ),
@@ -1309,7 +1361,7 @@ impl SuperLinkApp {
                     .child(
                         div()
                             .pl(px(22.0))
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child(kind),
                     );
@@ -1351,7 +1403,7 @@ impl SuperLinkApp {
             .cursor_pointer()
             .border_b_2()
             .border_color(if active { theme.accent } else { theme.surface })
-            .text_sm()
+            .text_size(px(crate::theme::TEXT_SIZE))
             .text_color(if active { theme.text } else { theme.muted })
             .child(workspace.label())
             .on_click(cx.listener(move |this, _event, _window, cx| {
@@ -1386,7 +1438,7 @@ impl Render for SuperLinkApp {
                     .border_color(theme.border)
                     .child(
                         div()
-                            .text_sm()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.text)
                             .child("SuperLink"),
@@ -1413,7 +1465,7 @@ impl Render for SuperLinkApp {
                             .child(icons::icon("superlink/sliders.svg", 14.0, theme.muted))
                             .child(
                                 div()
-                                    .text_xs()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.muted)
                                     .child(self.mode.label()),
                             ),
@@ -1435,11 +1487,14 @@ impl Render for SuperLinkApp {
                             .child(icons::icon("superlink/settings.svg", 15.0, theme.muted)),
                     )
                     .child(
-                        div().text_xs().text_color(theme.muted).child(
-                            self.error
-                                .clone()
-                                .unwrap_or_else(|| SharedString::from("原生 Rust 工作台")),
-                        ),
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .child(
+                                self.error
+                                    .clone()
+                                    .unwrap_or_else(|| SharedString::from("原生 Rust 工作台")),
+                            ),
                     ),
             )
             .child(if self.settings_open {
@@ -1487,7 +1542,7 @@ impl Render for SuperLinkApp {
                     .bg(theme.surface)
                     .border_t_1()
                     .border_color(theme.border)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(format!("本地工作区 · {} 个连接", self.profiles.len())),
             )

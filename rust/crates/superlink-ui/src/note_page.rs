@@ -87,7 +87,7 @@ impl NotePage {
                     .h(px(40.0))
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.muted)
                             .child("笔记"),
@@ -99,7 +99,7 @@ impl NotePage {
                             .items_center()
                             .gap_1()
                             .px_1()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .cursor_pointer()
                             .text_color(theme.muted)
                             .hover(move |style| style.bg(theme.accent_soft))
@@ -114,7 +114,7 @@ impl NotePage {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child("还没有笔记。编辑器接入后可以在这里新建。"),
             );
@@ -147,13 +147,13 @@ impl NotePage {
                     }))
                     .child(
                         div()
-                            .text_sm()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if active { theme.accent } else { theme.text })
                             .child(title),
                     )
                     .child(
                         div()
-                            .text_xs()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.muted)
                             .child(SharedString::from(snippet(&note.body, 60))),
                     ),
@@ -172,7 +172,7 @@ impl NotePage {
                 .items_center()
                 .justify_center()
                 .bg(theme.surface)
-                .text_sm()
+                .text_size(px(crate::theme::TEXT_SIZE))
                 .text_color(theme.muted)
                 .child("选择左侧笔记查看内容");
         };
@@ -192,14 +192,14 @@ impl NotePage {
             .bg(theme.surface)
             .child(
                 div()
-                    .text_lg()
+                    .text_size(px(crate::theme::HEADING_SIZE))
                     .font_weight(FontWeight::BOLD)
                     .text_color(theme.text)
                     .child(SharedString::from(note.title.clone())),
             )
             .child(
                 div()
-                    .text_sm()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.text)
                     .child(SharedString::from(preview)),
             )
@@ -227,7 +227,7 @@ impl Render for NotePage {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.danger)
                     .child(error),
             );

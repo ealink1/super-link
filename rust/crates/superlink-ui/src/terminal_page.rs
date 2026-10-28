@@ -550,7 +550,7 @@ impl TerminalPage {
             .border_color(theme.border)
             .child(
                 div()
-                    .text_sm()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.text)
                     .child(if self.session.is_some() {
                         "终端"
@@ -561,7 +561,7 @@ impl TerminalPage {
             .child(div().flex_1())
             .child(
                 div()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(self.status.clone()),
             )
@@ -576,7 +576,7 @@ impl TerminalPage {
                     .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.accent)
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.connect_local(cx);
@@ -597,7 +597,7 @@ impl TerminalPage {
                     .rounded_md()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.accent)
                     .on_click(cx.listener(|this, _event, _window, cx| this.open_host_form(cx)))
                     .child("新建主机"),
@@ -613,7 +613,7 @@ impl TerminalPage {
                     .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.surface)
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.connect_selected(cx);
@@ -634,7 +634,7 @@ impl TerminalPage {
                     .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.accent)
                     .on_click(cx.listener(|this, _event, _window, cx| this.disconnect(cx)))
                     .child(icons::icon("superlink/stop.svg", 13.0, theme.accent))
@@ -651,7 +651,7 @@ impl TerminalPage {
                     .gap_1()
                     .cursor_pointer()
                     .bg(theme.accent_soft)
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.accent)
                     .on_click(cx.listener(|this, _event, window, cx| {
                         this.reconnect(cx);
@@ -698,7 +698,7 @@ impl TerminalPage {
                                     .child(icons::icon("shell/server.svg", 16.0, theme.muted))
                                     .child(
                                         div()
-                                            .text_sm()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(theme.text)
                                             .child("新建主机"),
@@ -723,11 +723,12 @@ impl TerminalPage {
                     .child(self.form_row("用户名", &self.form_user))
                     .child(self.form_row("密码", &self.form_password))
                     .child(self.form_row("备注", &self.form_notes))
-                    .children(
-                        self.form_error
-                            .clone()
-                            .map(|error| div().text_xs().text_color(theme.danger).child(error)),
-                    )
+                    .children(self.form_error.clone().map(|error| {
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.danger)
+                            .child(error)
+                    }))
                     .child(
                         div()
                             .flex()
@@ -745,7 +746,12 @@ impl TerminalPage {
                                     .on_click(cx.listener(|this, _event, _window, cx| {
                                         this.close_host_form(cx)
                                     }))
-                                    .child(div().text_xs().text_color(theme.text).child("取消")),
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .text_color(theme.text)
+                                            .child("取消"),
+                                    ),
                             )
                             .child(
                                 div()
@@ -760,7 +766,7 @@ impl TerminalPage {
                                     )
                                     .child(
                                         div()
-                                            .text_xs()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
                                             .font_weight(FontWeight::BOLD)
                                             .text_color(theme.surface)
                                             .child("保存"),
@@ -779,7 +785,7 @@ impl TerminalPage {
             .child(
                 div()
                     .w(px(64.0))
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(label.to_string()),
             )
@@ -830,7 +836,7 @@ impl TerminalPage {
                     .gap_2()
                     .w(px(300.0))
                     .px_2()
-                    .h(px(28.0))
+                    .h(px(crate::theme::CONTROL_MIN))
                     .rounded_md()
                     .border_1()
                     .border_color(theme.border)
@@ -846,7 +852,7 @@ impl TerminalPage {
                     .py_1()
                     .rounded_md()
                     .cursor_pointer()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .hover(move |style| style.bg(theme.accent_soft))
                     .on_click(cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)))
@@ -860,7 +866,7 @@ impl TerminalPage {
                     .flex_1()
                     .items_center()
                     .justify_center()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(if self.host_list.is_empty() {
                         "还没有 SSH 主机。可以先打开本地终端。"
@@ -921,16 +927,21 @@ impl TerminalPage {
                     )
                     .child(
                         div()
-                            .text_sm()
+                            .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.text)
                             .child(name),
                     ),
             )
-            .child(div().text_xs().text_color(theme.muted).child(endpoint))
             .child(
                 div()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.muted)
+                    .child(endpoint),
+            )
+            .child(
+                div()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
                     .child(if host.notes.is_empty() {
                         SharedString::from("暂无备注")
@@ -944,7 +955,7 @@ impl TerminalPage {
                     .flex()
                     .items_center()
                     .justify_center()
-                    .h(px(28.0))
+                    .h(px(crate::theme::CONTROL_MIN))
                     .rounded_md()
                     .cursor_pointer()
                     .bg(theme.canvas)
@@ -954,7 +965,12 @@ impl TerminalPage {
                     .on_click(cx.listener(move |this, _event, window, cx| {
                         this.connect_host_at(index, window, cx)
                     }))
-                    .child(div().text_xs().text_color(theme.text).child("快速连接")),
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child("快速连接"),
+                    ),
             )
     }
 
@@ -993,13 +1009,13 @@ impl TerminalPage {
                         .border_color(theme.border)
                         .child(
                             div()
-                                .text_sm()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.text)
                                 .child(format!("尚未信任 {} 的主机密钥", host.name)),
                         )
                         .child(
                             div()
-                                .text_xs()
+                                .text_size(px(crate::theme::TEXT_SIZE))
                                 .text_color(theme.muted)
                                 .child(SharedString::from(fingerprint.clone())),
                         )
@@ -1015,7 +1031,7 @@ impl TerminalPage {
                                         .rounded_md()
                                         .cursor_pointer()
                                         .bg(theme.accent_soft)
-                                        .text_xs()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.accent)
                                         .on_click(cx.listener(|this, _event, _window, cx| {
                                             this.trust(false, cx)
@@ -1030,7 +1046,7 @@ impl TerminalPage {
                                         .rounded_md()
                                         .cursor_pointer()
                                         .bg(theme.accent)
-                                        .text_xs()
+                                        .text_size(px(crate::theme::TEXT_SIZE))
                                         .text_color(theme.surface)
                                         .on_click(cx.listener(|this, _event, _window, cx| {
                                             this.trust(true, cx)
@@ -1047,7 +1063,7 @@ impl TerminalPage {
                 div()
                     .px_3()
                     .py_2()
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(rgb(0xff8a80))
                     .child(error),
             );
@@ -1061,7 +1077,7 @@ impl TerminalPage {
                     .bg(rgb(0x1b2028))
                     .border_b_1()
                     .border_color(rgb(0x2a313b))
-                    .text_xs()
+                    .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(rgb(0xd19a66))
                     .child(SharedString::from(format!("输入中：{composing}"))),
             );

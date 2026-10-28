@@ -155,6 +155,8 @@ pub struct Theme {
 
 /// Fyne SizeNameText。
 pub const TEXT_SIZE: f32 = 13.0;
+/// Fyne h4 缩放（1.2 × 正文），用于面板标题。
+pub const HEADING_SIZE: f32 = 15.6;
 /// Fyne SizeNamePadding。
 pub const PADDING: f32 = 4.0;
 /// Fyne SizeNameInnerPadding。
