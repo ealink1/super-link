@@ -2,8 +2,8 @@ use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
 use superlink_drivers::{
-    DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres,
-    NativeSqlite, TableEntry,
+    ColumnEntry, DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql,
+    NativePostgres, NativeSqlite, TableEntry,
 };
 
 use crate::profiles::Credentials;
@@ -61,6 +61,16 @@ impl QueryService {
         if native_target(&kind, NativeFlags::from_env()) == Some(NativeKind::Sqlite) {
             let driver = NativeSqlite::open(&profile.config)?;
             return Ok(driver.tables()?);
+        }
+        Err(QueryError::Unsupported(kind))
+    }
+
+    /// 单表的列定义；与 tables 一样目前只支持原生 SQLite。
+    pub fn columns(&self, profile: &Profile, table: &str) -> Result<Vec<ColumnEntry>, QueryError> {
+        let kind = profile.sql_dialect().to_string();
+        if native_target(&kind, NativeFlags::from_env()) == Some(NativeKind::Sqlite) {
+            let driver = NativeSqlite::open(&profile.config)?;
+            return Ok(driver.columns(table)?);
         }
         Err(QueryError::Unsupported(kind))
     }

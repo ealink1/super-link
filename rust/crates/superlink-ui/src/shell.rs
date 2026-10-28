@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::Arc;
 
 use gpui::{
@@ -51,6 +51,9 @@ pub struct SuperLinkApp {
     queries: Arc<QueryService>,
     tables: Vec<superlink_drivers::TableEntry>,
     tables_note: Option<SharedString>,
+    expanded_tables: HashSet<String>,
+    table_columns: HashMap<String, Vec<superlink_drivers::ColumnEntry>>,
+    column_errors: HashMap<String, SharedString>,
     workspace: Workspace,
     theme: Theme,
     error: Option<SharedString>,
@@ -130,6 +133,9 @@ impl SuperLinkApp {
             queries: queries.clone(),
             tables: Vec::new(),
             tables_note: None,
+            expanded_tables: HashSet::new(),
+            table_columns: HashMap::new(),
+            column_errors: HashMap::new(),
             workspace: Workspace::Sql,
             theme,
             error,
@@ -311,6 +317,9 @@ impl SuperLinkApp {
     fn reload_tables(&mut self, cx: &mut Context<Self>) {
         self.tables.clear();
         self.tables_note = None;
+        self.expanded_tables.clear();
+        self.table_columns.clear();
+        self.column_errors.clear();
         let Some(profile) = self.profiles.get(self.selected).cloned() else {
             cx.notify();
             return;
@@ -354,6 +363,47 @@ impl SuperLinkApp {
         }
     }
 
+    fn toggle_table(&mut self, name: String, cx: &mut Context<Self>) {
+        if self.expanded_tables.remove(&name) {
+            cx.notify();
+            return;
+        }
+        self.expanded_tables.insert(name.clone());
+        if !self.table_columns.contains_key(&name) && !self.column_errors.contains_key(&name) {
+            self.fetch_columns(name, cx);
+        }
+        cx.notify();
+    }
+
+    fn fetch_columns(&mut self, name: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.profiles.get(self.selected).cloned() else {
+            return;
+        };
+        let queries = self.queries.clone();
+        let table = name.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { queries.columns(&profile, &table) });
+        cx.spawn(async move |this, cx| {
+            let outcome = task.await;
+            this.update(cx, |this, cx| {
+                match outcome {
+                    Ok(entries) => {
+                        this.table_columns.insert(name.clone(), entries);
+                        this.column_errors.remove(&name);
+                    }
+                    Err(err) => {
+                        this.column_errors
+                            .insert(name.clone(), SharedString::from(err.to_string()));
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
     /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。
     fn table_tree(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
@@ -394,41 +444,130 @@ impl SuperLinkApp {
             let theme = self.theme;
             let name = entry.name.clone();
             let is_view = entry.kind == "view";
+            let expanded = self.expanded_tables.contains(&entry.name);
+            let toggle_name = entry.name.clone();
             section = section.child(
                 div()
                     .id(SharedString::from(format!("table-{}", entry.name)))
                     .flex()
                     .items_center()
-                    .gap_2()
-                    .px_2()
+                    .gap_1()
+                    .px_1()
                     .py_1()
                     .rounded_md()
-                    .cursor_pointer()
                     .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        let table = name.replace('"', "\"\"");
-                        this.workspace = Workspace::Sql;
-                        this.query_page.update(cx, |page, cx| {
-                            page.load_sql(format!("SELECT * FROM \"{table}\" LIMIT 100;"), cx)
-                        });
-                        cx.notify();
-                    }))
-                    .child(icons::icon(
-                        if is_view {
-                            "superlink/all-objects.svg"
-                        } else {
-                            "superlink/table.svg"
-                        },
-                        12.0,
-                        theme.muted,
-                    ))
                     .child(
                         div()
-                            .text_xs()
-                            .text_color(theme.text)
-                            .child(SharedString::from(entry.name.clone())),
+                            .id(SharedString::from(format!("fold-{}", entry.name)))
+                            .w(px(14.0))
+                            .flex()
+                            .justify_center()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.toggle_table(toggle_name.clone(), cx)
+                            }))
+                            .child(div().text_xs().text_color(theme.muted).child(if expanded {
+                                "▾"
+                            } else {
+                                "▸"
+                            })),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("open-{}", entry.name)))
+                            .flex()
+                            .flex_1()
+                            .items_center()
+                            .gap_2()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                let table = name.replace('"', "\"\"");
+                                this.workspace = Workspace::Sql;
+                                this.query_page.update(cx, |page, cx| {
+                                    page.load_sql(
+                                        format!("SELECT * FROM \"{table}\" LIMIT 100;"),
+                                        cx,
+                                    )
+                                });
+                                cx.notify();
+                            }))
+                            .child(icons::icon(
+                                if is_view {
+                                    "superlink/all-objects.svg"
+                                } else {
+                                    "superlink/table.svg"
+                                },
+                                12.0,
+                                theme.muted,
+                            ))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.text)
+                                    .child(SharedString::from(entry.name.clone())),
+                            ),
                     ),
             );
+
+            if expanded {
+                if let Some(error) = self.column_errors.get(&entry.name) {
+                    section = section.child(
+                        div()
+                            .pl(px(30.0))
+                            .py_1()
+                            .text_xs()
+                            .text_color(theme.muted)
+                            .child(error.clone()),
+                    );
+                } else if let Some(columns) = self.table_columns.get(&entry.name) {
+                    for column in columns {
+                        let meta = if column.primary_key {
+                            format!("{} · PK", column.data_type)
+                        } else if column.nullable {
+                            column.data_type.clone()
+                        } else {
+                            format!("{} · NOT NULL", column.data_type)
+                        };
+                        section = section.child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .gap_2()
+                                .pl(px(30.0))
+                                .py(px(1.0))
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.text)
+                                        .child(SharedString::from(column.name.clone())),
+                                )
+                                .child(
+                                    div()
+                                        .text_xs()
+                                        .text_color(theme.muted)
+                                        .child(SharedString::from(meta)),
+                                ),
+                        );
+                    }
+                    if columns.is_empty() {
+                        section = section.child(
+                            div()
+                                .pl(px(30.0))
+                                .text_xs()
+                                .text_color(theme.muted)
+                                .child("没有列"),
+                        );
+                    }
+                } else {
+                    section = section.child(
+                        div()
+                            .pl(px(30.0))
+                            .text_xs()
+                            .text_color(theme.muted)
+                            .child("加载中…"),
+                    );
+                }
+            }
         }
         section
     }
