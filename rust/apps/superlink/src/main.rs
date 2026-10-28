@@ -2,8 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use superlink_app::{
-    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
-    SettingsService, StructureService,
+    DraftService, GroupService, HistoryService, HostService, NotebookService, ProfileService,
+    QueryService, SettingsService, StructureService,
 };
 use superlink_infra::{LocalVault, Store};
 
@@ -28,9 +28,10 @@ fn main() {
     let drafts = Arc::new(DraftService::new(store.clone()));
     let hosts = Arc::new(HostService::new(store.clone(), vault.clone()));
     let settings = Arc::new(SettingsService::new(store.clone()));
+    let groups = Arc::new(GroupService::new(service.clone(), settings.clone()));
     let notebook = Arc::new(NotebookService::new(store, vault));
     superlink_ui::run(
-        service, queries, drafts, history, structure, notebook, hosts, settings,
+        service, queries, drafts, history, structure, groups, notebook, hosts, settings,
     );
 }
 

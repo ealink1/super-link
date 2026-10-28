@@ -83,6 +83,12 @@ pub struct SuperLinkApp {
     table_structures: HashMap<(usize, String), superlink_drivers::TableStructure>,
     column_errors: HashMap<(usize, String), SharedString>,
     structure: Arc<StructureService>,
+    groups: Arc<superlink_app::GroupService>,
+    groups_open: bool,
+    group_new: Entity<SqlEditor>,
+    group_rename: Option<(String, Entity<SqlEditor>)>,
+    declared_groups: Vec<String>,
+    group_note: Option<SharedString>,
     structure_edit: Option<StructureEdit>,
     workbench: Option<crate::workbench::Workbench>,
     wb_column: Entity<SqlEditor>,
@@ -101,6 +107,7 @@ impl SuperLinkApp {
         drafts: Arc<DraftService>,
         history: Arc<HistoryService>,
         structure: Arc<StructureService>,
+        groups: Arc<superlink_app::GroupService>,
         notebook: Arc<NotebookService>,
         hosts: Arc<HostService>,
         settings: Arc<SettingsService>,
@@ -175,6 +182,16 @@ impl SuperLinkApp {
             table_structures: HashMap::new(),
             column_errors: HashMap::new(),
             structure: structure.clone(),
+            groups: groups.clone(),
+            groups_open: false,
+            group_new: {
+                let editor = cx.new(SqlEditor::new);
+                editor.update(cx, |editor, cx| editor.set_placeholder("新分组名", cx));
+                editor
+            },
+            group_rename: None,
+            declared_groups: Vec::new(),
+            group_note: None,
             structure_edit: None,
             workbench: None,
             wb_column: cx.new(SqlEditor::new),
@@ -613,6 +630,101 @@ impl SuperLinkApp {
             statements: Vec::new(),
         });
         cx.notify();
+    }
+
+    fn open_groups(&mut self, cx: &mut Context<Self>) {
+        self.declared_groups = self.groups.declared();
+        self.group_note = None;
+        self.group_rename = None;
+        self.groups_open = true;
+        cx.notify();
+    }
+
+    fn close_groups(&mut self, cx: &mut Context<Self>) {
+        self.groups_open = false;
+        self.group_rename = None;
+        cx.notify();
+    }
+
+    fn refresh_groups(&mut self, cx: &mut Context<Self>) {
+        self.declared_groups = self.groups.declared();
+        self.refresh();
+        cx.notify();
+    }
+
+    fn create_group(&mut self, cx: &mut Context<Self>) {
+        let name = self.group_new.read(cx).text().trim().to_string();
+        match self.groups.create(&name) {
+            Ok(()) => {
+                self.group_note = Some(SharedString::from(format!("已创建分组「{name}」")));
+                self.group_new
+                    .update(cx, |editor, cx| editor.set_text(String::new(), cx));
+            }
+            Err(err) => self.group_note = Some(SharedString::from(err)),
+        }
+        self.refresh_groups(cx);
+    }
+
+    fn start_rename_group(&mut self, name: String, cx: &mut Context<Self>) {
+        let editor = cx.new(SqlEditor::new);
+        editor.update(cx, |editor, cx| {
+            editor.set_text(name.clone(), cx);
+            editor.set_placeholder("新分组名", cx)
+        });
+        self.group_rename = Some((name, editor));
+        cx.notify();
+    }
+
+    fn commit_rename_group(&mut self, from: String, cx: &mut Context<Self>) {
+        let Some((_, editor)) = self.group_rename.as_ref() else {
+            return;
+        };
+        let to = editor.read(cx).text().trim().to_string();
+        match self.groups.rename(&from, &to) {
+            Ok(changed) => {
+                self.group_note = Some(SharedString::from(format!(
+                    "已重命名「{from}」→「{to}」，{changed} 个连接随之迁移"
+                )));
+            }
+            Err(err) => self.group_note = Some(SharedString::from(err)),
+        }
+        self.group_rename = None;
+        self.refresh_groups(cx);
+    }
+
+    fn delete_group(&mut self, name: String, cx: &mut Context<Self>) {
+        match self.groups.remove(&name) {
+            Ok(changed) => {
+                self.group_note = Some(SharedString::from(format!(
+                    "已删除分组「{name}」，{changed} 个连接回到默认分组"
+                )));
+            }
+            Err(err) => self.group_note = Some(SharedString::from(err)),
+        }
+        self.refresh_groups(cx);
+    }
+
+    /// 把连接移到下一个分组（循环）。
+    fn move_profile_next(&mut self, id: String, cx: &mut Context<Self>) {
+        let summaries = superlink_app::groups::summarize(&self.profiles, &self.declared_groups);
+        let Some(profile) = self.profiles.iter().find(|profile| profile.id == id) else {
+            return;
+        };
+        let current = superlink_app::groups::display_group(&profile.group);
+        let index = summaries
+            .iter()
+            .position(|group| group.name == current)
+            .map(|position| position + 1)
+            .unwrap_or(0);
+        let Some(next) = summaries.get(index % summaries.len().max(1)) else {
+            return;
+        };
+        let target = next.name.clone();
+        match self.groups.move_profile(&id, &target) {
+            Ok(()) => self.group_note = Some(SharedString::from(format!("已移动到「{target}」"))),
+            Err(err) => self.group_note = Some(SharedString::from(err)),
+        }
+        self.refresh_groups(cx);
     }
 
     fn close_structure_editor(&mut self, cx: &mut Context<Self>) {
@@ -1262,6 +1374,257 @@ impl SuperLinkApp {
         })
         .detach();
         self.refresh_structure(conn, refresh_db, refresh_table, cx);
+    }
+    fn groups_panel(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        let summaries = superlink_app::groups::summarize(&self.profiles, &self.declared_groups);
+
+        let mut panel = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h(px(0.0))
+            .bg(theme.surface)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
+                    .py_2()
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child("管理连接分组"),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        div()
+                            .id("close-groups")
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.close_groups(cx)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("关闭"),
+                            ),
+                    ),
+            );
+
+        if let Some(note) = &self.group_note {
+            panel = panel.child(
+                div()
+                    .mx_3()
+                    .px_2()
+                    .py_1()
+                    .rounded_md()
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.muted)
+                    .child(note.clone()),
+            );
+        }
+
+        // 新建分组
+        panel = panel.child(
+            div()
+                .flex()
+                .items_center()
+                .gap_2()
+                .px_3()
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .w(px(200.0))
+                        .h(px(crate::theme::CONTROL_MIN))
+                        .px_2()
+                        .rounded_md()
+                        .border_1()
+                        .border_color(theme.border)
+                        .bg(theme.surface)
+                        .child(self.group_new.clone()),
+                )
+                .child(
+                    div()
+                        .id("create-group")
+                        .px_3()
+                        .py_1()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .bg(theme.accent)
+                        .on_click(cx.listener(|this, _event, _window, cx| this.create_group(cx)))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(theme.surface)
+                                .child("新建分组"),
+                        ),
+                ),
+        );
+
+        // 分组列表
+        let mut list = div()
+            .flex()
+            .flex_col()
+            .gap_2()
+            .px_3()
+            .pt_2()
+            .flex_1()
+            .min_h(px(0.0));
+        for group in &summaries {
+            let name = group.name.clone();
+            let rename_target = name.clone();
+            let is_default = name == superlink_app::groups::DEFAULT_GROUP;
+            let renaming = self
+                .group_rename
+                .as_ref()
+                .map(|(from, _)| from == &name)
+                .unwrap_or(false);
+            let mut block = div()
+                .flex()
+                .flex_col()
+                .gap_1()
+                .p_2()
+                .rounded_md()
+                .border_1()
+                .border_color(theme.border)
+                .bg(theme.canvas);
+            block = block.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .child(
+                        div()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child(SharedString::from(format!(
+                                "{} · {}",
+                                group.name, group.count
+                            ))),
+                    )
+                    .child(div().flex_1())
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("rename-group-{name}")))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.accent)
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.start_rename_group(rename_target.clone(), cx)
+                            }))
+                            .child("重命名"),
+                    )
+                    .children((!is_default).then(|| {
+                        let delete_name = group.name.clone();
+                        div()
+                            .id(SharedString::from(format!("delete-group-{name}")))
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.muted)
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.delete_group(delete_name.clone(), cx)
+                            }))
+                            .child("删除")
+                    })),
+            );
+
+            if renaming {
+                if let Some((_, editor)) = &self.group_rename {
+                    let commit_name = group.name.clone();
+                    block = block.child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .w(px(180.0))
+                                    .h(px(crate::theme::CONTROL_MIN))
+                                    .px_2()
+                                    .rounded_md()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .bg(theme.surface)
+                                    .child(editor.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id(SharedString::from(format!("confirm-rename-{name}")))
+                                    .px_2()
+                                    .py_1()
+                                    .rounded_md()
+                                    .cursor_pointer()
+                                    .bg(theme.accent)
+                                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                                        this.commit_rename_group(commit_name.clone(), cx)
+                                    }))
+                                    .child(
+                                        div()
+                                            .text_size(px(crate::theme::TEXT_SIZE))
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.surface)
+                                            .child("确认改名"),
+                                    ),
+                            ),
+                    );
+                }
+            }
+
+            // 该分组的连接
+            for profile in self.profiles.iter().filter(|profile| {
+                superlink_app::groups::display_group(&profile.group) == group.name
+            }) {
+                let id = profile.id.clone();
+                let profile_name = profile.name.clone();
+                block = block.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .pl(px(12.0))
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.text)
+                                .child(SharedString::from(profile_name)),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(SharedString::from(profile.sql_dialect().to_uppercase())),
+                        )
+                        .child(div().flex_1())
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("move-{id}")))
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.accent)
+                                .cursor_pointer()
+                                .on_click(cx.listener(move |this, _event, _window, cx| {
+                                    this.move_profile_next(id.clone(), cx)
+                                }))
+                                .child("移到下一组"),
+                        ),
+                );
+            }
+            list = list.child(block);
+        }
+        panel.child(list).into_any_element()
     }
     fn workbench_panel(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = self.theme;
@@ -2848,6 +3211,13 @@ impl SuperLinkApp {
             };
             groups.entry(key).or_default().push((index, profile));
         }
+        // 已声明但暂无连接的分组也要显示
+        for name in &self.declared_groups {
+            groups.entry(name.clone()).or_default();
+        }
+        if groups.is_empty() {
+            groups.entry("未分组".to_string()).or_default();
+        }
 
         for (group, entries) in groups {
             let collapsed = self.collapsed_groups.contains(&group);
@@ -3202,10 +3572,32 @@ impl Render for SuperLinkApp {
                                     .text_color(theme.text)
                                     .child("执行历史"),
                             ),
+                    )
+                    .child(
+                        div()
+                            .id("global-groups")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_2()
+                            .py_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| this.open_groups(cx)))
+                            .child(icons::icon("superlink/all-objects.svg", 14.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child("管理连接分组"),
+                            ),
                     ),
             )
             .child(if self.settings_open {
                 self.settings_view(cx).into_any_element()
+            } else if self.groups_open {
+                self.groups_panel(cx).into_any_element()
             } else if self.workbench.is_some() {
                 self.workbench_panel(cx)
             } else if self.structure_edit.is_some() {
@@ -3265,6 +3657,7 @@ pub fn run(
     drafts: Arc<DraftService>,
     history: Arc<HistoryService>,
     structure: Arc<StructureService>,
+    groups: Arc<superlink_app::GroupService>,
     notebook: Arc<NotebookService>,
     hosts: Arc<HostService>,
     settings: Arc<SettingsService>,
@@ -3290,13 +3683,14 @@ pub fn run(
                         let drafts = drafts.clone();
                         let history = history.clone();
                         let structure = structure.clone();
+                        let groups = groups.clone();
                         let notebook = notebook.clone();
                         let hosts = hosts.clone();
                         let settings = settings.clone();
                         cx.new(|cx| {
                             SuperLinkApp::new(
-                                service, queries, drafts, history, structure, notebook, hosts,
-                                settings, window, cx,
+                                service, queries, drafts, history, structure, groups, notebook,
+                                hosts, settings, window, cx,
                             )
                         })
                     },

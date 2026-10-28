@@ -3,6 +3,7 @@
 //! Services own the invariants that used to live in the Go application layer:
 //! credential separation, revision checks and bounded input.
 
+pub mod groups;
 pub mod history;
 pub mod notebook;
 pub mod profiles;
@@ -13,6 +14,7 @@ pub mod shell_hosts;
 pub mod structure;
 pub mod transfer;
 
+pub use groups::{GroupService, GroupSummary};
 pub use history::{HistoryService, placeholder_count, redact};
 pub use notebook::{NotebookError, NotebookService};
 pub use profiles::{Credentials, ProfileService};
