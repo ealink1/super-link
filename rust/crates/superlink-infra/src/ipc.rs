@@ -1,10 +1,12 @@
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 use serde_json::{Map, Value, json};
 
-const MAX_LINE: usize = 8 << 20;
+/// 与 Go 侧 OptionalDriverAgentMaxJSONLineBytes (32 MiB) 对齐：
+/// 双方一致才不会出现「客户端拒收合法大帧」或「服务端杀掉超限客户端」。
+const MAX_LINE: usize = 32 << 20;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentError {
@@ -93,6 +95,10 @@ impl DriverAgent {
         request.insert("method".into(), json!(method));
         let line =
             serde_json::to_string(&Value::Object(request)).map_err(|_| AgentError::InvalidFrame)?;
+        if line.len() > MAX_LINE {
+            // 写入超限帧会被 agent 侧判为协议违规并自杀，先在本地拦截。
+            return Err(AgentError::FrameTooLarge);
+        }
         self.stdin
             .write_all(line.as_bytes())
             .and_then(|_| self.stdin.write_all(b"\n"))
@@ -100,8 +106,12 @@ impl DriverAgent {
             .map_err(AgentError::Io)?;
 
         let mut response = String::new();
+        // read_line 本身无上限：用 take 限制单帧读取量，异常的无换行输出
+        // 在触顶时立即报错，而不是先撑爆内存。
         let read = self
             .stdout
+            .by_ref()
+            .take(MAX_LINE as u64 + 1)
             .read_line(&mut response)
             .map_err(AgentError::Io)?;
         if read == 0 {

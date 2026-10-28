@@ -44,6 +44,7 @@ pub struct DriverSession {
     kind: String,
     revision: String,
     connect: ConnectInfo,
+    timeout_ms: u64,
 }
 
 impl DriverSession {
@@ -70,6 +71,7 @@ impl DriverSession {
             kind: kind.to_string(),
             revision: metadata.revision,
             connect: ConnectInfo::default(),
+            timeout_ms: 0,
         })
     }
 
@@ -88,6 +90,8 @@ impl DriverSession {
     /// Sends the connection config. Credentials travel over the pipe and are
     /// never persisted or logged by this layer.
     pub fn connect(&mut self, config: &ConnectionConfig) -> Result<&ConnectInfo, DriverError> {
+        // Go 侧语义：queryTimeout 为秒，0 表示不设自动截止。
+        self.timeout_ms = u64::from(config.query_timeout).saturating_mul(1000);
         let config = serde_json::to_value(config).map_err(|_| DriverError::Malformed("config"))?;
         let data = self.agent.call("connect", named([("config", config)]))?;
         let object = data.as_object();
@@ -116,17 +120,7 @@ impl DriverSession {
         args: &[Value],
         max_rows: u32,
     ) -> Result<ResultSet, DriverError> {
-        let mut fields = Map::new();
-        fields.insert("query".into(), json!(sql));
-        if !args.is_empty() {
-            fields.insert("args".into(), json!(args));
-        }
-        if max_rows > 0 {
-            fields.insert(
-                "rowBudget".into(),
-                json!({ "maxRowsPerResult": max_rows, "maxTotalRows": max_rows }),
-            );
-        }
+        let fields = query_request(sql, args, max_rows, self.timeout_ms);
         let frame = self.agent.call_frame("query", fields)?;
         Ok(to_result_set(frame))
     }
@@ -142,6 +136,47 @@ fn named<const N: usize>(pairs: [(&str, Value); N]) -> Map<String, Value> {
         .into_iter()
         .map(|(key, value)| (key.to_string(), value))
         .collect()
+}
+
+/// 纯函数构建 query 请求帧，便于单测覆盖超时与预算字段。
+fn query_request(
+    sql: &str,
+    args: &[Value],
+    max_rows: u32,
+    timeout_ms: u64,
+) -> Map<String, Value> {
+    let mut fields = Map::new();
+    fields.insert("query".into(), json!(sql));
+    if !args.is_empty() {
+        fields.insert("args".into(), json!(args));
+    }
+    if max_rows > 0 {
+        fields.insert(
+            "rowBudget".into(),
+            json!({ "maxRowsPerResult": max_rows, "maxTotalRows": max_rows }),
+        );
+    }
+    if timeout_ms > 0 {
+        fields.insert("timeoutMs".into(), json!(timeout_ms));
+    }
+    fields
+}
+
+#[cfg(test)]
+mod query_request_tests {
+    use super::*;
+
+    #[test]
+    fn includes_budget_and_timeout_only_when_set() {
+        let without = query_request("SELECT 1", &[], 0, 0);
+        assert!(without.get("rowBudget").is_none());
+        assert!(without.get("timeoutMs").is_none());
+
+        let with = query_request("SELECT 1", &[], 100, 5_000);
+        assert_eq!(with["rowBudget"]["maxRowsPerResult"], 100);
+        assert_eq!(with["timeoutMs"], 5_000);
+        assert_eq!(with["query"], "SELECT 1");
+    }
 }
 
 /// Rows arrive as objects keyed by column name; the envelope owns the order.

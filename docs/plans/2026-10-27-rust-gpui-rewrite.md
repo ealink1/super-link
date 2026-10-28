@@ -77,6 +77,23 @@ Rust 版本独立放在 rust/ 工作区，两者不共享编译产物。
 Makefile 与 ci.yml 已同步改为「Go agent 检查 + Rust 检查」双轨。
 Go 完整应用与发布流水线只在 main 分支存在。
 
+## IPC 安全加固（2026-10-27）
+
+Rust 客户端与 Go agent 之间的 JSON-lines 通道完成一轮加固，威胁模型为
+「同用户本地进程、管道内核保护」，重点防异常与资源耗尽而非跨用户攻击：
+
+- 帧上限对齐：客户端 MAX_LINE 由 8 MiB 提升至 32 MiB，与 Go 侧
+  OptionalDriverAgentMaxJSONLineBytes 一致，避免合法大帧被客户端误杀
+- 写侧护栏：超限请求在本地拦截，不再发给 agent 触发其自杀式退出
+- 读侧有界读取：read_line 本身无上限，改用 take(MAX+1)，
+  异常的无换行流式输出触顶即报错，不再先撑爆内存
+- 查询超时：连接配置 queryTimeout（秒）随请求传给 agent，
+  由 agent 侧强制截止（0 = 不限，沿用 Go 语义）
+- 已有且确认安全的部分：子进程身份元数据校验、SHA256+架构检查、
+  响应 id 关联、行预算、agent 侧尾随数据拒绝、stdin/stdout 管道内核隔离
+- 遗留说明：子进程继承完整环境变量（部分 CGO 驱动依赖库路径，收敛有风险）；
+  客户端无取消注入（agent 支持 cancelQuery，UI 尚未接）
+
 ## 后续阶段
 
 1. SQL 工作区完善：多行编辑器、语法高亮、补全弹窗、表目录浏览、分页与写回、结构设计器。
