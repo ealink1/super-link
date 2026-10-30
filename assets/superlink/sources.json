@@ -587,6 +587,16 @@
       "sourceSha256": "10146250028da0f76985894aebffc72d9b9b443d38f76af6ffc1cdb03aa3ec92",
       "sha256": "cb86a8948d6399bfc9cf404b66badc978a63c839d543035486a3a63a645c7fb6",
       "transform": "ICO pixels decoded to PNG"
+    },
+    {
+      "file": "assets/superlink/moon.svg",
+      "source": "local: hand-authored for SuperLink, parity with the macOS SF Symbol moon in the Go title bar",
+      "sha256": "fcd62b10afad66ecaeac8ddcd3586d76d7c32802e16fc15f4b5e6a9c1c0b608f"
+    },
+    {
+      "file": "assets/superlink/sun.svg",
+      "source": "local: hand-authored for SuperLink, parity with the macOS SF Symbol sun.max in the Go title bar",
+      "sha256": "32f39ef1f066a06bebf1955e827fd43e6efc88cfac261e1d309974e65ceba357"
     }
   ],
   "transform": "UI icons: mechanical JSX-to-SVG extraction; geometry unchanged. Database SVG/PNG copied byte-for-byte; ICO images decoded losslessly to PNG. Frame, palette and scale follow DatabaseIcons.tsx."

@@ -8,12 +8,16 @@ use gpui::{
 };
 use serde_json::Value;
 use superlink_app::{
-    Credentials, DraftService, HistoryService, ProfileService, QueryService, SettingsService,
-    placeholder_count,
+    Credentials, DraftService, HistoryService, ProfileService, QueryService, SavedQueryService,
+    SettingsService, placeholder_count,
 };
-use superlink_domain::{ConnectionConfig, Draft, History, Profile, ResultSet, catalog, resolve};
+use superlink_domain::{
+    ConnectionConfig, Draft, History, Profile, ResultSet, SavedQuery, catalog, resolve,
+};
 
 use crate::editor::SqlEditor;
+use crate::multiline_editor::SqlTextEditor;
+use superlink_sql::CompletionTable;
 use crate::icons;
 use crate::theme::Theme;
 
@@ -21,6 +25,7 @@ const DISPLAY_ROWS: usize = 300;
 pub(crate) const COLUMN_WIDTH: f32 = 160.0;
 pub(crate) const ROW_NUMBER_WIDTH: f32 = 52.0;
 const HISTORY_WIDTH: f32 = 300.0;
+const SAVED_WIDTH: f32 = 320.0;
 
 type SavedHandler = Box<dyn Fn(&str, &mut App) + 'static>;
 
@@ -68,7 +73,7 @@ pub struct QueryPage {
     history: Arc<HistoryService>,
     settings: Arc<SettingsService>,
     theme: Theme,
-    editor: Entity<SqlEditor>,
+    editor: Entity<SqlTextEditor>,
     profile: Option<Profile>,
     tabs: Vec<QueryTab>,
     active: usize,
@@ -99,18 +104,81 @@ pub struct QueryPage {
     form_database: Entity<SqlEditor>,
     form_password: Entity<SqlEditor>,
     form_error: Option<SharedString>,
+    /// Saved query library panel.
+    saved: Arc<SavedQueryService>,
+    saved_open: bool,
+    saved_items: Vec<SavedQuery>,
+    saved_title: Entity<SqlEditor>,
+    /// Inline rename: (entry id, title editor).
+    saved_renaming: Option<(String, Entity<SqlEditor>)>,
+    saved_note: Option<SharedString>,
 }
 
 impl QueryPage {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         profiles: Arc<ProfileService>,
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
         history: Arc<HistoryService>,
+        saved: Arc<SavedQueryService>,
         settings: Arc<SettingsService>,
         theme: Theme,
         cx: &mut Context<Self>,
     ) -> Self {
+        let form_name = cx.new(SqlEditor::new);
+        let form_host = cx.new(SqlEditor::new);
+        let form_port = cx.new(SqlEditor::new);
+        let form_user = cx.new(SqlEditor::new);
+        let form_database = cx.new(SqlEditor::new);
+        let form_password = cx.new(SqlEditor::new);
+        // 连接表单按固定顺序用 Tab / Shift+Tab 切换焦点。
+        {
+            use gpui::Focusable as _;
+            let handles: Vec<gpui::FocusHandle> = [
+                &form_name,
+                &form_host,
+                &form_port,
+                &form_user,
+                &form_database,
+                &form_password,
+            ]
+            .into_iter()
+            .map(|editor| editor.read(cx).focus_handle(cx))
+            .collect();
+            for editor in [
+                &form_name,
+                &form_host,
+                &form_port,
+                &form_user,
+                &form_database,
+                &form_password,
+            ] {
+                let handles = handles.clone();
+                editor.update(cx, |editor, cx| {
+                    editor.set_on_tab(
+                        move |shift, window, _app| {
+                            let current = handles
+                                .iter()
+                                .position(|handle| handle.is_focused(window))
+                                .unwrap_or(0);
+                            let last = handles.len() - 1;
+                            let next = if shift {
+                                current.checked_sub(1).unwrap_or(last)
+                            } else if current == last {
+                                0
+                            } else {
+                                current + 1
+                            };
+                            window.focus(&handles[next]);
+                        },
+                        cx,
+                    );
+                });
+            }
+        }
+        let saved_title = cx.new(SqlEditor::new);
+        saved_title.update(cx, |editor, cx| editor.set_placeholder("查询名称", cx));
         let page = Self {
             profiles,
             queries,
@@ -118,7 +186,11 @@ impl QueryPage {
             history,
             settings,
             theme,
-            editor: cx.new(SqlEditor::new),
+            editor: cx.new(|cx| {
+                let mut editor = SqlTextEditor::new(cx);
+                editor.set_theme(theme, cx);
+                editor
+            }),
             profile: None,
             tabs: Vec::new(),
             active: 0,
@@ -137,13 +209,19 @@ impl QueryPage {
             form_open: false,
             on_saved: None,
             form_kind: "sqlite".into(),
-            form_name: cx.new(SqlEditor::new),
-            form_host: cx.new(SqlEditor::new),
-            form_port: cx.new(SqlEditor::new),
-            form_user: cx.new(SqlEditor::new),
-            form_database: cx.new(SqlEditor::new),
-            form_password: cx.new(SqlEditor::new),
+            form_name,
+            form_host,
+            form_port,
+            form_user,
+            form_database,
+            form_password,
             form_error: None,
+            saved,
+            saved_open: false,
+            saved_items: Vec::new(),
+            saved_title,
+            saved_renaming: None,
+            saved_note: None,
         };
         // Cmd+R in the editor runs the statement, matching the toolbar label.
         let weak = cx.entity().downgrade();
@@ -159,8 +237,16 @@ impl QueryPage {
         page
     }
 
+    /// Hands the editor the cached table/column snapshot from the object tree.
+    pub fn set_catalog(&mut self, tables: Vec<CompletionTable>, cx: &mut Context<Self>) {
+        self.editor
+            .update(cx, |editor, cx| editor.set_tables(tables, cx));
+    }
+
     pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
         self.theme = theme;
+        self.editor
+            .update(cx, |editor, cx| editor.set_theme(theme, cx));
         cx.notify();
     }
 
@@ -177,6 +263,9 @@ impl QueryPage {
             .unwrap_or_default();
         self.editor
             .update(cx, |editor, cx| editor.set_text(text, cx));
+        let dialect = profile.sql_dialect().to_string();
+        self.editor
+            .update(cx, |editor, cx| editor.set_dialect(&dialect, cx));
         self.profile = Some(profile);
         self.result = None;
         self.error = None;
@@ -559,6 +648,416 @@ impl QueryPage {
         cx.notify();
     }
 
+    pub fn saved_open(&self) -> bool {
+        self.saved_open
+    }
+
+    pub fn open_saved(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.saved_open = true;
+        self.history_open = false;
+        use gpui::Focusable as _;
+        let handle = self.saved_title.read(cx).focus_handle(cx);
+        window.focus(&handle);
+        self.refresh_saved(cx);
+    }
+
+    fn close_saved(&mut self, cx: &mut Context<Self>) {
+        self.saved_open = false;
+        cx.notify();
+    }
+
+    fn refresh_saved(&mut self, cx: &mut Context<Self>) {
+        match self.saved.list() {
+            Ok(items) => {
+                self.saved_items = items;
+                self.saved_note = None;
+            }
+            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
+        }
+        cx.notify();
+    }
+
+    fn save_current_query(&mut self, cx: &mut Context<Self>) {
+        let Some(profile) = self.profile.clone() else {
+            self.saved_note = Some(SharedString::from("请先选择一个连接"));
+            cx.notify();
+            return;
+        };
+        let sql = self.editor.read(cx).text().to_string();
+        if sql.trim().is_empty() {
+            self.saved_note = Some(SharedString::from("当前查询为空，无法保存"));
+            cx.notify();
+            return;
+        }
+        let typed = Self::editor_text(&self.saved_title, cx).trim().to_string();
+        let title = if typed.is_empty() {
+            sql.lines()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(|line| line.chars().take(40).collect::<String>())
+                .unwrap_or_else(|| "未命名查询".into())
+        } else {
+            typed
+        };
+        let scope = profile.config.database.clone();
+        match self.saved.save(&profile.id, &title, &scope, &sql) {
+            Ok(saved) => {
+                self.saved_title
+                    .update(cx, |editor, cx| editor.set_text("", cx));
+                self.saved_note = Some(SharedString::from(format!("已保存《{}》", saved.title)));
+            }
+            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
+        }
+        self.refresh_saved(cx);
+    }
+
+    fn load_saved(&mut self, id: String, cx: &mut Context<Self>) {
+        let Some(item) = self.saved_items.iter().find(|item| item.id == id).cloned() else {
+            return;
+        };
+        self.editor
+            .update(cx, |editor, cx| editor.set_text(item.text.clone(), cx));
+        self.status = SharedString::from(format!("已载入已存查询《{}》", item.title));
+        self.saved_open = false;
+        self.saved_note = None;
+        cx.notify();
+    }
+
+    fn delete_saved(&mut self, id: String, cx: &mut Context<Self>) {
+        if let Err(err) = self.saved.delete(&id) {
+            self.saved_note = Some(SharedString::from(err.to_string()));
+            cx.notify();
+            return;
+        }
+        self.saved_note = Some(SharedString::from("已删除"));
+        self.refresh_saved(cx);
+    }
+
+    fn start_saved_rename(&mut self, id: String, title: String, cx: &mut Context<Self>) {
+        let editor = cx.new(SqlEditor::new);
+        editor.update(cx, |editor, cx| {
+            editor.set_placeholder("查询名称", cx);
+            editor.set_text(title, cx);
+        });
+        self.saved_renaming = Some((id, editor));
+        cx.notify();
+    }
+
+    fn commit_saved_rename(&mut self, cx: &mut Context<Self>) {
+        let Some((id, editor)) = self.saved_renaming.clone() else {
+            return;
+        };
+        let title = Self::editor_text(&editor, cx).trim().to_string();
+        if title.is_empty() {
+            self.saved_note = Some(SharedString::from("名称不能为空"));
+            cx.notify();
+            return;
+        }
+        match self.saved.rename(&id, &title) {
+            Ok(saved) => {
+                self.saved_note = Some(SharedString::from(format!("已重命名为《{}》", saved.title)));
+                self.saved_renaming = None;
+            }
+            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
+        }
+        self.refresh_saved(cx);
+    }
+
+    fn cancel_saved_rename(&mut self, cx: &mut Context<Self>) {
+        self.saved_renaming = None;
+        cx.notify();
+    }
+
+    /// 右侧已存查询面板：输入名称保存当前 SQL，或打开、删除已有条目。
+    fn saved_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let mut panel = div()
+            .flex()
+            .flex_col()
+            .w(px(SAVED_WIDTH))
+            .h_full()
+            .bg(theme.sidebar)
+            .border_l_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .px_3()
+                    .h(px(36.0))
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .child(icons::icon("superlink/sql-doc.svg", 13.0, theme.muted))
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.muted)
+                                    .child("已存查询"),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id("close-saved")
+                            .px_1()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| this.close_saved(cx)))
+                            .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_3()
+                    .py_2()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .flex_1()
+                            .h(px(crate::theme::CONTROL_MIN))
+                            .px_2()
+                            .rounded_md()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(theme.surface)
+                            .child(self.saved_title.clone()),
+                    )
+                    .child(
+                        div()
+                            .id("save-current-query")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .h(px(crate::theme::CONTROL_MIN))
+                            .px_3()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(theme.accent)
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.surface)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.save_current_query(cx)
+                            }))
+                            .child("保存当前"),
+                    ),
+            );
+
+        if let Some(note) = self.saved_note.clone() {
+            panel = panel.child(
+                div()
+                    .px_3()
+                    .pb_1()
+                    .text_size(px(12.0))
+                    .text_color(theme.muted)
+                    .child(note),
+            );
+        }
+
+        if self.saved_items.is_empty() {
+            return panel.child(
+                div()
+                    .px_3()
+                    .py_2()
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.muted)
+                    .child("还没有已存查询。填写名称后点击「保存当前」。"),
+            );
+        }
+
+        let mut list = div()
+            .id("saved-list")
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h(px(0.0))
+            .overflow_y_scroll();
+        for item in &self.saved_items {
+            let renaming = self
+                .saved_renaming
+                .as_ref()
+                .map(|(rename_id, _)| rename_id == &item.id)
+                .unwrap_or(false);
+            if renaming {
+                let editor = self
+                    .saved_renaming
+                    .as_ref()
+                    .map(|(_, editor)| editor.clone())
+                    .expect("renaming state carries an editor");
+                list = list.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .mx_2()
+                        .my(px(1.0))
+                        .px_2()
+                        .py_2()
+                        .rounded_md()
+                        .bg(theme.accent_soft)
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .h(px(28.0))
+                                .px_2()
+                                .rounded_md()
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(theme.surface)
+                                .child(editor),
+                        )
+                        .child(
+                            div()
+                                .id("confirm-saved-rename")
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .size(px(26.0))
+                                .rounded_md()
+                                .cursor_pointer()
+                                .bg(theme.accent)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.commit_saved_rename(cx)
+                                }))
+                                .child(icons::icon("shell/check.svg", 13.0, theme.surface)),
+                        )
+                        .child(
+                            div()
+                                .id("cancel-saved-rename")
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .size(px(26.0))
+                                .rounded_md()
+                                .cursor_pointer()
+                                .hover(move |style| style.bg(theme.accent_soft))
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.cancel_saved_rename(cx)
+                                }))
+                                .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
+                        ),
+                );
+                continue;
+            }
+
+            let id = item.id.clone();
+            let open_id = item.id.clone();
+            let rename_id = item.id.clone();
+            let rename_title = item.title.clone();
+            let title = SharedString::from(if item.title.is_empty() {
+                "未命名查询".to_string()
+            } else {
+                item.title.clone()
+            });
+            let meta = match (item.scope.trim().is_empty(), item.updated_at) {
+                (true, Some(time)) => time
+                    .with_timezone(&chrono::Local)
+                    .format("%m/%d %H:%M")
+                    .to_string(),
+                (false, Some(time)) => format!(
+                    "{} · {}",
+                    item.scope,
+                    time.with_timezone(&chrono::Local).format("%m/%d %H:%M")
+                ),
+                (true, None) => "—".to_string(),
+                (false, None) => item.scope.clone(),
+            };
+            list = list.child(
+                div()
+                    .id(SharedString::from(format!("saved-{}", item.id)))
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .mx_2()
+                    .my(px(1.0))
+                    .px_2()
+                    .py_2()
+                    .rounded_md()
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .pr_1()
+                            .child(
+                                div()
+                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_color(theme.text)
+                                    .child(title),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(11.0))
+                                    .text_color(theme.muted)
+                                    .child(SharedString::from(meta)),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("rename-saved-{}", item.id)))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(26.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.start_saved_rename(rename_id.clone(), rename_title.clone(), cx)
+                            }))
+                            .child(icons::icon("superlink/pencil.svg", 13.0, theme.muted)),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("open-saved-{}", item.id)))
+                            .px_2()
+                            .h(px(26.0))
+                            .flex()
+                            .items_center()
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(theme.button)
+                            .text_size(px(12.0))
+                            .text_color(theme.text)
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.load_saved(open_id.clone(), cx)
+                            }))
+                            .child("打开"),
+                    )
+                    .child(
+                        div()
+                            .id(SharedString::from(format!("delete-saved-{}", item.id)))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(26.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(move |this, _event, _window, cx| {
+                                this.delete_saved(id.clone(), cx)
+                            }))
+                            .child(icons::icon("superlink/trash.svg", 13.0, theme.muted)),
+                    ),
+            );
+        }
+        panel.child(list)
+    }
+
     fn history_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut panel = div()
@@ -726,7 +1225,7 @@ impl QueryPage {
         cx.notify();
     }
 
-    pub fn open_connection_form(&mut self, cx: &mut Context<Self>) {
+    pub fn open_connection_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.form_open = true;
         self.form_kind = "sqlite".into();
         self.form_error = None;
@@ -754,13 +1253,25 @@ impl QueryPage {
             .update(cx, |editor, cx| editor.set_placeholder("例如 mydb", cx));
         self.form_password
             .update(cx, |editor, cx| editor.set_placeholder("密码", cx));
+        // 打开表单即聚焦第一个字段，Tab 才有起点。
+        use gpui::Focusable as _;
+        let handle = self.form_name.read(cx).focus_handle(cx);
+        window.focus(&handle);
         if let Ok(descriptor) = resolve("sqlite") {
-            let port = descriptor
-                .port
-                .map(|value| value.to_string())
-                .unwrap_or_else(|| "例如 3306".into());
-            self.form_port
-                .update(cx, |editor, cx| editor.set_text(port, cx));
+            // 有默认端口的写进输入框，没有的只做占位，避免把提示文字当值提交。
+            match descriptor.port {
+                Some(port) => {
+                    let port = port.to_string();
+                    self.form_port
+                        .update(cx, |editor, cx| editor.set_text(port, cx));
+                }
+                None => {
+                    self.form_port.update(cx, |editor, cx| {
+                        editor.set_placeholder("例如 3306", cx);
+                        editor.set_text("", cx);
+                    });
+                }
+            }
         }
         cx.notify();
     }
@@ -772,11 +1283,11 @@ impl QueryPage {
 
     pub fn set_form_kind(&mut self, kind: String, cx: &mut Context<Self>) {
         self.form_kind = kind.clone();
-        if let Ok(descriptor) = resolve(&kind)
-            && let Some(port) = descriptor.port
-        {
+        // 切换驱动时端口跟随新类型的默认值；没有默认端口的类型清空，避免残留上一个驱动的端口。
+        if let Ok(descriptor) = resolve(&kind) {
+            let port = descriptor.port.map(|port| port.to_string()).unwrap_or_default();
             self.form_port
-                .update(cx, |editor, cx| editor.set_text(port.to_string(), cx));
+                .update(cx, |editor, cx| editor.set_text(port, cx));
         }
         cx.notify();
     }
@@ -811,6 +1322,29 @@ impl QueryPage {
                 }
             }
         };
+        if self.form_kind == "sqlite" {
+            if database.trim().is_empty() {
+                self.form_error = Some("请输入 SQLite 数据库文件路径".into());
+                cx.notify();
+                return;
+            }
+        } else if self.form_kind != "custom" {
+            if host.trim().is_empty() {
+                self.form_error = Some("请输入主机地址".into());
+                cx.notify();
+                return;
+            }
+            if port == 0 {
+                // 空值提示「请输入」，填了 0 则提示无效，避免文案与输入矛盾。
+                self.form_error = Some(if port_text.trim().is_empty() {
+                    "请输入端口（1-65535）".into()
+                } else {
+                    "端口无效，请输入 1-65535".into()
+                });
+                cx.notify();
+                return;
+            }
+        }
         let profile = Profile {
             id: uuid::Uuid::new_v4().to_string(),
             name: name.trim().to_string(),
@@ -1022,7 +1556,7 @@ impl QueryPage {
             .border_color(theme.border);
         for (index, tab) in self.tabs.iter().enumerate() {
             let active = index == self.active;
-            let title = SharedString::from(tab.title.clone());
+            let title = SharedString::from(crate::text::shorten(&tab.title, 16));
             strip = strip.child(
                 div()
                     .id(("tab", index))
@@ -1046,6 +1580,9 @@ impl QueryPage {
                     }))
                     .child(
                         div()
+                            .max_w(px(160.0))
+                            .overflow_hidden()
+                            .whitespace_nowrap()
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(if active { theme.text } else { theme.muted })
                             .child(title),
@@ -1160,9 +1697,12 @@ impl QueryPage {
                     ))
                     .child(
                         div()
+                            .max_w(px(180.0))
+                            .overflow_hidden()
+                            .whitespace_nowrap()
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
-                            .child(SharedString::from(profile_label)),
+                            .child(SharedString::from(crate::text::shorten(&profile_label, 18))),
                     )
                     .child(
                         div()
@@ -1329,7 +1869,7 @@ impl QueryPage {
             .px_3()
             .py_2()
             .gap_1()
-            .h(px(220.0))
+            .h(px(260.0))
             .border_b_1()
             .border_color(theme.border)
             .text_color(theme.text)
@@ -1674,7 +2214,8 @@ impl Render for QueryPage {
                                     .child(self.status_row())
                                     .child(self.result_panel(cx)),
                             )
-                            .children(self.history_open.then(|| self.history_panel(cx))),
+                            .children(self.history_open.then(|| self.history_panel(cx)))
+                            .children(self.saved_open.then(|| self.saved_panel(cx))),
                     )
                     .into_any_element()
             })

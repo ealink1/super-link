@@ -259,6 +259,32 @@ impl Store {
         Ok(queries)
     }
 
+    /// Every saved statement regardless of connection, newest first.
+    pub fn all_saved_queries(&self) -> StoreResult<Vec<SavedQuery>> {
+        let db = self.lock();
+        let mut statement = db.prepare(
+            "SELECT id,profile_id,title,scope,schema_name,text,revision,updated_at
+             FROM saved_queries ORDER BY updated_at DESC, title COLLATE NOCASE",
+        )?;
+        let rows = statement.query_map([], |row| {
+            Ok(SavedQuery {
+                id: row.get(0)?,
+                profile_id: row.get(1)?,
+                title: row.get(2)?,
+                scope: row.get(3)?,
+                schema: row.get(4)?,
+                text: row.get(5)?,
+                revision: row.get(6)?,
+                updated_at: chrono::DateTime::from_timestamp_millis(row.get(7)?),
+            })
+        })?;
+        let mut queries = Vec::new();
+        for row in rows {
+            queries.push(row?);
+        }
+        Ok(queries)
+    }
+
     /// Optimistic concurrency keeps two editors from clobbering each other.
     pub fn save_saved_query(&self, query: &SavedQuery) -> StoreResult<SavedQuery> {
         let mut saved = query.clone();

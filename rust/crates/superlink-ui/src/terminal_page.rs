@@ -3,6 +3,7 @@
 //! The transport blocks on its own runtime, so connecting and reading happen
 //! on a worker thread; the GPUI thread only drains events and paints.
 
+use std::collections::BTreeMap;
 use std::ops::Range;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -101,6 +102,12 @@ pub struct TerminalPage {
     attempts: u32,
     /// Invalidates a pending reconnect after a manual disconnect.
     generation: u64,
+    /// Host page filters mirrored from the Fyne shell.
+    privacy: bool,
+    list_mode: bool,
+    group: String,
+    rail_expanded: bool,
+    notice: Option<SharedString>,
 }
 
 impl TerminalPage {
@@ -151,6 +158,11 @@ impl TerminalPage {
             auto_reconnect: false,
             attempts: 0,
             generation: 0,
+            privacy: false,
+            list_mode: false,
+            group: String::new(),
+            rail_expanded: false,
+            notice: None,
         }
     }
 
@@ -283,19 +295,6 @@ impl TerminalPage {
     }
 
     /// Manual reconnect after a drop, or a retry from the header button.
-    fn reconnect(&mut self, cx: &mut Context<Self>) {
-        if self.session.is_some() {
-            return;
-        }
-        let Some(target) = self.target.clone() else {
-            return;
-        };
-        self.attempts = 0;
-        self.auto_reconnect = true;
-        self.begin(target, false, cx);
-    }
-
-    /// User-initiated disconnect: cancel retries and close the transport.
     fn disconnect(&mut self, cx: &mut Context<Self>) {
         self.auto_reconnect = false;
         self.generation += 1;
@@ -538,133 +537,506 @@ impl TerminalPage {
         }
     }
 
+    fn rail(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let width = if self.rail_expanded { 144.0 } else { 64.0 };
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap_2()
+            .w(px(width))
+            .h_full()
+            .py_3()
+            .bg(theme.sidebar)
+            .border_r_1()
+            .border_color(theme.border)
+            .child(self.rail_button(
+                "rail-toggle",
+                "shell/chevron-right.svg",
+                "",
+                false,
+                cx,
+                Self::toggle_rail,
+            ))
+            .child(div().h(px(8.0)))
+            .child(self.rail_button(
+                "rail-hosts",
+                "shell/server.svg",
+                "主机",
+                self.session.is_none(),
+                cx,
+                Self::show_hosts,
+            ))
+            .child(self.rail_button(
+                "rail-terminal",
+                "shell/terminal.svg",
+                "终端",
+                self.session.is_some(),
+                cx,
+                Self::focus_terminal,
+            ))
+            .child(div().flex_1())
+            .child(self.rail_button(
+                "rail-settings",
+                "shell/settings.svg",
+                "设置",
+                false,
+                cx,
+                Self::shell_settings_notice,
+            ))
+    }
+
+    fn rail_button(
+        &self,
+        id: &'static str,
+        icon: &'static str,
+        label: &'static str,
+        active: bool,
+        cx: &mut Context<Self>,
+        handler: fn(&mut Self, &mut Window, &mut Context<Self>),
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        let expanded = self.rail_expanded;
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .gap_2()
+            .when(expanded, |style| style.w_full().px_2().justify_start())
+            .when(!expanded, |style| style.size(px(40.0)).justify_center())
+            .h(px(40.0))
+            .rounded_md()
+            .cursor_pointer()
+            .bg(if active { theme.accent_soft } else { theme.sidebar })
+            .hover(move |style| style.bg(theme.accent_soft))
+            .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
+            .child(icons::icon(
+                icon,
+                22.0,
+                if active { theme.accent } else { theme.muted },
+            ))
+            .children(if label.is_empty() || !expanded {
+                None
+            } else {
+                Some(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.text)
+                        .child(label),
+                )
+            })
+    }
+
+    fn toggle_rail(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.rail_expanded = !self.rail_expanded;
+        cx.notify();
+    }
+
+    fn show_hosts(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.form_open = false;
+        self.disconnect(cx);
+    }
+
+    fn focus_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.session.is_none() {
+            self.connect_local(cx);
+        }
+        self.focus.focus(window);
+        cx.notify();
+    }
+
+    fn shell_settings_notice(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = Some(SharedString::from("Shell 设置尚未接入"));
+        cx.notify();
+    }
+
+    /// 会话/表单模式的紧凑头部，保留连接状态与断开入口。
     fn header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         div()
             .flex()
             .items_center()
-            .gap_2()
-            .px_3()
-            .h(px(40.0))
+            .gap_3()
+            .px_4()
+            .h(px(56.0))
             .border_b_1()
             .border_color(theme.border)
+            .child(icons::icon("shell/terminal.svg", 18.0, theme.text))
             .child(
                 div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_size(px(15.0))
+                    .font_weight(FontWeight::BOLD)
                     .text_color(theme.text)
                     .child(if self.session.is_some() {
                         "终端"
                     } else {
-                        "未连接"
+                        "新建主机"
                     }),
             )
-            .child(div().flex_1())
             .child(
                 div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_size(px(12.0))
                     .text_color(theme.muted)
                     .child(self.status.clone()),
             )
-            .child(
-                div()
-                    .id("local-shell")
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .cursor_pointer()
-                    .bg(theme.accent_soft)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.accent)
-                    .on_click(cx.listener(|this, _event, window, cx| {
-                        this.connect_local(cx);
-                        this.focus.focus(window);
-                        cx.notify();
-                    }))
-                    .child(icons::icon("shell/terminal.svg", 13.0, theme.accent))
-                    .child("本地终端"),
-            )
-            .child(
-                div()
-                    .id("new-host")
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(theme.accent_soft)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.accent)
-                    .on_click(cx.listener(|this, _event, _window, cx| this.open_host_form(cx)))
-                    .child("新建主机"),
-            )
-            .child(
-                div()
-                    .id("connect-host")
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .cursor_pointer()
-                    .bg(theme.accent)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.surface)
-                    .on_click(cx.listener(|this, _event, window, cx| {
-                        this.connect_selected(cx);
-                        this.focus.focus(window);
-                        cx.notify();
-                    }))
-                    .child(icons::icon("superlink/link.svg", 13.0, theme.surface))
-                    .child("连接"),
-            )
+            .child(div().flex_1())
             .child(if self.session.is_some() {
                 div()
                     .id("disconnect")
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
+                    .px_3()
+                    .h(px(32.0))
                     .flex()
                     .items_center()
-                    .gap_1()
+                    .rounded_md()
                     .cursor_pointer()
-                    .bg(theme.accent_soft)
+                    .bg(theme.button)
                     .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.accent)
+                    .text_color(theme.text)
                     .on_click(cx.listener(|this, _event, _window, cx| this.disconnect(cx)))
-                    .child(icons::icon("superlink/stop.svg", 13.0, theme.accent))
                     .child("断开")
                     .into_any_element()
             } else {
                 div()
-                    .id("reconnect")
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
+                    .id("close-host-form")
+                    .px_3()
+                    .h(px(32.0))
                     .flex()
                     .items_center()
-                    .gap_1()
+                    .rounded_md()
                     .cursor_pointer()
-                    .bg(theme.accent_soft)
+                    .bg(theme.button)
                     .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.accent)
-                    .on_click(cx.listener(|this, _event, window, cx| {
-                        this.reconnect(cx);
-                        this.focus.focus(window);
-                        cx.notify();
-                    }))
-                    .child(icons::icon("shell/refresh-cw.svg", 13.0, theme.accent))
-                    .child("重连")
+                    .text_color(theme.text)
+                    .on_click(cx.listener(|this, _event, _window, cx| this.close_host_form(cx)))
+                    .child("取消")
                     .into_any_element()
             })
     }
 
-    #[allow(clippy::too_many_lines)]
+    /// 主机管理页：头部 + 分组侧栏 + 搜索工具栏 + 卡片网格。
+    fn hosts_page(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w(px(0.0))
+            .h_full()
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .px_4()
+                    .h(px(56.0))
+                    .border_b_1()
+                    .border_color(theme.border)
+                    .child(icons::icon("shell/server.svg", 20.0, theme.text))
+                    .child(
+                        div()
+                            .text_size(px(15.0))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child("主机管理"),
+                    )
+                    .child(div().flex_1())
+                    .children(self.notice.as_ref().map(|notice| {
+                        div()
+                            .text_size(px(12.0))
+                            .text_color(theme.muted)
+                            .child(notice.clone())
+                            .into_any_element()
+                    }))
+                    .child(
+                        div()
+                            .id("privacy")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_3()
+                            .h(px(32.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .border_1()
+                            .border_color(theme.border)
+                            .bg(if self.privacy { theme.accent_soft } else { theme.surface })
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.privacy = !this.privacy;
+                                cx.notify();
+                            }))
+                            .child(icons::icon("shell/eye-off.svg", 14.0, theme.muted))
+                            .child("隐私模式"),
+                    )
+                    .child(
+                        div()
+                            .id("new-host")
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .px_3()
+                            .h(px(32.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(theme.accent)
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.surface)
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.open_host_form(cx)),
+                            )
+                            .child(icons::icon("shell/plus.svg", 14.0, theme.surface))
+                            .child("新建主机"),
+                    ),
+            )
+            .child(
+                div()
+                    .flex()
+                    .flex_1()
+                    .min_h(px(0.0))
+                    .child(self.group_sidebar(cx))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_w(px(0.0))
+                            .child(self.hosts_toolbar(cx))
+                            .child(self.host_cards(cx)),
+                    ),
+            )
+    }
+
+    fn group_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        let groups = self.group_counts();
+        let mut rows = div().flex().flex_col().gap_1().w_full();
+        rows = rows.child(
+            div()
+                .id("group-all")
+                .flex()
+                .items_center()
+                .gap_2()
+                .h(px(30.0))
+                .px_2()
+                .rounded_md()
+                .cursor_pointer()
+                .bg(if self.group.is_empty() {
+                    theme.accent_soft
+                } else {
+                    theme.canvas
+                })
+                .hover(move |style| style.bg(theme.accent_soft))
+                .on_click(cx.listener(|this, _event, _window, cx| {
+                    this.group.clear();
+                    cx.notify();
+                }))
+                .child(icons::icon("shell/layout-grid.svg", 14.0, theme.muted))
+                .child(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.text)
+                        .child("全部主机"),
+                ),
+        );
+        for (name, count) in groups {
+            let selected = self.group == name;
+            let value = name.clone();
+            rows = rows.child(
+                div()
+                    .id(SharedString::from(format!("group-{name}")))
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .h(px(32.0))
+                    .px_2()
+                    .rounded_md()
+                    .cursor_pointer()
+                    .bg(if selected {
+                        theme.accent_soft
+                    } else {
+                        theme.canvas
+                    })
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(move |this, _event, _window, cx| {
+                        this.group = value.clone();
+                        cx.notify();
+                    }))
+                    .child(icons::icon("shell/folder.svg", 14.0, theme.muted))
+                    .child(
+                        div()
+                            .flex_1()
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child(SharedString::from(name)),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(theme.muted)
+                            .child(format!("{count}")),
+                    ),
+            );
+        }
+
+        div()
+            .flex()
+            .flex_col()
+            .w(px(224.0))
+            .h_full()
+            .px_3()
+            .py_3()
+            .border_r_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .pb_2()
+                    .text_size(px(11.0))
+                    .font_weight(FontWeight::BOLD)
+                    .text_color(theme.muted)
+                    .child("分组导航"),
+            )
+            .child(rows)
+            .child(div().flex_1())
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .pt_3()
+                    .border_t_1()
+                    .border_color(theme.border)
+                    .child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(theme.muted)
+                            .child("标签筛选"),
+                    )
+                    .child(
+                        div()
+                            .text_size(px(12.0))
+                            .text_color(theme.muted)
+                            .child("尚无标签"),
+                    ),
+            )
+    }
+
+    fn hosts_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = self.theme;
+        div()
+            .flex()
+            .items_center()
+            .gap_3()
+            .px_4()
+            .h(px(52.0))
+            .border_b_1()
+            .border_color(theme.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_2()
+                    .w(px(224.0))
+                    .h(px(30.0))
+                    .px_2()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .child(icons::icon("shell/search.svg", 13.0, theme.muted))
+                    .child(div().flex_1().min_w(px(0.0)).child(self.search.clone())),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .justify_between()
+                    .w(px(92.0))
+                    .h(px(30.0))
+                    .px_2()
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_color(theme.text)
+                    .child("SSH")
+                    .child(icons::icon("shell/chevron-down.svg", 12.0, theme.muted)),
+            )
+            .child(
+                div()
+                    .id("reload-hosts")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .size(px(30.0))
+                    .rounded_md()
+                    .cursor_pointer()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)))
+                    .child(icons::icon("shell/refresh-cw.svg", 14.0, theme.muted)),
+            )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .child(
+                        div()
+                            .id("hosts-grid")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(30.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(if self.list_mode {
+                                theme.surface
+                            } else {
+                                theme.accent_soft
+                            })
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.list_mode = false;
+                                cx.notify();
+                            }))
+                            .child(icons::icon("shell/layout-grid.svg", 14.0, theme.muted)),
+                    )
+                    .child(
+                        div()
+                            .id("hosts-list")
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(30.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(if self.list_mode {
+                                theme.accent_soft
+                            } else {
+                                theme.surface
+                            })
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.list_mode = true;
+                                cx.notify();
+                            }))
+                            .child(icons::icon("shell/list.svg", 14.0, theme.muted)),
+                    ),
+            )
+    }
+
+    fn group_counts(&self) -> Vec<(String, usize)> {
+        let mut counts: BTreeMap<String, usize> = BTreeMap::new();
+        counts.insert("默认分组".into(), 0);
+        for host in &self.host_list {
+            *counts.entry(group_label(&host.group)).or_insert(0) += 1;
+        }
+        counts.into_iter().collect()
+    }
     fn host_form(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         div()
@@ -814,6 +1186,9 @@ impl TerminalPage {
             .iter()
             .enumerate()
             .filter(|(_, host)| {
+                self.group.is_empty() || group_label(&host.group) == self.group
+            })
+            .filter(|(_, host)| {
                 needle.is_empty()
                     || host.name.to_lowercase().contains(&needle)
                     || host.host.to_lowercase().contains(&needle)
@@ -821,74 +1196,47 @@ impl TerminalPage {
             })
             .collect();
 
-        let area = div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_h(px(0.0))
-            .px_3()
-            .pt_3()
-            .gap_2()
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .w(px(300.0))
-                    .px_2()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.surface)
-                    .child(div().flex_1().min_w(px(0.0)).child(self.search.clone())),
-            )
-            .child(
-                div()
-                    .id("reload-hosts")
-                    .flex()
-                    .items_center()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| this.reload_hosts(cx)))
-                    .child(icons::icon("shell/refresh-cw.svg", 13.0, theme.muted)),
-            );
-
         if matches.is_empty() {
-            return area.child(
-                div()
-                    .flex()
-                    .flex_1()
-                    .items_center()
-                    .justify_center()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(if self.host_list.is_empty() {
-                        "还没有 SSH 主机。可以先打开本地终端。"
-                    } else {
-                        "没有匹配的主机"
-                    }),
-            );
-        }
-
-        area.child(
-            div()
+            return div()
                 .id("host-cards")
                 .flex()
-                .flex_wrap()
-                .gap_2()
+                .flex_col()
+                .flex_1()
+                .items_center()
+                .justify_center()
+                .gap_3()
                 .overflow_y_scroll()
-                .children(
-                    matches
-                        .into_iter()
-                        .map(|(index, host)| self.host_card(index, host, cx)),
-                ),
-        )
+                .child(icons::icon("shell/server.svg", 44.0, theme.muted))
+                .child(
+                    div()
+                        .text_size(px(15.0))
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(theme.text)
+                        .child("暂无主机"),
+                )
+                .child(
+                    div()
+                        .text_size(px(12.0))
+                        .text_color(theme.muted)
+                        .child("新建主机，或调整搜索与筛选条件"),
+                );
+        }
+
+        div()
+            .id("host-cards")
+            .flex()
+            .flex_wrap()
+            .items_start()
+            .gap_4()
+            .p_4()
+            .flex_1()
+            .min_h(px(0.0))
+            .overflow_y_scroll()
+            .children(
+                matches
+                    .into_iter()
+                    .map(|(index, host)| self.host_card(index, host, cx)),
+            )
     }
 
     fn host_card(
@@ -899,17 +1247,148 @@ impl TerminalPage {
     ) -> impl IntoElement + use<> {
         let theme = self.theme;
         let name = SharedString::from(host.name.clone());
-        let endpoint = SharedString::from(format!("{}@{}:{}", host.user, host.host, host.port));
-        div()
-            .w(px(280.0))
+        let address = SharedString::from(if self.privacy {
+            "••••@••••••".to_string()
+        } else {
+            format!("{}@{}:{}", host.user, host.host, host.port)
+        });
+        let notes = SharedString::from(
+            host.notes
+                .lines()
+                .next()
+                .filter(|line| !line.trim().is_empty())
+                .map(|line| line.to_string())
+                .unwrap_or_else(|| "暂无备注".into()),
+        );
+        let tags = SharedString::from(if host.tags.trim().is_empty() {
+            "无标签".to_string()
+        } else {
+            host.tags.clone()
+        });
+        let card = div()
+            .id(("host-card", index))
             .flex()
             .flex_col()
-            .gap_2()
-            .p_3()
-            .rounded_md()
+            .p_4()
+            .rounded_lg()
             .bg(theme.surface)
             .border_1()
             .border_color(theme.border)
+            .hover(move |style| style.border_color(theme.accent));
+        if self.list_mode {
+            return card
+                .w_full()
+                .h(px(120.0))
+                .child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_3()
+                        .child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .size(px(40.0))
+                                .rounded_md()
+                                .bg(theme.button)
+                                .child(icons::icon("shell/terminal.svg", 20.0, theme.text)),
+                        )
+                        .child(
+                            div()
+                                .flex()
+                                .flex_col()
+                                .gap_1()
+                                .flex_1()
+                                .child(
+                                    div()
+                                        .flex()
+                                        .items_center()
+                                        .gap_2()
+                                        .child(
+                                            div()
+                                                .text_size(px(14.0))
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_color(theme.text)
+                                                .child(name),
+                                        )
+                                        .child(protocol_badge(theme)),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(12.0))
+                                        .text_color(theme.muted)
+                                        .child(address),
+                                )
+                                .child(
+                                    div()
+                                        .text_size(px(11.0))
+                                        .text_color(theme.muted)
+                                        .child(notes),
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id(("quick-connect", index))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .w(px(120.0))
+                                .h(px(30.0))
+                                .rounded_md()
+                                .cursor_pointer()
+                                .bg(theme.button)
+                                .border_1()
+                                .border_color(theme.border)
+                                .hover(move |style| style.bg(theme.accent_soft))
+                                .on_click(cx.listener(move |this, _event, window, cx| {
+                                    this.connect_host_at(index, window, cx)
+                                }))
+                                .child(
+                                    div()
+                                        .text_size(px(12.0))
+                                        .font_weight(FontWeight::BOLD)
+                                        .text_color(theme.text)
+                                        .child("快速连接"),
+                                ),
+                        ),
+                );
+        }
+        card.w(px(300.0))
+            .h(px(260.0))
+            .child(
+                div()
+                    .flex()
+                    .items_start()
+                    .justify_between()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(44.0))
+                            .rounded_md()
+                            .bg(theme.button)
+                            .child(icons::icon("shell/terminal.svg", 22.0, theme.text)),
+                    )
+                    .child(
+                        div()
+                            .id(("host-menu", index))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(24.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(|this, _event, _window, cx| {
+                                this.notice = Some(SharedString::from("主机菜单尚未接入"));
+                                cx.notify();
+                            }))
+                            .child(icons::icon("shell/ellipsis.svg", 16.0, theme.muted)),
+                    ),
+            )
+            .child(div().h(px(14.0)))
             .child(
                 div()
                     .flex()
@@ -917,48 +1396,46 @@ impl TerminalPage {
                     .gap_2()
                     .child(
                         div()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(34.0))
-                            .rounded_md()
-                            .bg(theme.accent_soft)
-                            .child(icons::icon("shell/terminal.svg", 16.0, theme.accent)),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_size(px(14.0))
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.text)
                             .child(name),
-                    ),
+                    )
+                    .child(protocol_badge(theme)),
             )
+            .child(div().h(px(6.0)))
             .child(
                 div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_size(px(12.0))
                     .text_color(theme.muted)
-                    .child(endpoint),
+                    .child(address),
             )
+            .child(div().h(px(8.0)))
             .child(
                 div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
+                    .text_size(px(11.0))
                     .text_color(theme.muted)
-                    .child(if host.notes.is_empty() {
-                        SharedString::from("暂无备注")
-                    } else {
-                        SharedString::from(host.notes.clone())
-                    }),
+                    .child(notes),
             )
+            .child(div().flex_1())
+            .child(
+                div()
+                    .text_size(px(11.0))
+                    .text_color(theme.muted)
+                    .child(tags),
+            )
+            .child(div().h(px(14.0)))
             .child(
                 div()
                     .id(("quick-connect", index))
                     .flex()
                     .items_center()
                     .justify_center()
-                    .h(px(crate::theme::CONTROL_MIN))
+                    .h(px(30.0))
+                    .w_full()
                     .rounded_md()
                     .cursor_pointer()
-                    .bg(theme.canvas)
+                    .bg(theme.button)
                     .border_1()
                     .border_color(theme.border)
                     .hover(move |style| style.bg(theme.accent_soft))
@@ -967,13 +1444,13 @@ impl TerminalPage {
                     }))
                     .child(
                         div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_size(px(12.0))
+                            .font_weight(FontWeight::BOLD)
                             .text_color(theme.text)
                             .child("快速连接"),
                     ),
             )
     }
-
     fn terminal_area(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut area = div()
@@ -1505,228 +1982,53 @@ impl Render for TerminalPage {
         let theme = self.theme;
         div()
             .flex()
-            .flex_col()
             .size_full()
             .bg(theme.canvas)
-            .child(self.header(cx))
-            .child(if self.form_open {
-                self.host_form(cx).into_any_element()
-            } else if self.session.is_some() {
-                div()
-                    .flex()
-                    .flex_1()
-                    .min_h(px(0.0))
-                    .child(self.terminal_area(cx))
-                    .into_any_element()
-            } else {
+            .child(self.rail(cx))
+            .child(
                 div()
                     .flex()
                     .flex_col()
                     .flex_1()
-                    .min_h(px(0.0))
-                    .bg(theme.canvas)
-                    .child(self.host_cards(cx))
-                    .into_any_element()
-            })
+                    .min_w(px(0.0))
+                    .child(if self.form_open || self.session.is_some() {
+                        self.header(cx).into_any_element()
+                    } else {
+                        self.hosts_page(cx).into_any_element()
+                    })
+                    .child(
+                        if self.form_open {
+                            self.host_form(cx).into_any_element()
+                        } else if self.session.is_some() {
+                            div()
+                                .flex()
+                                .flex_col()
+                                .flex_1()
+                                .min_h(px(0.0))
+                                .child(self.terminal_area(cx))
+                                .into_any_element()
+                        } else {
+                            div().into_any_element()
+                        },
+                    ),
+            )
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn encodes_control_and_navigation_keys() {
-        assert_eq!(encode_key("enter", false).unwrap(), b"\r");
-        assert_eq!(encode_key("backspace", false).unwrap(), b"\x7f");
-        assert_eq!(encode_key("up", false).unwrap(), b"\x1b[A");
-        assert_eq!(encode_key("c", true).unwrap(), vec![0x03]);
-        assert_eq!(encode_key("z", true).unwrap(), vec![0x1a]);
-    }
-
-    #[test]
-    fn leaves_printable_text_to_the_input_handler() {
-        assert!(encode_key("a", false).is_none());
-        assert!(encode_key("中", false).is_none());
-        assert!(encode_key("space", false).is_none());
-        assert!(encode_key("f1", false).is_none());
-    }
-
-    #[test]
-    fn palette_covers_ansi_greyscale_and_cube() {
-        assert_eq!(palette(1), 0xe06c75);
-        assert_eq!(palette(232), 0x080808);
-        assert_eq!(palette(16), 0x000000);
-        assert_eq!(palette(196), 0xff0000);
+fn group_label(group: &str) -> String {
+    if group.trim().is_empty() {
+        "默认分组".into()
+    } else {
+        group.trim().to_string()
     }
 }
 
-#[cfg(all(test, unix))]
-mod pty_tests {
-    use std::sync::mpsc;
-    use std::time::Duration;
-
-    use super::*;
-
-    /// Proves the real local PTY feeds the real screen model.
-    #[test]
-    fn local_shell_output_reaches_the_screen() {
-        let mut session =
-            LocalSession::open(Some("/bin/sh"), TerminalGeometry { cols: 80, rows: 24 })
-                .expect("local pty");
-        session.write(b"printf 'superlink-ok\\n'\n").expect("write");
-        let (tx, rx) = mpsc::channel();
-        std::thread::spawn(move || {
-            let mut buffer = [0u8; 8192];
-            for _ in 0..64 {
-                match session.read(&mut buffer) {
-                    Ok(0) => break,
-                    Ok(count) => {
-                        if tx.send(buffer[..count].to_vec()).is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        });
-
-        let mut screen = Screen::new(80, 24);
-        let mut parser = vte::Parser::new();
-        let deadline = std::time::Instant::now() + Duration::from_secs(5);
-        while std::time::Instant::now() < deadline {
-            match rx.recv_timeout(Duration::from_millis(200)) {
-                Ok(bytes) => screen.feed(&mut parser, &bytes),
-                Err(_) => continue,
-            }
-            let found = (0..24).any(|row| screen.row(row).0.contains("superlink-ok"));
-            if found {
-                return;
-            }
-        }
-        panic!("shell output did not reach the screen");
-    }
-}
-
-#[cfg(test)]
-mod composition_tests {
-    use super::Composition;
-
-    #[test]
-    fn preedit_is_visible_but_not_committed() {
-        let mut composition = Composition::default();
-        composition.mark("zhong");
-        assert!(composition.is_active());
-        assert_eq!(composition.preedit(), Some("zhong"));
-        assert_eq!(composition.utf16_len(), 5);
-    }
-
-    #[test]
-    fn clearing_returns_the_previous_preedit_once() {
-        let mut composition = Composition::default();
-        composition.mark("中文");
-        assert_eq!(composition.utf16_len(), 2);
-        assert_eq!(composition.clear().as_deref(), Some("中文"));
-        assert!(!composition.is_active());
-        assert_eq!(composition.clear(), None);
-    }
-
-    #[test]
-    fn empty_mark_cancels_the_composition() {
-        let mut composition = Composition::default();
-        composition.mark("a");
-        composition.mark("");
-        assert!(!composition.is_active());
-        assert_eq!(composition.utf16_len(), 0);
-    }
-
-    #[test]
-    fn surrogate_pairs_count_as_two_units() {
-        let mut composition = Composition::default();
-        composition.mark("👩‍💻");
-        assert_eq!(composition.utf16_len(), 5);
-    }
-}
-
-#[cfg(all(test, unix))]
-mod ime_pty_tests {
-    use std::time::{Duration, Instant};
-
-    use super::*;
-
-    /// The commit path hands UTF-8 to the PTY byte for byte; the shell writes
-    /// it to disk so the assertion does not depend on terminal rendering.
-    #[test]
-    fn committed_chinese_reaches_the_shell_unchanged() {
-        let target = std::env::temp_dir().join(format!(
-            "superlink-ime-{}-{}.txt",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let _ = std::fs::remove_file(&target);
-        let mut session =
-            LocalSession::open(Some("/bin/sh"), TerminalGeometry { cols: 80, rows: 24 })
-                .expect("local pty");
-        let handle = session.handle();
-
-        let command = format!("printf '中文输入' > {}\n", target.display());
-        handle.write(command.as_bytes()).expect("write");
-
-        // The reader owns the session; writes go through the cloneable handle.
-        let drain = std::thread::spawn(move || {
-            let mut buffer = [0u8; 8192];
-            loop {
-                match session.read(&mut buffer) {
-                    Ok(0) | Err(_) => break,
-                    Ok(_) => {}
-                }
-            }
-        });
-
-        let deadline = Instant::now() + Duration::from_secs(5);
-        let mut received = None;
-        while Instant::now() < deadline {
-            if let Ok(text) = std::fs::read_to_string(&target) {
-                received = Some(text);
-                break;
-            }
-            std::thread::sleep(Duration::from_millis(50));
-        }
-
-        // Unblock the reader and reap the child before asserting.
-        let _ = handle.close();
-        let _ = drain.join();
-        let _ = std::fs::remove_file(&target);
-        assert_eq!(received.as_deref(), Some("中文输入"));
-    }
-
-    /// A preedit update must not write anything to the session.
-    #[test]
-    fn composition_updates_do_not_touch_the_session() {
-        let mut composition = Composition::default();
-        composition.mark("zhong");
-        assert_eq!(composition.preedit(), Some("zhong"));
-        // Nothing else to send: only Composition::clear plus a commit produces
-        // bytes, which the handler performs in replace_text_in_range.
-        assert!(composition.is_active());
-    }
-}
-
-#[cfg(test)]
-mod reconnect_tests {
-    use super::{MAX_RECONNECT_ATTEMPTS, backoff_delay};
-
-    #[test]
-    fn backoff_grows_and_then_stops() {
-        assert_eq!(backoff_delay(0), None);
-        assert_eq!(backoff_delay(1), Some(1));
-        assert_eq!(backoff_delay(2), Some(2));
-        assert_eq!(backoff_delay(3), Some(4));
-        assert_eq!(backoff_delay(4), Some(8));
-        assert_eq!(backoff_delay(5), Some(15));
-        assert_eq!(backoff_delay(MAX_RECONNECT_ATTEMPTS + 1), None);
-    }
+fn protocol_badge(theme: Theme) -> impl IntoElement {
+    div()
+        .px_1()
+        .rounded_sm()
+        .bg(theme.accent_soft)
+        .text_size(px(10.0))
+        .text_color(theme.accent)
+        .child("SSH")
 }

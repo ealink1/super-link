@@ -3,12 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use gpui::{
-    AnyElement, App, Application, Bounds, Context, Entity, FontWeight, IntoElement, SharedString,
-    Window, WindowBounds, WindowOptions, div, prelude::*, px, size,
+    AnyElement, App, Application, Bounds, Context, Entity, FontWeight, IntoElement, MouseButton,
+    SharedString, Window, WindowBounds, WindowOptions, div, point, prelude::*, px, size,
 };
 use superlink_app::{
     DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
-    SettingsService, StructureService,
+    SavedQueryService, SettingsService, StructureService,
 };
 use superlink_domain::Profile;
 
@@ -25,6 +25,21 @@ enum Workspace {
     Shell,
     Note,
 }
+
+/// 标题栏高度，对齐 Fyne 原生标题栏 accessory 的 36。
+const TITLEBAR_HEIGHT: f32 = 36.0;
+/// 顶部工具栏高度，对齐 Fyne header toolbar 的 56。
+const HEADER_HEIGHT: f32 = 56.0;
+/// SQL / Shell / Note 分段宽度，Fyne 每段 56。
+const MODE_TAB_WIDTH: f32 = 56.0;
+/// 单个库最多后台预取的表结构数量，避免一次性打满连接。
+const PREFETCH_LIMIT: usize = 200;
+/// 预取过程中每处理若干张表刷新一次补全快照。
+const PREFETCH_REFRESH_EVERY: usize = 8;
+
+/// 工具栏图标与标题字号，Fyne header 图标 24、标题 12。
+const HEADER_ICON: f32 = 22.0;
+const HEADER_CAPTION: f32 = 12.0;
 
 impl Workspace {
     fn label(self) -> &'static str {
@@ -71,7 +86,6 @@ pub struct SuperLinkApp {
     settings: Arc<SettingsService>,
     mode: ThemeMode,
     settings_open: bool,
-    sql_filter: String,
     sql_search: Entity<SqlEditor>,
     queries: Arc<QueryService>,
     expanded_conns: HashSet<usize>,
@@ -89,6 +103,11 @@ pub struct SuperLinkApp {
     group_rename: Option<(String, Entity<SqlEditor>)>,
     declared_groups: Vec<String>,
     group_note: Option<SharedString>,
+    /// 正在后台预取结构的（连接, 库），避免重复排队。
+    prefetching: HashSet<(usize, String)>,
+    /// 侧栏：搜索框是否展开、当前对象类型过滤。
+    search_open: bool,
+    filter_kind: String,
     structure_edit: Option<StructureEdit>,
     workbench: Option<crate::workbench::Workbench>,
     wb_column: Entity<SqlEditor>,
@@ -96,6 +115,8 @@ pub struct SuperLinkApp {
     wb_import: Entity<SqlEditor>,
     workspace: Workspace,
     theme: Theme,
+    resolved_dark: bool,
+    notice: Option<SharedString>,
     error: Option<SharedString>,
 }
 
@@ -106,6 +127,7 @@ impl SuperLinkApp {
         queries: Arc<QueryService>,
         drafts: Arc<DraftService>,
         history: Arc<HistoryService>,
+        saved: Arc<SavedQueryService>,
         structure: Arc<StructureService>,
         groups: Arc<superlink_app::GroupService>,
         notebook: Arc<NotebookService>,
@@ -115,7 +137,8 @@ impl SuperLinkApp {
         cx: &mut Context<Self>,
     ) -> Self {
         let mode = ThemeMode::from_key(&settings.theme_mode());
-        let theme = mode.resolve(window.appearance() == gpui::WindowAppearance::Dark);
+        let resolved_dark = window.appearance() == gpui::WindowAppearance::Dark;
+        let theme = mode.resolve(resolved_dark);
         let (profiles, error) = match service.list() {
             Ok(profiles) => (profiles, None),
             Err(err) => (Vec::new(), Some(SharedString::from(err.to_string()))),
@@ -126,6 +149,7 @@ impl SuperLinkApp {
                 queries.clone(),
                 drafts,
                 history,
+                saved.clone(),
                 settings.clone(),
                 theme,
                 cx,
@@ -135,29 +159,25 @@ impl SuperLinkApp {
         query_page.update(cx, |page, cx| {
             page.set_on_saved(
                 move |id, app| {
+                    // 回调发生在 QueryPage 更新期间，先排队再更新外壳，避免重入。
                     let weak_shell = weak_shell.clone();
-                    let _ = weak_shell.update(app, |shell, cx| shell.select_profile_by_id(id, cx));
-                },
-                cx,
-            );
-        });
-        let weak_app = cx.entity().downgrade();
-        let sql_search = cx.new(SqlEditor::new);
-        sql_search.update(cx, move |editor, cx| {
-            editor.set_placeholder("搜索连接…", cx);
-            let weak_app = weak_app.clone();
-            editor.set_on_change(
-                move |text, app| {
-                    let weak_app = weak_app.clone();
-                    let _ = weak_app.update(app, |page, cx| {
-                        page.sql_filter = text.to_string();
-                        cx.notify();
+                    let id = id.to_string();
+                    app.defer(move |app| {
+                        let _ = weak_shell
+                            .update(app, |shell, cx| shell.select_profile_by_id(&id, cx));
                     });
                 },
                 cx,
             );
         });
-        let note_page = cx.new(|_cx| NotePage::new(notebook, theme));
+        let sql_search = cx.new(SqlEditor::new);
+        sql_search.update(cx, |editor, cx| {
+            editor.set_placeholder("搜索连接…", cx);
+        });
+        // 过滤值直接读输入框文本，避免在回调里重入更新本实体。
+        cx.observe(&sql_search, |_this, _editor, cx| cx.notify())
+            .detach();
+        let note_page = cx.new(|cx| NotePage::new(notebook, theme, cx));
         let terminal_page = cx.new(|cx| TerminalPage::new(hosts, theme, cx));
         let mut app = Self {
             service,
@@ -170,7 +190,6 @@ impl SuperLinkApp {
             settings,
             mode,
             settings_open: false,
-            sql_filter: String::new(),
             sql_search: sql_search.clone(),
             queries: queries.clone(),
             expanded_conns: HashSet::new(),
@@ -192,6 +211,9 @@ impl SuperLinkApp {
             group_rename: None,
             declared_groups: Vec::new(),
             group_note: None,
+            prefetching: HashSet::new(),
+            search_open: false,
+            filter_kind: String::new(),
             structure_edit: None,
             workbench: None,
             wb_column: cx.new(SqlEditor::new),
@@ -205,6 +227,8 @@ impl SuperLinkApp {
             },
             workspace: Workspace::Sql,
             theme,
+            resolved_dark,
+            notice: None,
             error,
         };
         app.sync_selection(cx);
@@ -217,7 +241,8 @@ impl SuperLinkApp {
     }
 
     fn set_mode(&mut self, mode: ThemeMode, window: &mut Window, cx: &mut Context<Self>) {
-        let theme = mode.resolve(window.appearance() == gpui::WindowAppearance::Dark);
+        self.resolved_dark = window.appearance() == gpui::WindowAppearance::Dark;
+        let theme = mode.resolve(self.resolved_dark);
         self.mode = mode;
         self.theme = theme;
         self.query_page
@@ -420,6 +445,112 @@ impl SuperLinkApp {
             self.query_page
                 .update(cx, |page, cx| page.select_profile(profile, cx));
         }
+        self.sync_catalog(cx);
+    }
+
+    /// Rebuilds the completion snapshot from the metadata the object tree has
+    /// already cached for the selected connection.
+    fn sync_catalog(&mut self, cx: &mut Context<Self>) {
+        let index = self.selected;
+        let mut tables: Vec<superlink_sql::CompletionTable> = Vec::new();
+        for ((conn, database), entries) in self.db_tables.iter() {
+            if *conn != index {
+                continue;
+            }
+            let Some(entries) = entries else {
+                continue;
+            };
+            for entry in entries {
+                let columns = self
+                    .table_structures
+                    .get(&(index, entry.name.clone()))
+                    .map(|structure| {
+                        structure
+                            .columns
+                            .iter()
+                            .map(|column| column.name.clone())
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                tables.push(superlink_sql::CompletionTable {
+                    schema: database.clone(),
+                    name: entry.name.clone(),
+                    columns,
+                });
+            }
+        }
+        self.query_page
+            .update(cx, |page, cx| page.set_catalog(tables, cx));
+    }
+
+    /// Fetches every uncached table structure for one database in the
+    /// background so column completion works without expanding each table.
+    fn prefetch_structures(&mut self, index: usize, database: String, cx: &mut Context<Self>) {
+        let Some(profile) = self.profiles.get(index).cloned() else {
+            return;
+        };
+        if !self.prefetching.insert((index, database.clone())) {
+            return;
+        }
+        let entries = self
+            .db_tables
+            .get(&(index, database.clone()))
+            .and_then(|entries| entries.clone())
+            .unwrap_or_default();
+        let cached: HashSet<String> = self
+            .table_structures
+            .keys()
+            .filter(|(conn, _)| *conn == index)
+            .map(|(_, table)| table.clone())
+            .collect();
+        let pending = missing_structures(&entries, &cached, PREFETCH_LIMIT);
+        if pending.is_empty() {
+            self.prefetching.remove(&(index, database));
+            return;
+        }
+        let queries = self.queries.clone();
+        let profile_id = profile.id.clone();
+        cx.spawn(async move |this, cx| {
+            let mut done = 0usize;
+            for table in pending {
+                let queries = queries.clone();
+                let profile = profile.clone();
+                let db = database.clone();
+                let table_for_task = table.clone();
+                let task = cx
+                    .background_executor()
+                    .spawn(async move { queries.structure(&profile, &db, &table_for_task) });
+                let outcome = task.await;
+                done += 1;
+                let refresh = done % PREFETCH_REFRESH_EVERY == 0;
+                let updated = this.update(cx, |this, cx| {
+                    let still_selected = this
+                        .profiles
+                        .get(index)
+                        .map(|profile| profile.id == profile_id)
+                        .unwrap_or(false);
+                    if !still_selected {
+                        return;
+                    }
+                    if let Ok(structure) = outcome {
+                        this.table_structures.insert((index, table.clone()), structure);
+                    }
+                    if refresh {
+                        this.sync_catalog(cx);
+                    }
+                });
+                if updated.is_err() {
+                    break;
+                }
+            }
+            this.update(cx, |this, cx| {
+                this.prefetching.remove(&(index, database.clone()));
+                this.sync_catalog(cx);
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// 连接节点的库列表；SQLite 返回空即没有库层级，直接挂表。
@@ -448,8 +579,13 @@ impl SuperLinkApp {
             this.update(cx, |this, cx| {
                 match outcome {
                     Ok(databases) => {
+                        let flat = databases.is_empty();
                         this.conn_dbs.insert(index, Some(databases));
                         this.conn_db_note.remove(&index);
+                        if flat {
+                            // SQLite 一类没有库层级的数据源：连接下直接取表。
+                            this.fetch_tables(index, String::new(), cx);
+                        }
                     }
                     Err(err) => {
                         this.conn_dbs.insert(index, Some(Vec::new()));
@@ -494,6 +630,8 @@ impl SuperLinkApp {
                 match outcome {
                     Ok(entries) => {
                         this.db_tables.insert(key, Some(entries));
+                        this.sync_catalog(cx);
+                        this.prefetch_structures(index, database.clone(), cx);
                     }
                     Err(err) => {
                         this.db_tables.insert(key, Some(Vec::new()));
@@ -554,6 +692,7 @@ impl SuperLinkApp {
                     Ok(structure) => {
                         this.table_structures.insert(key, structure);
                         this.column_errors.remove(&(index, table));
+                        this.sync_catalog(cx);
                     }
                     Err(err) => {
                         this.column_errors
@@ -2737,6 +2876,10 @@ impl SuperLinkApp {
 
     /// 当前连接的表结构；只有原生 SQLite 会填充，其余显示说明。
     /// 一张表的行 + 展开后的列/索引/外键。
+    fn matches_filter(&self, entry: &superlink_drivers::TableEntry) -> bool {
+        self.filter_kind.is_empty() || entry.kind == self.filter_kind
+    }
+
     fn table_block(
         &self,
         index: usize,
@@ -3026,7 +3169,11 @@ impl SuperLinkApp {
                                     .child("没有表"),
                             );
                         }
-                        for entry in tables.iter().take(200) {
+                        for entry in tables
+                            .iter()
+                            .filter(|entry| self.matches_filter(entry))
+                            .take(200)
+                        {
                             subtree =
                                 subtree.child(self.table_block(index, String::new(), entry, cx));
                         }
@@ -3060,23 +3207,31 @@ impl SuperLinkApp {
                             .id(SharedString::from(format!("db-{index}-{database}")))
                             .flex()
                             .items_center()
-                            .gap_1()
-                            .pl(px(30.0))
-                            .py(px(1.0))
+                            .gap_2()
+                            .mx_2()
+                            .my(px(1.0))
+                            .h(px(36.0))
+                            .pl(px(40.0))
+                            .pr_2()
+                            .rounded_md()
                             .cursor_pointer()
                             .hover(move |style| style.bg(theme.accent_soft))
                             .on_click(cx.listener(move |this, _event, _window, cx| {
                                 this.toggle_db(index, toggle_db.clone(), cx)
                             }))
+                            .child(icons::icon(
+                                if expanded {
+                                    "shell/chevron-down.svg"
+                                } else {
+                                    "shell/chevron-right.svg"
+                                },
+                                13.0,
+                                theme.muted,
+                            ))
+                            .child(icons::icon("superlink/database.svg", 17.0, theme.accent))
                             .child(
                                 div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(if expanded { "▾" } else { "▸" }),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
+                                    .text_size(px(14.0))
                                     .text_color(theme.text)
                                     .child(SharedString::from(database.clone())),
                             ),
@@ -3096,7 +3251,11 @@ impl SuperLinkApp {
                                         .child("没有表"),
                                 );
                             }
-                            for entry in tables.iter().take(200) {
+                            for entry in tables
+                                .iter()
+                                .filter(|entry| self.matches_filter(entry))
+                                .take(200)
+                            {
                                 subtree = subtree.child(self.table_block(
                                     index,
                                     database.clone(),
@@ -3120,68 +3279,221 @@ impl SuperLinkApp {
         }
         subtree.into_any_element()
     }
+    fn sidebar_icon_button(
+        &self,
+        id: &'static str,
+        icon: &'static str,
+        active: bool,
+        cx: &mut Context<Self>,
+        handler: fn(&mut Self, &mut Window, &mut Context<Self>),
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(px(28.0))
+            .rounded_md()
+            .cursor_pointer()
+            .bg(if active { theme.accent_soft } else { theme.sidebar })
+            .hover(move |style| style.bg(theme.accent_soft))
+            .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
+            .child(icons::icon(
+                icon,
+                16.0,
+                if active { theme.accent } else { theme.muted },
+            ))
+    }
+
+    fn toggle_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.search_open = !self.search_open;
+        if self.search_open {
+            use gpui::Focusable as _;
+            let handle = self.sql_search.read(cx).focus_handle(cx);
+            window.focus(&handle);
+        } else {
+            self.sql_search
+                .update(cx, |editor, cx| editor.set_text("", cx));
+        }
+        cx.notify();
+    }
+
+    fn locate_connection(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        let index = self.selected;
+        self.expanded_conns.insert(index);
+        if !self.conn_dbs.contains_key(&index) {
+            self.fetch_databases(index, cx);
+        }
+        self.workspace = Workspace::Sql;
+        self.sync_selection(cx);
+        cx.notify();
+    }
+
+    fn refresh_connections(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.refresh();
+        cx.notify();
+    }
+
+    fn open_connection_menu(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.open_groups(cx);
+    }
+
+    fn filter_all(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.filter_kind.clear();
+        cx.notify();
+    }
+
+    fn filter_tables(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.filter_kind = "table".into();
+        cx.notify();
+    }
+
+    fn filter_views(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.filter_kind = "view".into();
+        cx.notify();
+    }
+
+    fn filter_functions(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.filter_kind = "function".into();
+        cx.notify();
+    }
+
+    fn saved_queries_action(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.workspace = Workspace::Sql;
+        self.query_page
+            .update(cx, |page, cx| page.open_saved(window, cx));
+        cx.notify();
+    }
+
+    fn saved_open_indicator(&self, cx: &Context<Self>) -> bool {
+        self.query_page.read(cx).saved_open()
+    }
+
+    /// 连接侧栏：标题与工具行、对象类型过滤行、分组树。
     fn sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut column = div()
             .flex()
             .flex_col()
-            .w(px(248.0))
+            .w(px(264.0))
             .h_full()
             .bg(theme.sidebar)
             .border_r_1()
-            .border_color(theme.border);
+            .border_color(theme.border)
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .h(px(52.0))
+                    .pl_3()
+                    .pr_2()
+                    .child(
+                        div()
+                            .text_size(px(15.0))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(theme.text)
+                            .child("连接"),
+                    )
+                    .child(div().flex_1())
+                    .child(self.sidebar_icon_button(
+                        "conn-search",
+                        "superlink/search.svg",
+                        self.search_open,
+                        cx,
+                        Self::toggle_search,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "conn-locate",
+                        "superlink/locate.svg",
+                        false,
+                        cx,
+                        Self::locate_connection,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "refresh-connections",
+                        "superlink/refresh.svg",
+                        false,
+                        cx,
+                        Self::refresh_connections,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "connection-menu",
+                        "superlink/connection-menu.svg",
+                        false,
+                        cx,
+                        Self::open_connection_menu,
+                    )),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .px_3()
+                    .pb_2()
+                    .child(self.sidebar_icon_button(
+                        "filter-all",
+                        "superlink/all-objects.svg",
+                        self.filter_kind.is_empty(),
+                        cx,
+                        Self::filter_all,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "filter-table",
+                        "superlink/table.svg",
+                        self.filter_kind == "table",
+                        cx,
+                        Self::filter_tables,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "filter-view",
+                        "superlink/view.svg",
+                        self.filter_kind == "view",
+                        cx,
+                        Self::filter_views,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "filter-function",
+                        "superlink/function.svg",
+                        self.filter_kind == "function",
+                        cx,
+                        Self::filter_functions,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "saved-queries-icon",
+                        "superlink/sql-doc.svg",
+                        self.saved_open_indicator(cx),
+                        cx,
+                        Self::saved_queries_action,
+                    ))
+                    .child(self.sidebar_icon_button(
+                        "execution-history",
+                        "superlink/history.svg",
+                        false,
+                        cx,
+                        Self::history_action,
+                    )),
+            );
 
-        column = column.child(
-            div()
-                .flex()
-                .items_center()
-                .justify_between()
-                .px_3()
-                .h(px(44.0))
-                .child(
-                    div()
-                        .text_size(px(crate::theme::TEXT_SIZE))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(theme.muted)
-                        .child("连接"),
-                )
-                .child(
-                    div()
-                        .id("refresh-connections")
-                        .flex()
-                        .items_center()
-                        .gap_1()
-                        .px_1()
-                        .rounded_md()
-                        .cursor_pointer()
-                        .text_size(px(crate::theme::TEXT_SIZE))
-                        .text_color(theme.muted)
-                        .hover(move |style| style.bg(theme.accent_soft))
-                        .on_click(cx.listener(|this, _event, _window, cx| {
-                            this.refresh();
-                            cx.notify();
-                        }))
-                        .child(icons::icon("superlink/refresh.svg", 13.0, theme.muted))
-                        .child(format!("{}", self.profiles.len())),
-                ),
-        );
-
-        column = column.child(
-            div()
-                .flex()
-                .items_center()
-                .gap_1()
-                .mx_2()
-                .mb_2()
-                .px_2()
-                .h(px(crate::theme::CONTROL_MIN))
-                .rounded_md()
-                .border_1()
-                .border_color(theme.border)
-                .bg(theme.surface)
-                .child(icons::icon("shell/search.svg", 13.0, theme.muted))
-                .child(self.sql_search.clone()),
-        );
+        if self.search_open {
+            column = column.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_1()
+                    .mx_2()
+                    .mb_2()
+                    .px_2()
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .rounded_md()
+                    .border_1()
+                    .border_color(theme.border)
+                    .bg(theme.surface)
+                    .child(icons::icon("shell/search.svg", 13.0, theme.muted))
+                    .child(self.sql_search.clone()),
+            );
+        }
 
         if self.profiles.is_empty() {
             column = column.child(
@@ -3190,11 +3502,11 @@ impl SuperLinkApp {
                     .py_2()
                     .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
-                    .child("还没有连接。数据库层接入后，这里会列出本机工作区。"),
+                    .child("还没有连接。点击上方「新建连接」开始。"),
             );
         }
 
-        let needle = self.sql_filter.to_lowercase();
+        let needle = self.sql_search.read(cx).text().to_lowercase();
         let mut groups: BTreeMap<String, Vec<(usize, &Profile)>> = BTreeMap::new();
         for (index, profile) in self.profiles.iter().enumerate() {
             if !needle.is_empty()
@@ -3211,7 +3523,6 @@ impl SuperLinkApp {
             };
             groups.entry(key).or_default().push((index, profile));
         }
-        // 已声明但暂无连接的分组也要显示
         for name in &self.declared_groups {
             groups.entry(name.clone()).or_default();
         }
@@ -3227,13 +3538,14 @@ impl SuperLinkApp {
                     .id(SharedString::from(format!("group-{group}")))
                     .flex()
                     .items_center()
-                    .gap_1()
+                    .gap_2()
                     .mx_2()
                     .mt_1()
+                    .h(px(40.0))
                     .px_2()
-                    .py_1()
                     .rounded_md()
                     .cursor_pointer()
+                    .bg(theme.button)
                     .hover(move |style| style.bg(theme.accent_soft))
                     .on_click(cx.listener(move |this, _event, _window, cx| {
                         if !this.collapsed_groups.remove(&group_key) {
@@ -3241,22 +3553,26 @@ impl SuperLinkApp {
                         }
                         cx.notify();
                     }))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child(if collapsed { "▸" } else { "▾" }),
-                    )
+                    .child(icons::icon(
+                        if collapsed {
+                            "shell/chevron-right.svg"
+                        } else {
+                            "shell/chevron-down.svg"
+                        },
+                        14.0,
+                        theme.muted,
+                    ))
+                    .child(icons::icon("superlink/folder.svg", 18.0, theme.accent))
                     .child(
                         div()
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .font_weight(FontWeight::BOLD)
-                            .text_color(theme.muted)
+                            .text_color(theme.text)
                             .child(SharedString::from(group.clone())),
                     )
                     .child(
                         div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_size(px(12.0))
                             .text_color(theme.muted)
                             .child(format!("{}", entries.len())),
                     ),
@@ -3266,105 +3582,105 @@ impl SuperLinkApp {
             }
             for (index, profile) in entries {
                 let active = index == self.selected;
-                let name = SharedString::from(profile.name.clone());
-                let kind = SharedString::from(profile.sql_dialect().to_uppercase());
-                let row = div()
-                    .id(("profile", index))
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .mx_2()
-                    .ml_5()
-                    .px_2()
-                    .py_2()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(if active {
-                        theme.accent_soft
-                    } else {
-                        theme.sidebar
-                    })
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.selected = index;
-                        this.workspace = Workspace::Sql;
-                        this.sync_selection(cx);
-                        cx.notify();
-                    }))
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .child(div().size(px(6.0)).rounded_full().bg(theme.success))
-                            .child(
-                                div()
-                                    .id(SharedString::from(format!("fold-conn-{index}")))
-                                    .w(px(14.0))
-                                    .flex()
-                                    .justify_center()
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                                        cx.stop_propagation();
-                                        this.toggle_conn(index, cx);
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.muted)
-                                            .child(if self.expanded_conns.contains(&index) {
-                                                "▾"
-                                            } else {
-                                                "▸"
-                                            }),
-                                    ),
-                            )
-                            .child(icons::icon(
-                                icons::datasource_icon(profile.sql_dialect()),
-                                14.0,
-                                if active { theme.accent } else { theme.muted },
-                            ))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(if active { theme.accent } else { theme.text })
-                                    .child(name),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .pl(px(22.0))
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child(kind),
-                    );
-                column = column.child(row);
-                if self.expanded_conns.contains(&index) {
+                // 连接名没有长度上限，超长时截断，避免撑出侧栏。
+                let name = SharedString::from(crate::text::shorten(&profile.name, 16));
+                let expanded = self.expanded_conns.contains(&index);
+                column = column.child(
+                    div()
+                        .id(("profile", index))
+                        .flex()
+                        .items_center()
+                        .gap_2()
+                        .mx_2()
+                        .mt_1()
+                        .h(px(40.0))
+                        .pl_5()
+                        .pr_2()
+                        .rounded_md()
+                        .cursor_pointer()
+                        .bg(if active {
+                            theme.accent_soft
+                        } else {
+                            theme.sidebar
+                        })
+                        .hover(move |style| style.bg(theme.accent_soft))
+                        .on_click(cx.listener(move |this, _event, _window, cx| {
+                            this.selected = index;
+                            this.workspace = Workspace::Sql;
+                            this.sync_selection(cx);
+                            cx.notify();
+                        }))
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("fold-conn-{index}")))
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .size(px(18.0))
+                                .cursor_pointer()
+                                .on_click(cx.listener(move |this, _event, _window, cx| {
+                                    cx.stop_propagation();
+                                    this.toggle_conn(index, cx);
+                                }))
+                                .child(icons::icon(
+                                    if expanded {
+                                        "shell/chevron-down.svg"
+                                    } else {
+                                        "shell/chevron-right.svg"
+                                    },
+                                    13.0,
+                                    theme.muted,
+                                )),
+                        )
+                        .child(icons::icon(
+                            icons::datasource_icon(profile.sql_dialect()),
+                            20.0,
+                            theme.muted,
+                        ))
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w(px(0.0))
+                                .overflow_hidden()
+                                .whitespace_nowrap()
+                                .text_size(px(14.0))
+                                .text_color(if active { theme.accent } else { theme.text })
+                                .child(name),
+                        )
+                        .children(active.then(|| {
+                            div()
+                                .size(px(8.0))
+                                .rounded_full()
+                                .bg(theme.success)
+                                .into_any_element()
+                        })),
+                );
+                if expanded {
                     column = column.child(self.conn_subtree(index, cx));
                 }
             }
         }
 
-        column = column.child(
+        column = column.child(div().flex_1()).child(
             div()
                 .id("saved-queries")
                 .flex()
                 .items_center()
-                .gap_1()
+                .gap_2()
                 .mx_2()
-                .mt_1()
+                .my_2()
+                .h(px(36.0))
                 .px_2()
-                .py_1()
                 .rounded_md()
                 .cursor_pointer()
                 .hover(move |style| style.bg(theme.accent_soft))
-                .on_click(cx.listener(|this, _event, _window, cx| {
+                .on_click(cx.listener(|this, _event, window, cx| {
                     this.workspace = Workspace::Sql;
                     this.query_page
-                        .update(cx, |page, cx| page.toggle_history(cx));
+                        .update(cx, |page, cx| page.open_saved(window, cx));
                     cx.notify();
                 }))
-                .child(icons::icon("superlink/history.svg", 13.0, theme.muted))
+                .child(icons::icon("superlink/folder-open.svg", 16.0, theme.muted))
                 .child(
                     div()
                         .text_size(px(crate::theme::TEXT_SIZE))
@@ -3375,9 +3691,57 @@ impl SuperLinkApp {
 
         column
     }
+    fn global_toolbar(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = self.theme;
+        // 顶部工具栏：Fyne header 高 56，图标在上、标题 12 号
+        div()
+            .flex()
+            .items_center()
+            .gap(px(4.0))
+            .px(px(8.0))
+            .h(px(HEADER_HEIGHT))
+            .w_full()
+            .bg(theme.canvas)
+            .border_b_1()
+            .border_color(theme.border)
+            .child(self.header_action(
+                "global-new-query",
+                "superlink/new-query.svg",
+                "新建查询",
+                cx,
+                Self::new_query_action,
+            ))
+            .child(self.header_action(
+                "global-new-connection",
+                "superlink/link.svg",
+                "新建连接",
+                cx,
+                Self::new_connection_action,
+            ))
+            .child(self.header_action(
+                "global-groups",
+                "superlink/all-objects.svg",
+                "管理连接分组",
+                cx,
+                Self::open_groups_action,
+            ))
+            .child(
+                div()
+                    .w(px(1.0))
+                    .h(px(24.0))
+                    .mx(px(6.0))
+                    .bg(theme.border),
+            )
+            .child(self.header_action(
+                "global-history",
+                "superlink/history.svg",
+                "执行历史",
+                cx,
+                Self::history_action,
+            ))
+            .into_any_element()
+    }
 
-    // The returned element owns only 'static data; opt out of the edition-2024
-    // lifetime capture so several tabs can be built from one context.
     fn workspace_tab(
         &self,
         workspace: Workspace,
@@ -3385,23 +3749,143 @@ impl SuperLinkApp {
     ) -> impl IntoElement + use<> {
         let active = self.workspace == workspace;
         let theme = self.theme;
+        let mut line = div()
+            .pb(px(3.0))
+            .border_b_2()
+            .border_color(gpui::transparent_black())
+            .text_size(px(14.0))
+            .text_color(if active { theme.text } else { theme.muted })
+            .child(workspace.label());
+        if active {
+            line = line.border_color(theme.accent);
+        }
         div()
             .id(("workspace", workspace as usize))
             .flex()
             .items_center()
+            .justify_center()
+            .w(px(MODE_TAB_WIDTH))
             .h_full()
-            .px_3()
             .cursor_pointer()
-            .border_b_2()
-            .border_color(if active { theme.accent } else { theme.surface })
-            .text_size(px(crate::theme::TEXT_SIZE))
-            .text_color(if active { theme.text } else { theme.muted })
-            .child(workspace.label())
+            .child(line)
             .on_click(cx.listener(move |this, _event, _window, cx| {
+                this.notice = None;
                 this.workspace = workspace;
                 cx.notify();
             }))
     }
+
+    /// 工具栏按钮：图标在上、12 号标题在下，最小宽度 64（对齐 Fyne headerAction）。
+    fn header_action(
+        &self,
+        id: &'static str,
+        icon: &'static str,
+        label: &'static str,
+        cx: &mut Context<Self>,
+        handler: fn(&mut Self, &mut Window, &mut Context<Self>),
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        div()
+            .id(id)
+            .flex()
+            .flex_col()
+            .items_center()
+            .justify_center()
+            .min_w(px(64.0))
+            .h_full()
+            .px(px(8.0))
+            .rounded_md()
+            .cursor_pointer()
+            .hover(move |style| style.bg(theme.accent_soft))
+            .on_click(cx.listener(move |this, _event, window, cx| {
+                handler(this, window, cx)
+            }))
+            .child(icons::icon(icon, HEADER_ICON, theme.text))
+            .child(
+                div()
+                    .mt(px(2.0))
+                    .text_size(px(HEADER_CAPTION))
+                    .text_color(theme.text)
+                    .child(label),
+            )
+    }
+
+    /// 标题栏右侧的系统图标按钮：32×30，无边框，悬停给一层浅底。
+    fn utility_button(
+        &self,
+        id: &'static str,
+        icon: &'static str,
+        cx: &mut Context<Self>,
+        handler: fn(&mut Self, &mut Window, &mut Context<Self>),
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .justify_center()
+            .w(px(32.0))
+            .h(px(30.0))
+            .rounded_md()
+            .cursor_pointer()
+            .hover(move |style| style.bg(theme.accent_soft))
+            .on_click(cx.listener(move |this, _event, window, cx| {
+                handler(this, window, cx)
+            }))
+            .child(icons::icon(icon, 16.0, theme.muted))
+    }
+
+    fn new_query_action(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.workspace = Workspace::Sql;
+        self.query_page.update(cx, |page, cx| page.add_tab(cx));
+        cx.notify();
+    }
+
+    fn new_connection_action(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.workspace = Workspace::Sql;
+        self.query_page
+            .update(cx, |page, cx| page.open_connection_form(window, cx));
+        cx.notify();
+    }
+
+    fn open_groups_action(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.open_groups(cx);
+    }
+
+    fn history_action(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.workspace = Workspace::Sql;
+        self.query_page
+            .update(cx, |page, cx| page.toggle_history(cx));
+        cx.notify();
+    }
+
+    fn open_settings(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = None;
+        self.settings_open = true;
+        cx.notify();
+    }
+
+    fn open_assistant(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.notice = Some(SharedString::from("AI 助手尚未接入原生工作台"));
+        cx.notify();
+    }
+}
+
+/// Tables whose structure is not cached yet, capped at "limit".
+fn missing_structures(
+    entries: &[superlink_drivers::TableEntry],
+    cached: &HashSet<String>,
+    limit: usize,
+) -> Vec<String> {
+    entries
+        .iter()
+        .filter(|entry| !cached.contains(&entry.name))
+        .take(limit)
+        .map(|entry| entry.name.clone())
+        .collect()
 }
 
 impl Render for SuperLinkApp {
@@ -3417,183 +3901,73 @@ impl Render for SuperLinkApp {
             .size_full()
             .bg(theme.canvas)
             .font_family("PingFang SC")
+            // 根节点统一处理 Tab：焦点在任意输入框时都能前后切换。
+            .on_key_down(cx.listener(|_this, event: &gpui::KeyDownEvent, window, cx| {
+                if event.keystroke.key == "tab" {
+                    cx.stop_propagation();
+                    if event.keystroke.modifiers.shift {
+                        window.focus_prev();
+                    } else {
+                        window.focus_next();
+                    }
+                }
+            }))
             .child(
+                // 标题栏：对齐 Fyne 的原生标题栏（分段切换 + 右侧工具图标，无品牌文字）
                 div()
                     .flex()
                     .items_center()
-                    .h(px(48.0))
-                    .px_4()
-                    .gap_2()
-                    .bg(theme.surface)
-                    .border_b_1()
-                    .border_color(theme.border)
+                    .h(px(TITLEBAR_HEIGHT))
+                    .w_full()
+                    .bg(theme.canvas)
                     .child(
                         div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(theme.text)
-                            .child("SuperLink"),
+                            .id("titlebar-lead")
+                            .w(px(72.0))
+                            .h_full()
+                            .on_mouse_down(MouseButton::Left, |_, window, _| {
+                                window.start_window_move()
+                            }),
                     )
-                    .child(div().w(px(12.0)))
                     .children(tabs)
-                    .child(div().flex_1())
                     .child(
                         div()
-                            .id("theme-toggle")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(
-                                cx.listener(|this, _event, window, cx| {
-                                    this.cycle_theme(window, cx)
-                                }),
-                            )
-                            .child(icons::icon("superlink/sliders.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(self.mode.label()),
-                            ),
+                            .id("titlebar-drag")
+                            .flex_1()
+                            .h_full()
+                            .on_mouse_down(MouseButton::Left, |_, window, _| {
+                                window.start_window_move()
+                            }),
                     )
-                    .child(
-                        div()
-                            .id("open-settings")
-                            .flex()
-                            .items_center()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.settings_open = true;
-                                cx.notify();
-                            }))
-                            .child(icons::icon("superlink/settings.svg", 15.0, theme.muted)),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child(
-                                self.error
-                                    .clone()
-                                    .unwrap_or_else(|| SharedString::from("原生 Rust 工作台")),
-                            ),
-                    ),
+                    .child(self.utility_button(
+                        "theme-toggle",
+                        if self.resolved_dark {
+                            "superlink/sun.svg"
+                        } else {
+                            "superlink/moon.svg"
+                        },
+                        cx,
+                        Self::cycle_theme,
+                    ))
+                    .child(self.utility_button(
+                        "ai-entry",
+                        "superlink/insight.svg",
+                        cx,
+                        Self::open_assistant,
+                    ))
+                    .child(self.utility_button(
+                        "open-settings",
+                        "superlink/settings.svg",
+                        cx,
+                        Self::open_settings,
+                    ))
+                    .child(div().w(px(8.0))),
             )
-            .child(
-                // 全局操作栏（对齐 Fyne 时期的顶部工具栏）
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_3()
-                    .h(px(40.0))
-                    .bg(theme.surface)
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .id("global-new-query")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.workspace = Workspace::Sql;
-                                this.query_page.update(cx, |page, cx| page.add_tab(cx));
-                                cx.notify();
-                            }))
-                            .child(icons::icon("superlink/new-query.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child("新建查询"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("global-new-connection")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.workspace = Workspace::Sql;
-                                this.query_page
-                                    .update(cx, |page, cx| page.open_connection_form(cx));
-                                cx.notify();
-                            }))
-                            .child(icons::icon("superlink/link.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child("新建连接"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("global-history")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.workspace = Workspace::Sql;
-                                this.query_page
-                                    .update(cx, |page, cx| page.toggle_history(cx));
-                                cx.notify();
-                            }))
-                            .child(icons::icon("superlink/history.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child("执行历史"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("global-groups")
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| this.open_groups(cx)))
-                            .child(icons::icon("superlink/all-objects.svg", 14.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child("管理连接分组"),
-                            ),
-                    ),
-            )
+            .children(if self.workspace == Workspace::Sql {
+                Some(self.global_toolbar(cx))
+            } else {
+                None
+            })
             .child(if self.settings_open {
                 self.settings_view(cx).into_any_element()
             } else if self.groups_open {
@@ -3634,19 +4008,37 @@ impl Render for SuperLinkApp {
                     })
                     .into_any_element()
             })
-            .child(
+            .children(if self.workspace == Workspace::Sql {
+                Some(
                 div()
                     .flex()
                     .items_center()
                     .h(px(26.0))
+                    .w_full()
                     .px_3()
                     .bg(theme.surface)
                     .border_t_1()
                     .border_color(theme.border)
                     .text_size(px(crate::theme::TEXT_SIZE))
                     .text_color(theme.muted)
-                    .child(format!("本地工作区 · {} 个连接", self.profiles.len())),
-            )
+                    .child(format!("本地工作区 · {} 个连接", self.profiles.len()))
+                    .child(div().w(px(12.0)))
+                    .children(self.error.as_ref().map(|error| {
+                        div()
+                            .text_color(theme.danger)
+                            .child(error.clone())
+                            .into_any_element()
+                    }))
+                    .children(self.notice.as_ref().map(|notice| {
+                        div()
+                            .text_color(theme.muted)
+                            .child(notice.clone())
+                            .into_any_element()
+                    })),
+                )
+            } else {
+                None
+            })
     }
 }
 
@@ -3656,6 +4048,7 @@ pub fn run(
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
     history: Arc<HistoryService>,
+    saved: Arc<SavedQueryService>,
     structure: Arc<StructureService>,
     groups: Arc<superlink_app::GroupService>,
     notebook: Arc<NotebookService>,
@@ -3672,7 +4065,8 @@ pub fn run(
                         window_bounds: Some(WindowBounds::Windowed(bounds)),
                         titlebar: Some(gpui::TitlebarOptions {
                             title: Some("SuperLink".into()),
-                            ..Default::default()
+                            appears_transparent: true,
+                            traffic_light_position: Some(point(px(8.0), px(11.0))),
                         }),
                         focus: true,
                         ..Default::default()
@@ -3689,8 +4083,8 @@ pub fn run(
                         let settings = settings.clone();
                         cx.new(|cx| {
                             SuperLinkApp::new(
-                                service, queries, drafts, history, structure, groups, notebook,
-                                hosts, settings, window, cx,
+                                service, queries, drafts, history, saved, structure, groups,
+                                notebook, hosts, settings, window, cx,
                             )
                         })
                     },
@@ -3699,4 +4093,45 @@ pub fn run(
             let _ = handle;
             cx.activate(true);
         });
+}
+
+#[cfg(test)]
+mod prefetch_tests {
+    use super::*;
+    use superlink_drivers::TableEntry;
+
+    fn entries(names: &[&str]) -> Vec<TableEntry> {
+        names
+            .iter()
+            .map(|name| TableEntry {
+                name: (*name).to_string(),
+                kind: "table".into(),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn skips_cached_structures() {
+        let cached: HashSet<String> = ["b".to_string()].into_iter().collect();
+        let pending = missing_structures(&entries(&["a", "b", "c"]), &cached, 10);
+        assert_eq!(pending, vec!["a".to_string(), "c".to_string()]);
+    }
+
+    #[test]
+    fn caps_the_prefetch_batch() {
+        let cached = HashSet::new();
+        let pending = missing_structures(&entries(&["a", "b", "c"]), &cached, 2);
+        assert_eq!(pending, vec!["a".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn empty_list_needs_no_work() {
+        assert!(missing_structures(&[], &HashSet::new(), 10).is_empty());
+    }
+
+    #[test]
+    fn everything_cached_needs_no_work() {
+        let cached: HashSet<String> = ["a".to_string()].into_iter().collect();
+        assert!(missing_structures(&entries(&["a"]), &cached, 10).is_empty());
+    }
 }

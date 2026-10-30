@@ -3,9 +3,12 @@
 
 pub mod editor;
 pub mod icons;
+pub mod multiline_editor;
 pub mod note_page;
+mod sql_highlight;
 mod query_page;
 mod shell;
+mod text;
 pub mod terminal_page;
 pub mod theme;
 pub mod vt;

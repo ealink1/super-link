@@ -15,6 +15,8 @@ use gpui::{
 use unicode_segmentation::UnicodeSegmentation;
 
 type RunHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
+/// Tab / Shift+Tab inside one input; owners wire their own field order.
+type TabHandler = Box<dyn Fn(bool, &mut Window, &mut App) + 'static>;
 type ChangeHandler = Box<dyn Fn(&str, &mut App) + 'static>;
 
 pub struct SqlEditor {
@@ -26,6 +28,8 @@ pub struct SqlEditor {
     marked_range: Option<Range<usize>>,
     last_layout: Option<ShapedLine>,
     last_bounds: Option<Bounds<Pixels>>,
+    /// 文本溢出时向左滚动的距离，点击定位需要补回来。
+    last_offset: Pixels,
     enabled: bool,
     /// Invoked by Cmd+R so the editor can run without a toolbar click.
     on_run: Option<RunHandler>,
@@ -33,12 +37,16 @@ pub struct SqlEditor {
     on_change: Option<ChangeHandler>,
     /// Password fields render one dot per byte instead of the characters.
     masked: bool,
+    on_tab: Option<TabHandler>,
 }
 
 impl SqlEditor {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        let mut focus_handle = cx.focus_handle();
+        // Tab 遍历依赖 FocusHandle 上的标记，元素上的 .tab_stop 不会传过来。
+        focus_handle.tab_stop = true;
         Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle,
             content: SharedString::default(),
             placeholder: "输入 SQL，例如 SELECT 1;".into(),
             selected_range: 0..0,
@@ -46,10 +54,12 @@ impl SqlEditor {
             marked_range: None,
             last_layout: None,
             last_bounds: None,
+            last_offset: px(0.0),
             enabled: true,
             on_run: None,
             on_change: None,
             masked: false,
+            on_tab: None,
         }
     }
 
@@ -94,13 +104,22 @@ impl SqlEditor {
         self.on_run = Some(Box::new(handler));
     }
 
+    /// Programmatic writes never fire on_change: callers often run inside an
+    /// update of the page that owns this editor, and re-entering it panics.
     pub fn set_text(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.content = text.into();
         let end = self.content.len();
         self.selected_range = end..end;
         self.marked_range = None;
         cx.notify();
-        self.emit_change(cx);
+    }
+
+    pub fn set_on_tab(
+        &mut self,
+        handler: impl Fn(bool, &mut Window, &mut App) + 'static,
+        _cx: &mut Context<Self>,
+    ) {
+        self.on_tab = Some(Box::new(handler));
     }
 
     pub fn set_enabled(&mut self, enabled: bool, cx: &mut Context<Self>) {
@@ -178,6 +197,12 @@ impl SqlEditor {
             "right" => self.move_to(self.next_boundary(self.cursor_offset()), cx),
             "home" => self.move_to(0, cx),
             "end" => self.move_to(self.content.len(), cx),
+            "tab" => {
+                if let Some(handler) = self.on_tab.as_ref() {
+                    cx.stop_propagation();
+                    handler(modifiers.shift, window, cx);
+                }
+            }
             "r" if modifiers.platform => {
                 if let Some(handler) = self.on_run.as_ref() {
                     handler(window, cx);
@@ -345,11 +370,11 @@ impl EntityInputHandler for SqlEditor {
         let range = self.range_from_utf16(&range_utf16);
         Some(Bounds::from_corners(
             point(
-                bounds.left() + layout.x_for_index(range.start),
+                bounds.left() + layout.x_for_index(range.start) - self.last_offset,
                 bounds.top(),
             ),
             point(
-                bounds.left() + layout.x_for_index(range.end),
+                bounds.left() + layout.x_for_index(range.end) - self.last_offset,
                 bounds.bottom(),
             ),
         ))
@@ -363,7 +388,7 @@ impl EntityInputHandler for SqlEditor {
     ) -> Option<usize> {
         let local = self.last_bounds?.localize(&point)?;
         let layout = self.last_layout.as_ref()?;
-        let index = layout.index_for_x(point.x - local.x)?;
+        let index = layout.index_for_x(local.x + self.last_offset)?;
         Some(self.offset_to_utf16(index))
     }
 }
@@ -376,6 +401,19 @@ struct Prepaint {
     line: Option<ShapedLine>,
     cursor: Option<PaintQuad>,
     selection: Option<PaintQuad>,
+    /// 文本超过输入框宽度时向左滚动的距离，保证光标始终可见。
+    offset: Pixels,
+    /// 滚动后实际绘制的可见片段及其横向偏移。
+    paint: Option<(Pixels, ShapedLine)>,
+}
+
+/// 把布局索引夹到最近的字符边界，避免切片越界。
+fn boundary(text: &str, index: usize) -> usize {
+    let index = index.min(text.len());
+    (0..=index)
+        .rev()
+        .find(|offset| text.is_char_boundary(*offset))
+        .unwrap_or(0)
 }
 
 impl IntoElement for EditorElement {
@@ -469,16 +507,44 @@ impl Element for EditorElement {
             vec![run]
         };
         let font_size = style.font_size.to_pixels(window.rem_size());
+        let full_text = display_text.clone();
         let line = window
             .text_system()
             .shape_line(display_text, font_size, &runs, None);
         let cursor_x = line.x_for_index(cursor);
+        let offset = (cursor_x - bounds.size.width + px(4.0)).max(px(0.0));
+        // 自绘文本不会被父级裁剪，超出输入框时只绘制可见片段。
+        let paint = if line.width > bounds.size.width {
+            let start = boundary(&full_text, line.index_for_x(offset).unwrap_or(0));
+            let end = boundary(
+                &full_text,
+                line.index_for_x(offset + bounds.size.width)
+                    .unwrap_or(full_text.len()),
+            );
+            if end > start {
+                let slice: SharedString = full_text[start..end].to_string().into();
+                let run = TextRun {
+                    len: slice.len(),
+                    font: style.font(),
+                    color: text_color,
+                    background_color: None,
+                    underline: None,
+                    strikethrough: None,
+                };
+                let shaped = window.text_system().shape_line(slice, font_size, &[run], None);
+                Some((line.x_for_index(start) - offset, shaped))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let (selection, cursor) = if selected_range.is_empty() {
             (
                 None,
                 Some(fill(
                     Bounds::new(
-                        point(bounds.left() + cursor_x, bounds.top()),
+                        point(bounds.left() + cursor_x - offset, bounds.top()),
                         size(px(2.), bounds.bottom() - bounds.top()),
                     ),
                     gpui::blue(),
@@ -489,11 +555,11 @@ impl Element for EditorElement {
                 Some(fill(
                     Bounds::from_corners(
                         point(
-                            bounds.left() + line.x_for_index(selected_range.start),
+                            bounds.left() + line.x_for_index(selected_range.start) - offset,
                             bounds.top(),
                         ),
                         point(
-                            bounds.left() + line.x_for_index(selected_range.end),
+                            bounds.left() + line.x_for_index(selected_range.end) - offset,
                             bounds.bottom(),
                         ),
                     ),
@@ -506,6 +572,8 @@ impl Element for EditorElement {
             line: Some(line),
             cursor,
             selection,
+            offset,
+            paint,
         }
     }
 
@@ -525,20 +593,26 @@ impl Element for EditorElement {
             ElementInputHandler::new(bounds, self.editor.clone()),
             cx,
         );
+        let focused = focus_handle.is_focused(window);
         if let Some(selection) = prepaint.selection.take() {
             window.paint_quad(selection);
         }
-        if let Some(line) = prepaint.line.take() {
+        if let Some((dx, shaped)) = prepaint.paint.as_ref() {
+            let origin = point(bounds.left() + *dx, bounds.top());
+            let _ = shaped.paint(origin, window.line_height(), window, cx);
+        } else if let Some(line) = prepaint.line.as_ref() {
             let _ = line.paint(bounds.origin, window.line_height(), window, cx);
         }
-        if focus_handle.is_focused(window) {
+        if focused {
             if let Some(cursor) = prepaint.cursor.take() {
                 window.paint_quad(cursor);
             }
         }
+        let offset = prepaint.offset;
         self.editor.update(cx, |editor, _cx| {
             editor.last_layout = prepaint.line.take();
             editor.last_bounds = Some(bounds);
+            editor.last_offset = offset;
         });
     }
 }
@@ -546,8 +620,13 @@ impl Element for EditorElement {
 impl Render for SqlEditor {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         div()
+            .id(cx.entity_id().as_u64() as usize)
             .key_context("SqlEditor")
             .track_focus(&self.focus_handle)
+            // 输入框默认填满所在容器，否则父级 flex 行里宽度为 0，点击命中不到。
+            .flex_1()
+            .min_w(px(0.0))
+            .tab_stop(true)
             .cursor(if self.enabled {
                 CursorStyle::IBeam
             } else {
