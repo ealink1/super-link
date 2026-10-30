@@ -531,7 +531,9 @@ impl Element for EditorElement {
                     underline: None,
                     strikethrough: None,
                 };
-                let shaped = window.text_system().shape_line(slice, font_size, &[run], None);
+                let shaped = window
+                    .text_system()
+                    .shape_line(slice, font_size, &[run], None);
                 Some((line.x_for_index(start) - offset, shaped))
             } else {
                 None

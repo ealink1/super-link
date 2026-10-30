@@ -6,7 +6,7 @@
 
 use std::ops::Range;
 
-use gpui::{Hsla, TextStyle, TextRun, UnderlineStyle, px, rgb};
+use gpui::{Hsla, TextRun, TextStyle, UnderlineStyle, px, rgb};
 use superlink_sql::lexer::{Token, TokenKind};
 
 use crate::theme::Theme;
@@ -118,12 +118,11 @@ pub(crate) fn line_runs(
     runs
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use superlink_sql::lexer::tokenize;
     use gpui::{FontStyle, FontWeight, TextAlign, px, rgba};
+    use superlink_sql::lexer::tokenize;
 
     fn style() -> TextStyle {
         TextStyle {
@@ -148,11 +147,21 @@ mod tests {
     #[test]
     fn empty_buffer_still_has_one_line() {
         assert_eq!(line_starts(""), vec![0]);
-        assert_eq!(line_starts("a
+        assert_eq!(
+            line_starts(
+                "a
 b
-"), vec![0, 2, 4]);
-        assert_eq!(line_starts("a
-b"), vec![0, 2]);
+"
+            ),
+            vec![0, 2, 4]
+        );
+        assert_eq!(
+            line_starts(
+                "a
+b"
+            ),
+            vec![0, 2]
+        );
     }
 
     #[test]
@@ -168,9 +177,11 @@ from t;
 
     #[test]
     fn offsets_map_to_the_line_they_start() {
-        let starts = line_starts("aa
+        let starts = line_starts(
+            "aa
 bb
-cc");
+cc",
+        );
         assert_eq!(line_of(&starts, 0), 0);
         assert_eq!(line_of(&starts, 2), 0);
         assert_eq!(line_of(&starts, 3), 1);
@@ -191,7 +202,10 @@ cc");
         let runs = line_runs(&tokens, 0..content.len(), &style, &theme, Some(&marked));
         assert_eq!(runs.iter().map(|run| run.len).sum::<usize>(), content.len());
         assert_eq!(
-            runs.iter().filter(|run| run.underline.is_some()).map(|run| run.len).sum::<usize>(),
+            runs.iter()
+                .filter(|run| run.underline.is_some())
+                .map(|run| run.len)
+                .sum::<usize>(),
             marked.len()
         );
     }

@@ -121,7 +121,11 @@ impl SqlTextEditor {
         cx.notify();
     }
 
-    pub fn set_placeholder(&mut self, placeholder: impl Into<SharedString>, cx: &mut Context<Self>) {
+    pub fn set_placeholder(
+        &mut self,
+        placeholder: impl Into<SharedString>,
+        cx: &mut Context<Self>,
+    ) {
         self.placeholder = placeholder.into();
         cx.notify();
     }
@@ -296,7 +300,8 @@ impl SqlTextEditor {
         let lines = line_starts(&self.content).len();
         let viewport = self.viewport_lines.max(1);
         let max_first = lines.saturating_sub(viewport);
-        self.scroll_line = (self.scroll_line as isize + delta).clamp(0, max_first as isize) as usize;
+        self.scroll_line =
+            (self.scroll_line as isize + delta).clamp(0, max_first as isize) as usize;
         cx.notify();
     }
 
@@ -567,7 +572,8 @@ impl EntityInputHandler for SqlTextEditor {
             .or_else(|| self.marked_range.clone())
             .unwrap_or_else(|| self.selected_range.clone());
         self.content =
-            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..]).into();
+            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
+                .into();
         self.selected_range = range.start + new_text.len()..range.start + new_text.len();
         self.marked_range.take();
         self.ensure_caret_visible();
@@ -590,7 +596,8 @@ impl EntityInputHandler for SqlTextEditor {
             .or_else(|| self.marked_range.clone())
             .unwrap_or_else(|| self.selected_range.clone());
         self.content =
-            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..]).into();
+            (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
+                .into();
         self.marked_range =
             (!new_text.is_empty()).then_some(range.start..range.start + new_text.len());
         self.selected_range = new_selected_range_utf16
@@ -680,7 +687,11 @@ mod tests {
         let caret = "select o.".len();
         let (start, end, items) = candidates(text, caret, "postgresql", &catalog()).unwrap();
         assert_eq!(&text[start..end], "");
-        assert!(items.iter().any(|item| item.text == "amount" && item.kind == "字段"));
+        assert!(
+            items
+                .iter()
+                .any(|item| item.text == "amount" && item.kind == "字段")
+        );
         assert!(items.iter().all(|item| item.text != "orders"));
     }
 

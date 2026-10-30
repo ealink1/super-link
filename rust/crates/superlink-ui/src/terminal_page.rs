@@ -608,7 +608,11 @@ impl TerminalPage {
             .h(px(40.0))
             .rounded_md()
             .cursor_pointer()
-            .bg(if active { theme.accent_soft } else { theme.sidebar })
+            .bg(if active {
+                theme.accent_soft
+            } else {
+                theme.sidebar
+            })
             .hover(move |style| style.bg(theme.accent_soft))
             .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
             .child(icons::icon(
@@ -760,7 +764,11 @@ impl TerminalPage {
                             .cursor_pointer()
                             .border_1()
                             .border_color(theme.border)
-                            .bg(if self.privacy { theme.accent_soft } else { theme.surface })
+                            .bg(if self.privacy {
+                                theme.accent_soft
+                            } else {
+                                theme.surface
+                            })
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.text)
                             .on_click(cx.listener(|this, _event, _window, cx| {
@@ -1185,9 +1193,7 @@ impl TerminalPage {
             .host_list
             .iter()
             .enumerate()
-            .filter(|(_, host)| {
-                self.group.is_empty() || group_label(&host.group) == self.group
-            })
+            .filter(|(_, host)| self.group.is_empty() || group_label(&host.group) == self.group)
             .filter(|(_, host)| {
                 needle.is_empty()
                     || host.name.to_lowercase().contains(&needle)
@@ -1276,83 +1282,80 @@ impl TerminalPage {
             .border_color(theme.border)
             .hover(move |style| style.border_color(theme.accent));
         if self.list_mode {
-            return card
-                .w_full()
-                .h(px(120.0))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_3()
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .size(px(40.0))
-                                .rounded_md()
-                                .bg(theme.button)
-                                .child(icons::icon("shell/terminal.svg", 20.0, theme.text)),
-                        )
-                        .child(
-                            div()
-                                .flex()
-                                .flex_col()
-                                .gap_1()
-                                .flex_1()
-                                .child(
-                                    div()
-                                        .flex()
-                                        .items_center()
-                                        .gap_2()
-                                        .child(
-                                            div()
-                                                .text_size(px(14.0))
-                                                .font_weight(FontWeight::BOLD)
-                                                .text_color(theme.text)
-                                                .child(name),
-                                        )
-                                        .child(protocol_badge(theme)),
-                                )
-                                .child(
-                                    div()
-                                        .text_size(px(12.0))
-                                        .text_color(theme.muted)
-                                        .child(address),
-                                )
-                                .child(
-                                    div()
-                                        .text_size(px(11.0))
-                                        .text_color(theme.muted)
-                                        .child(notes),
-                                ),
-                        )
-                        .child(
-                            div()
-                                .id(("quick-connect", index))
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .w(px(120.0))
-                                .h(px(30.0))
-                                .rounded_md()
-                                .cursor_pointer()
-                                .bg(theme.button)
-                                .border_1()
-                                .border_color(theme.border)
-                                .hover(move |style| style.bg(theme.accent_soft))
-                                .on_click(cx.listener(move |this, _event, window, cx| {
-                                    this.connect_host_at(index, window, cx)
-                                }))
-                                .child(
-                                    div()
-                                        .text_size(px(12.0))
-                                        .font_weight(FontWeight::BOLD)
-                                        .text_color(theme.text)
-                                        .child("快速连接"),
-                                ),
-                        ),
-                );
+            return card.w_full().h(px(120.0)).child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap_3()
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .size(px(40.0))
+                            .rounded_md()
+                            .bg(theme.button)
+                            .child(icons::icon("shell/terminal.svg", 20.0, theme.text)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_1()
+                            .flex_1()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        div()
+                                            .text_size(px(14.0))
+                                            .font_weight(FontWeight::BOLD)
+                                            .text_color(theme.text)
+                                            .child(name),
+                                    )
+                                    .child(protocol_badge(theme)),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(12.0))
+                                    .text_color(theme.muted)
+                                    .child(address),
+                            )
+                            .child(
+                                div()
+                                    .text_size(px(11.0))
+                                    .text_color(theme.muted)
+                                    .child(notes),
+                            ),
+                    )
+                    .child(
+                        div()
+                            .id(("quick-connect", index))
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .w(px(120.0))
+                            .h(px(30.0))
+                            .rounded_md()
+                            .cursor_pointer()
+                            .bg(theme.button)
+                            .border_1()
+                            .border_color(theme.border)
+                            .hover(move |style| style.bg(theme.accent_soft))
+                            .on_click(cx.listener(move |this, _event, window, cx| {
+                                this.connect_host_at(index, window, cx)
+                            }))
+                            .child(
+                                div()
+                                    .text_size(px(12.0))
+                                    .font_weight(FontWeight::BOLD)
+                                    .text_color(theme.text)
+                                    .child("快速连接"),
+                            ),
+                    ),
+            );
         }
         card.w(px(300.0))
             .h(px(260.0))
@@ -1996,21 +1999,19 @@ impl Render for TerminalPage {
                     } else {
                         self.hosts_page(cx).into_any_element()
                     })
-                    .child(
-                        if self.form_open {
-                            self.host_form(cx).into_any_element()
-                        } else if self.session.is_some() {
-                            div()
-                                .flex()
-                                .flex_col()
-                                .flex_1()
-                                .min_h(px(0.0))
-                                .child(self.terminal_area(cx))
-                                .into_any_element()
-                        } else {
-                            div().into_any_element()
-                        },
-                    ),
+                    .child(if self.form_open {
+                        self.host_form(cx).into_any_element()
+                    } else if self.session.is_some() {
+                        div()
+                            .flex()
+                            .flex_col()
+                            .flex_1()
+                            .min_h(px(0.0))
+                            .child(self.terminal_area(cx))
+                            .into_any_element()
+                    } else {
+                        div().into_any_element()
+                    }),
             )
     }
 }

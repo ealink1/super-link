@@ -195,7 +195,12 @@ impl NotePage {
             .iter()
             .filter(|note| !note.deleted)
             .count();
-        let visible: Vec<&Note> = self.notebook.notes.iter().filter(|n| self.matches(n)).collect();
+        let visible: Vec<&Note> = self
+            .notebook
+            .notes
+            .iter()
+            .filter(|n| self.matches(n))
+            .collect();
 
         let mut list = div()
             .id("note-list")
@@ -312,9 +317,9 @@ impl NotePage {
                                     .bg(theme.accent)
                                     .text_size(px(crate::theme::TEXT_SIZE))
                                     .text_color(theme.surface)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.new_note(cx)
-                                    }))
+                                    .on_click(
+                                        cx.listener(|this, _event, _window, cx| this.new_note(cx)),
+                                    )
                                     .child("新建笔记"),
                             )
                             .child(
@@ -381,9 +386,9 @@ impl NotePage {
                             } else {
                                 theme.muted
                             })
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.toggle_trash(cx)
-                            }))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| this.toggle_trash(cx)),
+                            )
                             .child(icons::icon("shell/trash-2.svg", 14.0, theme.muted))
                             .child("回收站"),
                     )
@@ -426,7 +431,11 @@ impl NotePage {
             .px_3()
             .py_2()
             .cursor_pointer()
-            .bg(if active { theme.accent_soft } else { theme.sidebar })
+            .bg(if active {
+                theme.accent_soft
+            } else {
+                theme.sidebar
+            })
             .hover(move |style| style.bg(theme.accent_soft))
             .on_click(cx.listener(move |this, _event, _window, cx| this.select(&id, cx)))
             .child(
@@ -455,10 +464,12 @@ impl NotePage {
 
     fn content(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = self.theme;
-        let note = self
-            .selected
-            .as_ref()
-            .and_then(|id| self.notebook.notes.iter().find(|note| note.id.as_str() == id.as_str()));
+        let note = self.selected.as_ref().and_then(|id| {
+            self.notebook
+                .notes
+                .iter()
+                .find(|note| note.id.as_str() == id.as_str())
+        });
         let Some(note) = note else {
             return div()
                 .flex()
@@ -567,36 +578,37 @@ impl NotePage {
             );
 
         if deleted {
-            page = page.child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .mt_4()
-                    .child(
-                        div()
-                            .id("note-restore")
-                            .px_3()
-                            .h(px(32.0))
-                            .flex()
-                            .items_center()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .bg(theme.accent)
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.surface)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.set_deleted(false, cx)
-                            }))
-                            .child("恢复"),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(12.0))
-                            .text_color(theme.muted)
-                            .child("恢复后回到原分组"),
-                    ),
-            );
+            page =
+                page.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_3()
+                        .mt_4()
+                        .child(
+                            div()
+                                .id("note-restore")
+                                .px_3()
+                                .h(px(32.0))
+                                .flex()
+                                .items_center()
+                                .rounded_md()
+                                .cursor_pointer()
+                                .bg(theme.accent)
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.surface)
+                                .on_click(cx.listener(|this, _event, _window, cx| {
+                                    this.set_deleted(false, cx)
+                                }))
+                                .child("恢复"),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(12.0))
+                                .text_color(theme.muted)
+                                .child("恢复后回到原分组"),
+                        ),
+                );
         }
         page.into_any_element()
     }

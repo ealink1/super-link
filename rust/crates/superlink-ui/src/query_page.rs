@@ -16,10 +16,10 @@ use superlink_domain::{
 };
 
 use crate::editor::SqlEditor;
-use crate::multiline_editor::SqlTextEditor;
-use superlink_sql::CompletionTable;
 use crate::icons;
+use crate::multiline_editor::SqlTextEditor;
 use crate::theme::Theme;
+use superlink_sql::CompletionTable;
 
 const DISPLAY_ROWS: usize = 300;
 pub(crate) const COLUMN_WIDTH: f32 = 160.0;
@@ -755,7 +755,8 @@ impl QueryPage {
         }
         match self.saved.rename(&id, &title) {
             Ok(saved) => {
-                self.saved_note = Some(SharedString::from(format!("已重命名为《{}》", saved.title)));
+                self.saved_note =
+                    Some(SharedString::from(format!("已重命名为《{}》", saved.title)));
                 self.saved_renaming = None;
             }
             Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
@@ -845,9 +846,11 @@ impl QueryPage {
                             .bg(theme.accent)
                             .text_size(px(crate::theme::TEXT_SIZE))
                             .text_color(theme.surface)
-                            .on_click(cx.listener(|this, _event, _window, cx| {
-                                this.save_current_query(cx)
-                            }))
+                            .on_click(
+                                cx.listener(|this, _event, _window, cx| {
+                                    this.save_current_query(cx)
+                                }),
+                            )
                             .child("保存当前"),
                     ),
             );
@@ -1285,7 +1288,10 @@ impl QueryPage {
         self.form_kind = kind.clone();
         // 切换驱动时端口跟随新类型的默认值；没有默认端口的类型清空，避免残留上一个驱动的端口。
         if let Ok(descriptor) = resolve(&kind) {
-            let port = descriptor.port.map(|port| port.to_string()).unwrap_or_default();
+            let port = descriptor
+                .port
+                .map(|port| port.to_string())
+                .unwrap_or_default();
             self.form_port
                 .update(cx, |editor, cx| editor.set_text(port, cx));
         }

@@ -163,8 +163,8 @@ impl SuperLinkApp {
                     let weak_shell = weak_shell.clone();
                     let id = id.to_string();
                     app.defer(move |app| {
-                        let _ = weak_shell
-                            .update(app, |shell, cx| shell.select_profile_by_id(&id, cx));
+                        let _ =
+                            weak_shell.update(app, |shell, cx| shell.select_profile_by_id(&id, cx));
                     });
                 },
                 cx,
@@ -533,7 +533,8 @@ impl SuperLinkApp {
                         return;
                     }
                     if let Ok(structure) = outcome {
-                        this.table_structures.insert((index, table.clone()), structure);
+                        this.table_structures
+                            .insert((index, table.clone()), structure);
                     }
                     if refresh {
                         this.sync_catalog(cx);
@@ -3296,7 +3297,11 @@ impl SuperLinkApp {
             .size(px(28.0))
             .rounded_md()
             .cursor_pointer()
-            .bg(if active { theme.accent_soft } else { theme.sidebar })
+            .bg(if active {
+                theme.accent_soft
+            } else {
+                theme.sidebar
+            })
             .hover(move |style| style.bg(theme.accent_soft))
             .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
             .child(icons::icon(
@@ -3725,13 +3730,7 @@ impl SuperLinkApp {
                 cx,
                 Self::open_groups_action,
             ))
-            .child(
-                div()
-                    .w(px(1.0))
-                    .h(px(24.0))
-                    .mx(px(6.0))
-                    .bg(theme.border),
-            )
+            .child(div().w(px(1.0)).h(px(24.0)).mx(px(6.0)).bg(theme.border))
             .child(self.header_action(
                 "global-history",
                 "superlink/history.svg",
@@ -3797,9 +3796,7 @@ impl SuperLinkApp {
             .rounded_md()
             .cursor_pointer()
             .hover(move |style| style.bg(theme.accent_soft))
-            .on_click(cx.listener(move |this, _event, window, cx| {
-                handler(this, window, cx)
-            }))
+            .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
             .child(icons::icon(icon, HEADER_ICON, theme.text))
             .child(
                 div()
@@ -3829,9 +3826,7 @@ impl SuperLinkApp {
             .rounded_md()
             .cursor_pointer()
             .hover(move |style| style.bg(theme.accent_soft))
-            .on_click(cx.listener(move |this, _event, window, cx| {
-                handler(this, window, cx)
-            }))
+            .on_click(cx.listener(move |this, _event, window, cx| handler(this, window, cx)))
             .child(icons::icon(icon, 16.0, theme.muted))
     }
 
@@ -3902,16 +3897,18 @@ impl Render for SuperLinkApp {
             .bg(theme.canvas)
             .font_family("PingFang SC")
             // 根节点统一处理 Tab：焦点在任意输入框时都能前后切换。
-            .on_key_down(cx.listener(|_this, event: &gpui::KeyDownEvent, window, cx| {
-                if event.keystroke.key == "tab" {
-                    cx.stop_propagation();
-                    if event.keystroke.modifiers.shift {
-                        window.focus_prev();
-                    } else {
-                        window.focus_next();
+            .on_key_down(
+                cx.listener(|_this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "tab" {
+                        cx.stop_propagation();
+                        if event.keystroke.modifiers.shift {
+                            window.focus_prev();
+                        } else {
+                            window.focus_next();
+                        }
                     }
-                }
-            }))
+                }),
+            )
             .child(
                 // 标题栏：对齐 Fyne 的原生标题栏（分段切换 + 右侧工具图标，无品牌文字）
                 div()
@@ -4010,31 +4007,31 @@ impl Render for SuperLinkApp {
             })
             .children(if self.workspace == Workspace::Sql {
                 Some(
-                div()
-                    .flex()
-                    .items_center()
-                    .h(px(26.0))
-                    .w_full()
-                    .px_3()
-                    .bg(theme.surface)
-                    .border_t_1()
-                    .border_color(theme.border)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(format!("本地工作区 · {} 个连接", self.profiles.len()))
-                    .child(div().w(px(12.0)))
-                    .children(self.error.as_ref().map(|error| {
-                        div()
-                            .text_color(theme.danger)
-                            .child(error.clone())
-                            .into_any_element()
-                    }))
-                    .children(self.notice.as_ref().map(|notice| {
-                        div()
-                            .text_color(theme.muted)
-                            .child(notice.clone())
-                            .into_any_element()
-                    })),
+                    div()
+                        .flex()
+                        .items_center()
+                        .h(px(26.0))
+                        .w_full()
+                        .px_3()
+                        .bg(theme.surface)
+                        .border_t_1()
+                        .border_color(theme.border)
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.muted)
+                        .child(format!("本地工作区 · {} 个连接", self.profiles.len()))
+                        .child(div().w(px(12.0)))
+                        .children(self.error.as_ref().map(|error| {
+                            div()
+                                .text_color(theme.danger)
+                                .child(error.clone())
+                                .into_any_element()
+                        }))
+                        .children(self.notice.as_ref().map(|notice| {
+                            div()
+                                .text_color(theme.muted)
+                                .child(notice.clone())
+                                .into_any_element()
+                        })),
                 )
             } else {
                 None

@@ -78,8 +78,8 @@ impl Element for EditorElement {
         let font_size = text_style.font_size.to_pixels(window.rem_size());
         let line_height = window.line_height();
         let starts = line_starts(&content);
-        let visible = (((bounds.size.height - px(PAD_Y * 2.0)) / line_height).floor())
-            .max(1.0) as usize;
+        let visible =
+            (((bounds.size.height - px(PAD_Y * 2.0)) / line_height).floor()).max(1.0) as usize;
         let first = scroll.min(starts.len().saturating_sub(visible.min(starts.len())));
         let end = (first + visible).min(starts.len());
         let tokens = tokenize(&content);
@@ -119,7 +119,8 @@ impl Element for EditorElement {
                     continue;
                 }
                 let top = bounds.top() + px(PAD_Y) + line_height * (offset as f32);
-                let left = bounds.left() + px(GUTTER + PAD_X) + shaped.x_for_index(from - range.start);
+                let left =
+                    bounds.left() + px(GUTTER + PAD_X) + shaped.x_for_index(from - range.start);
                 let mut right =
                     bounds.left() + px(GUTTER + PAD_X) + shaped.x_for_index(to - range.start);
                 if selected.end > range.end {
@@ -235,12 +236,10 @@ impl Element for EditorElement {
             let style = window.text_style();
             let font_size = style.font_size.to_pixels(window.rem_size());
             let run = text_run(placeholder.len(), &style, theme.placeholder, false);
-            let line = window.text_system().shape_line(
-                placeholder.clone(),
-                font_size,
-                &[run],
-                None,
-            );
+            let line =
+                window
+                    .text_system()
+                    .shape_line(placeholder.clone(), font_size, &[run], None);
             let _ = line.paint(
                 point(text_left, bounds.top() + px(PAD_Y)),
                 prepaint.line_height,
@@ -289,13 +288,7 @@ impl Element for EditorElement {
                     border_style: BorderStyle::Solid,
                 });
                 let first_row = prepaint.selected.saturating_sub(rows.saturating_sub(1));
-                for (offset, item) in prepaint
-                    .items
-                    .iter()
-                    .enumerate()
-                    .skip(first_row)
-                    .take(rows)
-                {
+                for (offset, item) in prepaint.items.iter().enumerate().skip(first_row).take(rows) {
                     let row_top = rect.top() + px(4.0) + row_height * ((offset - first_row) as f32);
                     if offset == prepaint.selected {
                         window.paint_quad(fill(
@@ -389,7 +382,11 @@ impl Render for SqlTextEditor {
                 let lines = match event.delta {
                     ScrollDelta::Lines(delta) => delta.y.round() as isize,
                     ScrollDelta::Pixels(delta) => {
-                        let height = this.last.as_ref().map(|l| l.line_height).unwrap_or(px(16.0));
+                        let height = this
+                            .last
+                            .as_ref()
+                            .map(|l| l.line_height)
+                            .unwrap_or(px(16.0));
                         (delta.y.to_f64() / height.to_f64()).round() as isize
                     }
                 };
@@ -402,4 +399,3 @@ impl Render for SqlTextEditor {
             })
     }
 }
-
