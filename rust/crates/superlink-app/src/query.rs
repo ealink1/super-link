@@ -52,28 +52,39 @@ impl QueryService {
     }
 
     pub fn supports(&self, kind: &str) -> bool {
-        self.agent_path(kind).is_some()
+        native_target(kind, NativeFlags::from_env()).is_some() || self.agent_path(kind).is_some()
     }
 
     /// 结构浏览：目前只有原生 SQLite 提供；其余方言仍由 agent 承担。
     /// 层级对象树第一层：数据库列表。SQLite 返回空表示没有库层级。
-    pub fn databases(&self, profile: &Profile) -> Result<Vec<String>, QueryError> {
+    pub fn databases(
+        &self,
+        profile: &Profile,
+        credentials: &Credentials,
+    ) -> Result<Vec<String>, QueryError> {
         let kind = profile.sql_dialect().to_string();
+        let config = live_config(&profile.config, credentials);
         match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.databases()?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.databases()?),
-            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&profile.config)?.databases()?),
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.databases()?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.databases()?),
+            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.databases()?),
             _ => Err(QueryError::Unsupported(kind)),
         }
     }
 
     /// 指定库（SQLite 忽略）下的表与视图。
-    pub fn tables(&self, profile: &Profile, database: &str) -> Result<Vec<TableEntry>, QueryError> {
+    pub fn tables(
+        &self,
+        profile: &Profile,
+        credentials: &Credentials,
+        database: &str,
+    ) -> Result<Vec<TableEntry>, QueryError> {
         let kind = profile.sql_dialect().to_string();
+        let config = live_config(&profile.config, credentials);
         match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.tables()?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&profile.config)?.tables(database)?),
-            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&profile.config)?.tables()?),
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.tables()?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.tables(database)?),
+            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.tables()?),
             _ => Err(QueryError::Unsupported(kind)),
         }
     }
@@ -82,18 +93,16 @@ impl QueryService {
     pub fn structure(
         &self,
         profile: &Profile,
+        credentials: &Credentials,
         database: &str,
         table: &str,
     ) -> Result<TableStructure, QueryError> {
         let kind = profile.sql_dialect().to_string();
+        let config = live_config(&profile.config, credentials);
         match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&profile.config)?.structure(table)?),
-            Some(NativeKind::Mysql) => {
-                Ok(NativeMysql::open(&profile.config)?.structure(database, table)?)
-            }
-            Some(NativeKind::Postgres) => {
-                Ok(NativePostgres::open(&profile.config)?.structure(table)?)
-            }
+            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.structure(table)?),
+            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.structure(database, table)?),
+            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.structure(table)?),
             _ => Err(QueryError::Unsupported(kind)),
         }
     }
@@ -162,15 +171,17 @@ pub struct NativeFlags {
 }
 
 impl NativeFlags {
-    /// 供跨 crate 的提交入口使用（UI 面板在预览后触发）。
+    /// 原生驱动已是默认路径；设置 SUPERLINK_AGENTS_ONLY 可整体退回 driver agent。
     pub fn from_env() -> Self {
-        let on = |key: &str| std::env::var_os(key).is_some();
+        if std::env::var_os("SUPERLINK_AGENTS_ONLY").is_some() {
+            return Self::default();
+        }
         Self {
-            sqlite: on("SUPERLINK_NATIVE_SQLITE"),
-            postgres: on("SUPERLINK_NATIVE_PG"),
-            mysql: on("SUPERLINK_NATIVE_MYSQL"),
-            clickhouse: on("SUPERLINK_NATIVE_CLICKHOUSE"),
-            elasticsearch: on("SUPERLINK_NATIVE_ES"),
+            sqlite: true,
+            postgres: true,
+            mysql: true,
+            clickhouse: true,
+            elasticsearch: true,
         }
     }
 }
@@ -226,10 +237,11 @@ mod tests {
     #[test]
     fn reports_missing_agents_without_panicking() {
         let service = QueryService::new(std::env::temp_dir().join("no-such-drivers"));
-        assert!(!service.supports("sqlite"));
+        // Oracle 没有原生驱动，也缺少 agent，可用来验证优雅报错。
+        assert!(!service.supports("oracle"));
         let profile = Profile {
             config: ConnectionConfig {
-                kind: "sqlite".into(),
+                kind: "oracle".into(),
                 ..Default::default()
             },
             ..Default::default()
@@ -329,7 +341,7 @@ mod tests {
     #[test]
     fn native_driver_matches_the_agent() {
         let service = QueryService::new(drivers_dir());
-        if !service.supports("sqlite") {
+        if service.agent_path("sqlite").is_none() {
             eprintln!("skipping: sqlite agent not present");
             return;
         }
@@ -390,7 +402,7 @@ mod tests {
     #[test]
     fn executes_against_the_real_sqlite_agent() {
         let service = QueryService::new(drivers_dir());
-        if !service.supports("sqlite") {
+        if service.agent_path("sqlite").is_none() {
             eprintln!("skipping: sqlite agent not present");
             return;
         }

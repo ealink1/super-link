@@ -425,10 +425,14 @@ fn ssl_mode(config: &ConnectionConfig) -> Result<SslMode, DriverError> {
     } else {
         raw
     };
+    // 兼容旧版 Go 配置里的 required / disabled / preferred 等写法。
     match raw.as_str() {
-        "disable" | "allow" | "prefer" | "false" => Ok(SslMode::Plain),
-        "require" | "true" => Ok(SslMode::Require),
-        "verify-ca" | "verify-full" => Ok(SslMode::Verify),
+        "disable" | "disabled" | "allow" | "prefer" | "preferred" | "false" | "off" | "none" => {
+            Ok(SslMode::Plain)
+        }
+        "require" | "required" | "true" | "on" | "mandatory" | "strict" | "skip-verify"
+        | "insecure" => Ok(SslMode::Require),
+        "verify-ca" | "verify-full" | "verify_ca" | "verify_full" => Ok(SslMode::Verify),
         other => Err(DriverError::Native(format!("未知的 sslMode：{other}"))),
     }
 }
@@ -823,6 +827,15 @@ mod tests {
         // 空值按 useSSL 推断
         assert_eq!(ssl_mode(&config("", true)).unwrap(), SslMode::Require);
         assert_eq!(ssl_mode(&config("", false)).unwrap(), SslMode::Plain);
+        // 旧版 Go 配置的写法
+        assert_eq!(
+            ssl_mode(&config("required", true)).unwrap(),
+            SslMode::Require
+        );
+        assert_eq!(
+            ssl_mode(&config("disabled", false)).unwrap(),
+            SslMode::Plain
+        );
         assert!(ssl_mode(&config("bogus", false)).is_err());
     }
 

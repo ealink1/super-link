@@ -25,4 +25,5 @@ pub use saved_queries::SavedQueryService;
 pub use settings::SettingsService;
 pub use shell_hosts::{HostCredentials, HostError, HostService};
 pub use structure::{StructureError, StructureService};
+pub use superlink_drivers::install_crypto_provider;
 pub use transfer::{data_root, diagnostics, drivers_dir};

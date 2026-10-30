@@ -8,6 +8,8 @@ use superlink_app::{
 use superlink_infra::{LocalVault, Store};
 
 fn main() {
+    // 原生驱动通过 rustls 建立 TLS，需要先选定加密 provider。
+    superlink_app::install_crypto_provider();
     let root = data_root();
     if let Err(err) = std::fs::create_dir_all(&root) {
         eprintln!("无法创建本地工作区 {}: {err}", root.display());

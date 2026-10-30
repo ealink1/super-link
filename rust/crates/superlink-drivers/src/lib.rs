@@ -10,6 +10,7 @@ pub mod session;
 pub use native::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
 pub use native::{
     NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres, NativeSqlite,
+    install_crypto_provider,
 };
 pub use registry::{BundleRecord, InstalledDriver, RegistryError, scan};
 pub use session::{ConnectInfo, DriverError, DriverSession};

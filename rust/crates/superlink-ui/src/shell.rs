@@ -7,8 +7,8 @@ use gpui::{
     SharedString, Window, WindowBounds, WindowOptions, div, point, prelude::*, px, size,
 };
 use superlink_app::{
-    DraftService, HistoryService, HostService, NotebookService, ProfileService, QueryService,
-    SavedQueryService, SettingsService, StructureService,
+    Credentials, DraftService, HistoryService, HostService, NotebookService, ProfileService,
+    QueryService, SavedQueryService, SettingsService, StructureService,
 };
 use superlink_domain::Profile;
 
@@ -509,17 +509,19 @@ impl SuperLinkApp {
             return;
         }
         let queries = self.queries.clone();
+        let credentials = self.credentials_for(&profile);
         let profile_id = profile.id.clone();
         cx.spawn(async move |this, cx| {
             let mut done = 0usize;
             for table in pending {
                 let queries = queries.clone();
                 let profile = profile.clone();
+                let credentials = credentials.clone();
                 let db = database.clone();
                 let table_for_task = table.clone();
-                let task = cx
-                    .background_executor()
-                    .spawn(async move { queries.structure(&profile, &db, &table_for_task) });
+                let task = cx.background_executor().spawn(async move {
+                    queries.structure(&profile, &credentials, &db, &table_for_task)
+                });
                 let outcome = task.await;
                 done += 1;
                 let refresh = done % PREFETCH_REFRESH_EVERY == 0;
@@ -567,14 +569,24 @@ impl SuperLinkApp {
         cx.notify();
     }
 
+    /// 结构浏览同样需要凭据，密码只存在于本地凭据库。
+    fn credentials_for(&self, profile: &Profile) -> Credentials {
+        self.service
+            .credentials(profile)
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    }
+
     fn fetch_databases(&mut self, index: usize, cx: &mut Context<Self>) {
         let Some(profile) = self.profiles.get(index).cloned() else {
             return;
         };
         let queries = self.queries.clone();
+        let credentials = self.credentials_for(&profile);
         let task = cx
             .background_executor()
-            .spawn(async move { queries.databases(&profile) });
+            .spawn(async move { queries.databases(&profile, &credentials) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -620,10 +632,11 @@ impl SuperLinkApp {
             return;
         };
         let queries = self.queries.clone();
+        let credentials = self.credentials_for(&profile);
         let db_for_task = database.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { queries.tables(&profile, &db_for_task) });
+            .spawn(async move { queries.tables(&profile, &credentials, &db_for_task) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -680,11 +693,12 @@ impl SuperLinkApp {
             return;
         };
         let queries = self.queries.clone();
+        let credentials = self.credentials_for(&profile);
         let db_for_task = database.clone();
         let table_for_task = table.clone();
-        let task = cx
-            .background_executor()
-            .spawn(async move { queries.structure(&profile, &db_for_task, &table_for_task) });
+        let task = cx.background_executor().spawn(async move {
+            queries.structure(&profile, &credentials, &db_for_task, &table_for_task)
+        });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -1139,11 +1153,12 @@ impl SuperLinkApp {
             return;
         };
         let queries = self.queries.clone();
+        let credentials = self.credentials_for(&profile);
         let db_for_task = database.clone();
         let name = table.clone();
         let task = cx
             .background_executor()
-            .spawn(async move { queries.structure(&profile, &db_for_task, &name) });
+            .spawn(async move { queries.structure(&profile, &credentials, &db_for_task, &name) });
         cx.spawn(async move |this, cx| {
             let outcome = task.await;
             this.update(cx, |this, cx| {
@@ -3157,6 +3172,18 @@ impl SuperLinkApp {
                 )
             }
             Some(Some(databases)) if databases.is_empty() => {
+                // 没有库层级时先看是否有错误说明，避免驱动缺失时一直停在「加载中」。
+                if let Some(note) = self.conn_db_note.get(&index) {
+                    return subtree
+                        .child(
+                            div()
+                                .pl(px(30.0))
+                                .text_size(px(crate::theme::TEXT_SIZE))
+                                .text_color(theme.muted)
+                                .child(note.clone()),
+                        )
+                        .into_any_element();
+                }
                 // 无库层级（SQLite）：连接下直接挂表。
                 let state = self.db_tables.get(&(index, String::new()));
                 match state {
