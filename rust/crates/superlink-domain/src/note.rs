@@ -41,12 +41,21 @@ pub struct NoteGroup {
 /// The whole notebook is one encrypted atomic snapshot.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Notebook {
-    #[serde(default)]
+    // Go 把空切片写成 null，旧版快照需要按默认值读取。
+    #[serde(default, deserialize_with = "null_as_default")]
     pub notes: Vec<Note>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_as_default")]
     pub groups: Vec<NoteGroup>,
     #[serde(skip)]
     pub revision: i64,
+}
+
+fn null_as_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de> + Default,
+{
+    Ok(Option::<T>::deserialize(deserializer)?.unwrap_or_default())
 }
 
 impl Notebook {
@@ -113,6 +122,16 @@ mod tests {
             group_id: group.into(),
             ..Default::default()
         }
+    }
+
+    #[test]
+    fn reads_go_style_null_arrays() {
+        let book: Notebook = serde_json::from_str(r#"{"notes":null,"groups":null}"#).unwrap();
+        assert!(book.notes.is_empty());
+        assert!(book.groups.is_empty());
+
+        let empty: Notebook = serde_json::from_str("{}").unwrap();
+        assert!(empty.notes.is_empty() && empty.groups.is_empty());
     }
 
     #[test]

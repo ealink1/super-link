@@ -5,25 +5,26 @@ use crate::error::{DomainError, DomainResult};
 /// Public SSH endpoint metadata. Credentials never serialize.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct ShellHost {
-    #[serde(default)]
+    // 旧版 Go 直接序列化结构体字段（PascalCase），用别名继续读取那段数据。
+    #[serde(default, alias = "ID")]
     pub id: String,
-    #[serde(default)]
+    #[serde(default, alias = "Name")]
     pub name: String,
-    #[serde(rename = "group", default)]
+    #[serde(rename = "group", default, alias = "Group")]
     pub group: String,
-    #[serde(default)]
+    #[serde(default, alias = "Host")]
     pub host: String,
-    #[serde(default)]
+    #[serde(default, alias = "User")]
     pub user: String,
-    #[serde(default)]
+    #[serde(default, alias = "Port")]
     pub port: u16,
-    #[serde(rename = "keyPath", default)]
+    #[serde(rename = "keyPath", default, alias = "KeyPath")]
     pub key_path: String,
-    #[serde(default)]
+    #[serde(default, alias = "Fingerprint")]
     pub fingerprint: String,
-    #[serde(default)]
+    #[serde(default, alias = "Remember")]
     pub remember: bool,
-    #[serde(default)]
+    #[serde(default, alias = "Revision")]
     pub revision: i64,
     #[serde(skip)]
     pub secret_ref: String,
@@ -31,11 +32,11 @@ pub struct ShellHost {
     pub password: String,
     #[serde(skip)]
     pub passphrase: String,
-    #[serde(default)]
+    #[serde(default, alias = "Notes")]
     pub notes: String,
-    #[serde(default)]
+    #[serde(default, alias = "Tags")]
     pub tags: String,
-    #[serde(rename = "operatingSystem", default)]
+    #[serde(rename = "operatingSystem", default, alias = "OperatingSystem")]
     pub operating_system: String,
 }
 
@@ -85,6 +86,22 @@ mod tests {
     #[test]
     fn accepts_a_normal_host() {
         assert!(host().validate().is_ok());
+    }
+
+    #[test]
+    fn reads_hosts_written_by_the_go_build() {
+        let raw = r#"{"ID":"h1","Name":"ysy104","Group":"","Host":"192.168.0.104",
+            "User":"kaifa","Port":22,"KeyPath":"","Remember":true,"Revision":2,
+            "Notes":"","Tags":"","OperatingSystem":"Linux"}"#;
+        let host: ShellHost = serde_json::from_str(raw).unwrap();
+        assert_eq!(host.id, "h1");
+        assert_eq!(host.name, "ysy104");
+        assert_eq!(host.host, "192.168.0.104");
+        assert_eq!(host.user, "kaifa");
+        assert_eq!(host.port, 22);
+        assert!(host.remember);
+        assert_eq!(host.revision, 2);
+        assert_eq!(host.operating_system, "Linux");
     }
 
     #[test]

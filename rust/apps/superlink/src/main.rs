@@ -14,12 +14,17 @@ fn main() {
         std::process::exit(1);
     }
     let store = match Store::open(root.join("state.db")) {
-        Ok(store) => Arc::new(store),
+        Ok(store) => store,
         Err(err) => {
             eprintln!("无法打开本地工作区 {}: {err}", root.display());
             std::process::exit(1);
         }
     };
+    // 首次启动且新库为空时，接上 Fyne 版留下的 state.sqlite。
+    if let Err(err) = store.import_legacy(root.join("state.sqlite")) {
+        eprintln!("导入旧版工作区失败，将以空工作区启动: {err}");
+    }
+    let store = Arc::new(store);
     let vault = Arc::new(LocalVault::new(&root));
     let service = Arc::new(ProfileService::new(store.clone(), vault.clone()));
     let queries = Arc::new(QueryService::new(drivers_dir()));

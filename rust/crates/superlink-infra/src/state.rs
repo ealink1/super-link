@@ -72,6 +72,45 @@ impl Store {
         &self.path
     }
 
+    /// 旧版（Fyne）把工作区写在同目录的 state.sqlite。目标库没有任何用户数据时
+    /// 整表复制一次并写入标记，之后再清空数据也不会被旧库复活。
+    pub fn import_legacy(&self, legacy: impl AsRef<Path>) -> StoreResult<bool> {
+        let legacy = legacy.as_ref();
+        if !legacy.is_file() {
+            return Ok(false);
+        }
+        if same_file(legacy, &self.path) {
+            return Ok(false);
+        }
+        let db = self.lock();
+        if db
+            .query_row(
+                "SELECT value FROM settings WHERE key=?1",
+                [LEGACY_IMPORT_KEY],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .is_some()
+        {
+            return Ok(false);
+        }
+        for table in LEGACY_TABLES {
+            let count: i64 = db.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })?;
+            if count > 0 {
+                return Ok(false);
+            }
+        }
+        db.execute(
+            "ATTACH DATABASE ?1 AS legacy",
+            params![legacy.to_string_lossy()],
+        )?;
+        let imported = copy_legacy(&db);
+        let _ = db.execute_batch("DETACH DATABASE legacy");
+        imported
+    }
+
     pub fn profiles(&self) -> StoreResult<Vec<Profile>> {
         let db = self.lock();
         let mut statement = db.prepare(
@@ -524,6 +563,79 @@ fn ensure_optional_tables(connection: &Connection) -> StoreResult<()> {
     Ok(())
 }
 
+/// 复制顺序保证子表先有父行，外键开启时也能一次导入。
+const LEGACY_TABLES: [&str; 6] = [
+    "profiles",
+    "shell_hosts",
+    "notebook",
+    "saved_queries",
+    "drafts",
+    "history",
+];
+const LEGACY_IMPORT_KEY: &str = "legacy.imported";
+
+fn same_file(left: &Path, right: &Path) -> bool {
+    match (fs::canonicalize(left), fs::canonicalize(right)) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => false,
+    }
+}
+
+fn table_columns(db: &Connection, schema: &str, table: &str) -> StoreResult<Vec<String>> {
+    let mut statement = db.prepare(&format!("PRAGMA {schema}.table_info({table})"))?;
+    let names = statement
+        .query_map([], |row| row.get::<_, String>(1))?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(names)
+}
+
+/// 逐表检查列是否一致后再复制，旧版本缺列时放弃而不是留下半份数据。
+fn copy_legacy(db: &Connection) -> StoreResult<bool> {
+    for table in LEGACY_TABLES {
+        let source = table_columns(db, "legacy", table)?;
+        let target = table_columns(db, "main", table)?;
+        if source.is_empty() || source != target {
+            return Ok(false);
+        }
+    }
+    let transaction = db.unchecked_transaction()?;
+    for table in LEGACY_TABLES {
+        transaction.execute(
+            &format!("INSERT INTO main.{table} SELECT * FROM legacy.{table}"),
+            [],
+        )?;
+    }
+    transaction.execute(
+        "INSERT OR REPLACE INTO settings SELECT * FROM legacy.settings",
+        [],
+    )?;
+    if let Some(appearance) = transaction
+        .query_row(
+            "SELECT value FROM legacy.settings WHERE key='ui.appearance'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?
+    {
+        let appearance = serde_json::from_str::<String>(&appearance).unwrap_or(appearance);
+        let mode = match appearance.as_str() {
+            "light" => "light",
+            "dark" => "dark",
+            _ => "system",
+        };
+        transaction.execute(
+            "INSERT OR REPLACE INTO settings(key,value) VALUES('theme',?)",
+            [serde_json::to_string(&Value::String(mode.to_string()))?],
+        )?;
+    }
+    transaction.execute(
+        "INSERT OR REPLACE INTO settings(key,value) VALUES(?1,'state.sqlite')",
+        [LEGACY_IMPORT_KEY],
+    )?;
+    transaction.commit()?;
+    Ok(true)
+}
+
 fn new_secret_ref() -> String {
     format!("local:v1:{}", uuid::Uuid::new_v4())
 }
@@ -724,5 +836,100 @@ mod tests {
                 ..Default::default()
             })
             .unwrap();
+    }
+
+    #[test]
+    fn imports_legacy_workspace_once() {
+        let dir = TestDir::new();
+        let legacy_path = dir.path().join("state.sqlite");
+        {
+            let legacy = Store::open(&legacy_path).unwrap();
+            let profile = legacy
+                .save_profile(&Profile {
+                    id: "p1".into(),
+                    name: "旧连接".into(),
+                    ..Default::default()
+                })
+                .unwrap();
+            legacy
+                .add_history(&History {
+                    profile_id: profile.id,
+                    text: "select 1".into(),
+                    ..Default::default()
+                })
+                .unwrap();
+            legacy
+                .set_setting("ui.appearance", &Value::String("dark".into()))
+                .unwrap();
+            legacy
+                .set_setting("connection.groups", &serde_json::json!(["旧分组"]))
+                .unwrap();
+        }
+
+        let target = Store::open(dir.path().join("state.db")).unwrap();
+        assert!(target.import_legacy(&legacy_path).unwrap());
+        assert_eq!(target.profiles().unwrap().len(), 1);
+        assert_eq!(target.profiles().unwrap()[0].name, "旧连接");
+        assert_eq!(target.history("p1", 10).unwrap().len(), 1);
+        assert_eq!(
+            target.setting("theme").unwrap(),
+            Some(Value::String("dark".into()))
+        );
+        assert_eq!(
+            target.setting("connection.groups").unwrap(),
+            Some(serde_json::json!(["旧分组"]))
+        );
+
+        // 标记写入后不再重复导入。
+        assert!(!target.import_legacy(&legacy_path).unwrap());
+        assert_eq!(target.profiles().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn keeps_existing_workspace_untouched() {
+        let dir = TestDir::new();
+        let legacy_path = dir.path().join("state.sqlite");
+        {
+            let legacy = Store::open(&legacy_path).unwrap();
+            legacy
+                .save_profile(&Profile {
+                    id: "legacy".into(),
+                    ..Default::default()
+                })
+                .unwrap();
+        }
+        let target = Store::open(dir.path().join("state.db")).unwrap();
+        target
+            .save_profile(&Profile {
+                id: "mine".into(),
+                ..Default::default()
+            })
+            .unwrap();
+
+        assert!(!target.import_legacy(&legacy_path).unwrap());
+        let ids: Vec<String> = target
+            .profiles()
+            .unwrap()
+            .into_iter()
+            .map(|profile| profile.id)
+            .collect();
+        assert_eq!(ids, vec!["mine".to_string()]);
+    }
+
+    #[test]
+    fn rejects_legacy_workspace_with_unknown_schema() {
+        let dir = TestDir::new();
+        let legacy_path = dir.path().join("state.sqlite");
+        {
+            let raw = Connection::open(&legacy_path).unwrap();
+            raw.execute_batch(
+                "CREATE TABLE profiles(id TEXT PRIMARY KEY);
+                 CREATE TABLE settings(key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+            )
+            .unwrap();
+        }
+        let target = Store::open(dir.path().join("state.db")).unwrap();
+        assert!(!target.import_legacy(&legacy_path).unwrap());
+        assert!(target.profiles().unwrap().is_empty());
     }
 }
