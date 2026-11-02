@@ -1,6 +1,7 @@
 //! Native GPUI shell. Owns rendering and input only; all I/O goes through
 //! application services.
 
+mod connection_form;
 pub mod editor;
 pub mod icons;
 pub mod multiline_editor;

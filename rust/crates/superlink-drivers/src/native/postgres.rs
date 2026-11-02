@@ -46,7 +46,11 @@ impl NativePostgres {
         if !config.database.trim().is_empty() {
             params.dbname(config.database.trim());
         }
-        params.connect_timeout(Duration::from_secs(10));
+        params.connect_timeout(Duration::from_secs(if config.timeout == 0 {
+            10
+        } else {
+            u64::from(config.timeout)
+        }));
         let client = match tls_config(config)? {
             Some(tls) => {
                 let connector = MakeTlsConnector::new(tokio_rustls::TlsConnector::from(

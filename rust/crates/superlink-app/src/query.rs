@@ -158,6 +158,22 @@ impl QueryService {
         let _ = session.close();
         Ok(result)
     }
+
+    /// 连接测试：执行一条最便宜的探测语句并返回往返耗时（毫秒）。
+    /// 失败时返回驱动给出的原始错误，方便表单直接展示。
+    pub fn test_connection(
+        &self,
+        profile: &Profile,
+        credentials: &Credentials,
+    ) -> Result<u64, QueryError> {
+        let probe = match profile.sql_dialect() {
+            "elasticsearch" => "_count",
+            _ => "SELECT 1",
+        };
+        let started = std::time::Instant::now();
+        self.execute(profile, credentials, probe, 1)?;
+        Ok(started.elapsed().as_millis() as u64)
+    }
 }
 
 /// 原生驱动默认关闭，需显式开启以保留 agent 行为作为回退。

@@ -64,13 +64,23 @@ impl NativeMysql {
             config.host.trim()
         };
         let port = if config.port == 0 { 3306 } else { config.port };
+        // 0 表示使用默认值；查询超时同时兜住握手挂起的服务端。
+        let connect = std::time::Duration::from_secs(if config.timeout == 0 {
+            10
+        } else {
+            u64::from(config.timeout)
+        });
+        let io = std::time::Duration::from_secs(if config.query_timeout == 0 {
+            30
+        } else {
+            u64::from(config.query_timeout)
+        });
         let mut builder = OptsBuilder::new()
             .ip_or_hostname(Some(host))
             .tcp_port(port)
-            .tcp_connect_timeout(Some(std::time::Duration::from_secs(10)))
-            // 无读超时的话，握手阶段挂起的服务端会让请求永远停在「加载中」。
-            .read_timeout(Some(std::time::Duration::from_secs(30)))
-            .write_timeout(Some(std::time::Duration::from_secs(30)))
+            .tcp_connect_timeout(Some(connect))
+            .read_timeout(Some(io))
+            .write_timeout(Some(io))
             .prefer_socket(false);
         if !config.user.trim().is_empty() {
             builder = builder.user(Some(config.user.trim()));

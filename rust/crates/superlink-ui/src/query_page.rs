@@ -8,13 +8,12 @@ use gpui::{
 };
 use serde_json::Value;
 use superlink_app::{
-    Credentials, DraftService, HistoryService, ProfileService, QueryService, SavedQueryService,
-    SettingsService, placeholder_count,
+    DraftService, HistoryService, ProfileService, QueryService, SavedQueryService, SettingsService,
+    placeholder_count,
 };
-use superlink_domain::{
-    ConnectionConfig, Draft, History, Profile, ResultSet, SavedQuery, catalog, resolve,
-};
+use superlink_domain::{Draft, History, Profile, ResultSet, SavedQuery};
 
+use crate::connection_form::ConnectionForm;
 use crate::editor::SqlEditor;
 use crate::icons;
 use crate::multiline_editor::SqlTextEditor;
@@ -26,8 +25,6 @@ pub(crate) const COLUMN_WIDTH: f32 = 160.0;
 pub(crate) const ROW_NUMBER_WIDTH: f32 = 52.0;
 const HISTORY_WIDTH: f32 = 300.0;
 const SAVED_WIDTH: f32 = 320.0;
-
-type SavedHandler = Box<dyn Fn(&str, &mut App) + 'static>;
 
 struct QueryTab {
     id: String,
@@ -92,18 +89,8 @@ pub struct QueryPage {
     redacted_notice: Option<usize>,
     /// Waiting for the user to confirm running a statement with placeholders.
     confirm_run: bool,
-    /// New-connection form.
-    form_open: bool,
-    /// Notifies the shell after a connection is saved so it can refresh.
-    on_saved: Option<SavedHandler>,
-    form_kind: String,
-    form_name: Entity<SqlEditor>,
-    form_host: Entity<SqlEditor>,
-    form_port: Entity<SqlEditor>,
-    form_user: Entity<SqlEditor>,
-    form_database: Entity<SqlEditor>,
-    form_password: Entity<SqlEditor>,
-    form_error: Option<SharedString>,
+    /// 新建 / 编辑连接表单。
+    connection_form: Entity<ConnectionForm>,
     /// Saved query library panel.
     saved: Arc<SavedQueryService>,
     saved_open: bool,
@@ -126,57 +113,8 @@ impl QueryPage {
         theme: Theme,
         cx: &mut Context<Self>,
     ) -> Self {
-        let form_name = cx.new(SqlEditor::new);
-        let form_host = cx.new(SqlEditor::new);
-        let form_port = cx.new(SqlEditor::new);
-        let form_user = cx.new(SqlEditor::new);
-        let form_database = cx.new(SqlEditor::new);
-        let form_password = cx.new(SqlEditor::new);
-        // 连接表单按固定顺序用 Tab / Shift+Tab 切换焦点。
-        {
-            use gpui::Focusable as _;
-            let handles: Vec<gpui::FocusHandle> = [
-                &form_name,
-                &form_host,
-                &form_port,
-                &form_user,
-                &form_database,
-                &form_password,
-            ]
-            .into_iter()
-            .map(|editor| editor.read(cx).focus_handle(cx))
-            .collect();
-            for editor in [
-                &form_name,
-                &form_host,
-                &form_port,
-                &form_user,
-                &form_database,
-                &form_password,
-            ] {
-                let handles = handles.clone();
-                editor.update(cx, |editor, cx| {
-                    editor.set_on_tab(
-                        move |shift, window, _app| {
-                            let current = handles
-                                .iter()
-                                .position(|handle| handle.is_focused(window))
-                                .unwrap_or(0);
-                            let last = handles.len() - 1;
-                            let next = if shift {
-                                current.checked_sub(1).unwrap_or(last)
-                            } else if current == last {
-                                0
-                            } else {
-                                current + 1
-                            };
-                            window.focus(&handles[next]);
-                        },
-                        cx,
-                    );
-                });
-            }
-        }
+        let connection_form =
+            cx.new(|cx| ConnectionForm::new(profiles.clone(), queries.clone(), theme, cx));
         let saved_title = cx.new(SqlEditor::new);
         saved_title.update(cx, |editor, cx| editor.set_placeholder("查询名称", cx));
         let page = Self {
@@ -206,16 +144,7 @@ impl QueryPage {
             recent_sql: HashMap::new(),
             redacted_notice: None,
             confirm_run: false,
-            form_open: false,
-            on_saved: None,
-            form_kind: "sqlite".into(),
-            form_name,
-            form_host,
-            form_port,
-            form_user,
-            form_database,
-            form_password,
-            form_error: None,
+            connection_form,
             saved,
             saved_open: false,
             saved_items: Vec::new(),
@@ -247,6 +176,8 @@ impl QueryPage {
         self.theme = theme;
         self.editor
             .update(cx, |editor, cx| editor.set_theme(theme, cx));
+        self.connection_form
+            .update(cx, |form, cx| form.set_theme(theme, cx));
         cx.notify();
     }
 
@@ -1187,12 +1118,17 @@ impl QueryPage {
         panel
     }
 
+    fn editor_text(entity: &Entity<SqlEditor>, cx: &Context<Self>) -> String {
+        entity.read(cx).text().to_string()
+    }
+
     pub fn set_on_saved(
         &mut self,
         handler: impl Fn(&str, &mut App) + 'static,
-        _cx: &mut Context<Self>,
+        cx: &mut Context<Self>,
     ) {
-        self.on_saved = Some(Box::new(handler));
+        self.connection_form
+            .update(cx, |form, cx| form.set_on_saved(handler, cx));
     }
 
     /// 把当前结果导出为 CSV 到数据目录。
@@ -1229,326 +1165,27 @@ impl QueryPage {
     }
 
     pub fn open_connection_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.form_open = true;
-        self.form_kind = "sqlite".into();
-        self.form_error = None;
-        for editor in [
-            &self.form_name,
-            &self.form_host,
-            &self.form_port,
-            &self.form_user,
-            &self.form_database,
-            &self.form_password,
-        ] {
-            editor.update(cx, |editor, cx| {
-                editor.set_text(String::new(), cx);
-                editor.set_masked(false, cx);
-            });
-        }
-        self.form_name
-            .update(cx, |editor, cx| editor.set_placeholder("例如 生产库", cx));
-        self.form_host.update(cx, |editor, cx| {
-            editor.set_placeholder("例如 127.0.0.1", cx)
-        });
-        self.form_user
-            .update(cx, |editor, cx| editor.set_placeholder("例如 root", cx));
-        self.form_database
-            .update(cx, |editor, cx| editor.set_placeholder("例如 mydb", cx));
-        self.form_password
-            .update(cx, |editor, cx| editor.set_placeholder("密码", cx));
-        // 打开表单即聚焦第一个字段，Tab 才有起点。
-        use gpui::Focusable as _;
-        let handle = self.form_name.read(cx).focus_handle(cx);
-        window.focus(&handle);
-        if let Ok(descriptor) = resolve("sqlite") {
-            // 有默认端口的写进输入框，没有的只做占位，避免把提示文字当值提交。
-            match descriptor.port {
-                Some(port) => {
-                    let port = port.to_string();
-                    self.form_port
-                        .update(cx, |editor, cx| editor.set_text(port, cx));
-                }
-                None => {
-                    self.form_port.update(cx, |editor, cx| {
-                        editor.set_placeholder("例如 3306", cx);
-                        editor.set_text("", cx);
-                    });
-                }
-            }
-        }
+        self.connection_form
+            .update(cx, |form, cx| form.open_new(window, cx));
+        cx.notify();
+    }
+
+    /// 编辑当前选中的连接。
+    pub fn open_edit_connection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(profile) = self.profile.clone() else {
+            self.status = "请先选择连接".into();
+            cx.notify();
+            return;
+        };
+        self.connection_form
+            .update(cx, |form, cx| form.open_edit(profile, window, cx));
         cx.notify();
     }
 
     pub fn close_connection_form(&mut self, cx: &mut Context<Self>) {
-        self.form_open = false;
+        self.connection_form.update(cx, |form, cx| form.close(cx));
         cx.notify();
     }
-
-    pub fn set_form_kind(&mut self, kind: String, cx: &mut Context<Self>) {
-        self.form_kind = kind.clone();
-        // 切换驱动时端口跟随新类型的默认值；没有默认端口的类型清空，避免残留上一个驱动的端口。
-        if let Ok(descriptor) = resolve(&kind) {
-            let port = descriptor
-                .port
-                .map(|port| port.to_string())
-                .unwrap_or_default();
-            self.form_port
-                .update(cx, |editor, cx| editor.set_text(port, cx));
-        }
-        cx.notify();
-    }
-
-    fn editor_text(entity: &Entity<SqlEditor>, cx: &Context<Self>) -> String {
-        entity.read(cx).text().to_string()
-    }
-
-    pub fn save_connection(&mut self, cx: &mut Context<Self>) {
-        self.form_error = None;
-        let name = Self::editor_text(&self.form_name, cx);
-        let host = Self::editor_text(&self.form_host, cx);
-        let port_text = Self::editor_text(&self.form_port, cx);
-        let user = Self::editor_text(&self.form_user, cx);
-        let database = Self::editor_text(&self.form_database, cx);
-        let password = Self::editor_text(&self.form_password, cx);
-
-        if name.trim().is_empty() {
-            self.form_error = Some("请输入连接名称".into());
-            cx.notify();
-            return;
-        }
-        let port: u16 = if port_text.trim().is_empty() {
-            0
-        } else {
-            match port_text.trim().parse() {
-                Ok(value) => value,
-                Err(_) => {
-                    self.form_error = Some("端口无效，请输入 1-65535".into());
-                    cx.notify();
-                    return;
-                }
-            }
-        };
-        if self.form_kind == "sqlite" {
-            if database.trim().is_empty() {
-                self.form_error = Some("请输入 SQLite 数据库文件路径".into());
-                cx.notify();
-                return;
-            }
-        } else if self.form_kind != "custom" {
-            if host.trim().is_empty() {
-                self.form_error = Some("请输入主机地址".into());
-                cx.notify();
-                return;
-            }
-            if port == 0 {
-                // 空值提示「请输入」，填了 0 则提示无效，避免文案与输入矛盾。
-                self.form_error = Some(if port_text.trim().is_empty() {
-                    "请输入端口（1-65535）".into()
-                } else {
-                    "端口无效，请输入 1-65535".into()
-                });
-                cx.notify();
-                return;
-            }
-        }
-        let profile = Profile {
-            id: uuid::Uuid::new_v4().to_string(),
-            name: name.trim().to_string(),
-            config: ConnectionConfig {
-                kind: self.form_kind.clone(),
-                host: host.trim().to_string(),
-                port,
-                user: user.trim().to_string(),
-                database: database.trim().to_string(),
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-        let credentials = Credentials {
-            password: password.trim().to_string(),
-            ..Default::default()
-        };
-        match self.profiles.save(profile, &credentials) {
-            Ok(saved) => {
-                self.form_open = false;
-                self.status = format!("已保存连接「{}」", saved.name).into();
-                if let Some(handler) = self.on_saved.as_ref() {
-                    handler(&saved.id, cx);
-                }
-            }
-            Err(err) => self.form_error = Some(err.to_string().into()),
-        }
-        cx.notify();
-    }
-
-    fn form_row(&self, label: &str, editor: &Entity<SqlEditor>) -> impl IntoElement {
-        let theme = self.theme;
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .child(
-                div()
-                    .w(px(72.0))
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(label.to_string()),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .flex_1()
-                    .px_2()
-                    .h(px(30.0))
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.canvas)
-                    .text_color(theme.text)
-                    .child(editor.clone()),
-            )
-    }
-
-    fn connection_form(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let kind = self.form_kind.clone();
-        let chips = catalog()
-            .iter()
-            .map(|descriptor| {
-                let key = descriptor.key;
-                let active = key == kind;
-                div()
-                    .id(SharedString::from(format!("kind-{key}")))
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(if active { theme.accent } else { theme.canvas })
-                    .border_1()
-                    .border_color(if active { theme.accent } else { theme.border })
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.set_form_kind(key.to_string(), cx)
-                    }))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(if active { theme.surface } else { theme.text })
-                            .child(descriptor.name),
-                    )
-            })
-            .collect::<Vec<_>>();
-
-        div()
-            .flex()
-            .flex_1()
-            .items_start()
-            .justify_center()
-            .bg(theme.canvas)
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .gap_3()
-                    .p_6()
-                    .mt_6()
-                    .w(px(640.0))
-                    .rounded_md()
-                    .bg(theme.surface)
-                    .border_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .font_weight(FontWeight::BOLD)
-                                    .text_color(theme.text)
-                                    .child("新建连接"),
-                            )
-                            .child(
-                                div()
-                                    .id("close-form")
-                                    .px_1()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .hover(move |style| style.bg(theme.accent_soft))
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.close_connection_form(cx)
-                                    }))
-                                    .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .flex_wrap()
-                            .gap_1()
-                            .max_w(px(580.0))
-                            .children(chips),
-                    )
-                    .child(self.form_row("连接名称", &self.form_name))
-                    .child(self.form_row("主机", &self.form_host))
-                    .child(self.form_row("端口", &self.form_port))
-                    .child(self.form_row("用户名", &self.form_user))
-                    .child(self.form_row("数据库", &self.form_database))
-                    .child(self.form_row("密码", &self.form_password))
-                    .children(self.form_error.clone().map(|error| {
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.danger)
-                            .child(error)
-                    }))
-                    .child(
-                        div()
-                            .flex()
-                            .justify_end()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .id("cancel-connection")
-                                    .px_3()
-                                    .py_1()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.close_connection_form(cx)
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .text_color(theme.text)
-                                            .child("取消"),
-                                    ),
-                            )
-                            .child(
-                                div()
-                                    .id("save-connection")
-                                    .px_3()
-                                    .py_1()
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .bg(theme.accent)
-                                    .on_click(cx.listener(|this, _event, _window, cx| {
-                                        this.save_connection(cx)
-                                    }))
-                                    .child(
-                                        div()
-                                            .text_size(px(crate::theme::TEXT_SIZE))
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_color(theme.surface)
-                                            .child("保存"),
-                                    ),
-                            ),
-                    ),
-            )
-    }
-
     fn tab_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         let mut strip = div()
@@ -1717,6 +1354,25 @@ impl QueryPage {
                             .child("▾"),
                     ),
             )
+            // 编辑当前连接
+            .children(self.profile.is_some().then(|| {
+                div()
+                    .id("edit-connection")
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .w(px(30.0))
+                    .h(px(crate::theme::CONTROL_MIN))
+                    .rounded_md()
+                    .cursor_pointer()
+                    .hover(move |style| style.bg(theme.accent_soft))
+                    .on_click(
+                        cx.listener(|this, _event, window, cx| {
+                            this.open_edit_connection(window, cx)
+                        }),
+                    )
+                    .child(icons::icon("superlink/pencil.svg", 14.0, theme.muted))
+            }))
             // 数据库 / Namespace
             .child(
                 div()
@@ -2184,13 +1840,16 @@ pub(crate) fn cell_text(value: &Value) -> SharedString {
 impl Render for QueryPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
-        div()
-            .flex()
-            .flex_col()
-            .size_full()
-            .bg(theme.surface)
-            .child(if self.form_open {
-                self.connection_form(cx).into_any_element()
+        div().flex().flex_col().size_full().bg(theme.surface).child(
+            if self.connection_form.read(cx).is_open() {
+                div()
+                    .flex()
+                    .flex_1()
+                    .items_start()
+                    .justify_center()
+                    .bg(theme.canvas)
+                    .child(self.connection_form.clone())
+                    .into_any_element()
             } else {
                 div()
                     .flex()
@@ -2224,7 +1883,8 @@ impl Render for QueryPage {
                             .children(self.saved_open.then(|| self.saved_panel(cx))),
                     )
                     .into_any_element()
-            })
+            },
+        )
     }
 }
 
