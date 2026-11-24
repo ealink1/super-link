@@ -18,6 +18,7 @@ pub mod completion;
 pub mod completion_context;
 pub mod create_table;
 pub mod database;
+pub mod design;
 pub mod error;
 pub mod identifier;
 pub mod lexer;
@@ -30,6 +31,7 @@ mod structure_column;
 mod structure_index;
 pub mod table_catalog;
 pub mod table_mutation;
+pub mod table_triggers;
 pub mod value;
 
 pub use completion::{CompletionCandidate, CompletionTable, complete};

@@ -1,9 +1,10 @@
 //! 进程内原生驱动。首个移植目标：SQLite。
 //!
-//! Go agent 覆盖 24 类数据源，但 Rust 端当前只用到 metadata/connect/query/close
+//! SQLite 原生实现复用于桌面进程与独立 Rust agent，提供查询、目录与事务
 //! 四个方法；这个模块从 SQLite 开始把该子集搬到进程内，其余驱动暂时仍走 agent。
 
 use std::time::Instant;
+mod streaming;
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
@@ -23,6 +24,13 @@ pub struct NativeSqlite {
 }
 
 impl NativeSqlite {
+    pub fn set_cancellation(&self, cancel: &superlink_infra::QueryCancel) {
+        let flag = cancel.clone();
+        self.conn
+            .progress_handler(1_000, Some(move || flag.is_cancelled()));
+        let handle = self.conn.get_interrupt_handle();
+        cancel.on_cancel(move || handle.interrupt());
+    }
     pub fn open(config: &ConnectionConfig) -> Result<Self, DriverError> {
         let path = config.database.trim();
         if path.is_empty() {
@@ -84,6 +92,7 @@ impl NativeSqlite {
         let limit = if max_rows == 0 { u32::MAX } else { max_rows };
         let mut rows_out: Vec<Vec<Value>> = Vec::new();
         let mut truncated = false;
+        let mut memory = crate::budget::ResultBudget::default();
         let mut rows = statement
             .query(params_from_iter(params))
             .map_err(|err| DriverError::Native(format!("查询失败：{err}")))?;
@@ -101,6 +110,10 @@ impl NativeSqlite {
                     .get_ref(index)
                     .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
                 values.push(to_json(raw));
+            }
+            if !memory.accept(&values) {
+                truncated = true;
+                break;
             }
             rows_out.push(values);
         }
@@ -271,7 +284,7 @@ impl NativeSqlite {
         let quoted = table.replace('"', "\"\"");
         let mut statement = self
             .conn
-            .prepare(&format!("PRAGMA table_info(\"{quoted}\")"))
+            .prepare(&format!("PRAGMA table_xinfo(\"{quoted}\")"))
             .map_err(|err| DriverError::Native(format!("读取列失败：{err}")))?;
         let rows = statement
             .query_map([], |row| {
@@ -281,6 +294,11 @@ impl NativeSqlite {
                     nullable: row.get::<_, i64>(3).unwrap_or(0) == 0,
                     primary_key: row.get::<_, i64>(5).unwrap_or(0) > 0,
                     default_value: row.get(4)?,
+                    extra: if row.get::<_, i64>(6).unwrap_or(0) > 0 {
+                        "generated".into()
+                    } else {
+                        String::new()
+                    },
                     comment: None,
                 })
             })
@@ -296,16 +314,21 @@ impl NativeSqlite {
 /// JSON 参数只支持标量；BLOB 用 base64 与 Go 侧保持一致。
 fn to_sql_params(args: &[Value]) -> Result<Vec<SqlValue>, DriverError> {
     args.iter()
-        .map(|value| match value {
-            Value::Null => Ok(SqlValue::Null),
-            Value::Bool(flag) => Ok(SqlValue::Integer(i64::from(*flag))),
-            Value::Number(number) => number
-                .as_i64()
-                .map(SqlValue::Integer)
-                .or_else(|| number.as_f64().map(SqlValue::Real))
-                .ok_or_else(|| DriverError::Native("不支持的数值参数".into())),
-            Value::String(text) => Ok(SqlValue::Text(text.clone())),
-            _ => Err(DriverError::Native("参数只支持标量".into())),
+        .map(|value| {
+            if let Some(bytes) = crate::arguments::binary(value)? {
+                return Ok(SqlValue::Blob(bytes));
+            }
+            match value {
+                Value::Null => Ok(SqlValue::Null),
+                Value::Bool(flag) => Ok(SqlValue::Integer(i64::from(*flag))),
+                Value::Number(number) => number
+                    .as_i64()
+                    .map(SqlValue::Integer)
+                    .or_else(|| number.as_f64().map(SqlValue::Real))
+                    .ok_or_else(|| DriverError::Native("不支持的数值参数".into())),
+                Value::String(text) => Ok(SqlValue::Text(text.clone())),
+                _ => Err(DriverError::Native("参数只支持标量".into())),
+            }
         })
         .collect()
 }

@@ -199,5 +199,67 @@
       "url": "https://raw.githubusercontent.com/lucide-icons/lucide/0.468.0/icons/network.svg",
       "sha256": "626be730feea1e5ea7539fbf78b4a3fcb927ce5d7dc43364f2216908672ac792"
     }
+  ],
+  "project_assets": [
+    {
+      "file": "monitor-cpu.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "6370eb23717fdacff984c3488632602703c2025147c908ebc3d076017218f91c"
+    },
+    {
+      "file": "monitor-dir.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "ae91a025a1fabc1230d41f9b79e24076e7dba6801d0d691ad29a30bace6ef595"
+    },
+    {
+      "file": "monitor-disk.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "8fde77f9528649fa755024eca25b49e2c631e1e2e7f417011fcb7c5f9601fd0a"
+    },
+    {
+      "file": "monitor-file.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "61492b2cb3e61b5c5654c78f053eb91850d1966deca99dd30585ee5e0f7c2423"
+    },
+    {
+      "file": "monitor-gpu.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "8972235491872f0e00988cd66ad182c2e42379f83d91478700b3a2fc8b260add"
+    },
+    {
+      "file": "monitor-mem.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "3f7f4fbc30ad36d1ecba44ee0ad121d3b8b6aad32d6358a5a12204668b87e6da"
+    },
+    {
+      "file": "monitor-net.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "33c76f5141955b64b93dbbefa6ffbba108d18d2089d8526259d2dba952727805"
+    },
+    {
+      "file": "monitor-overview.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "349db7943b77c5ba40a9ffe0b9de8050d9fbe24c75505dbe5f2aa455a8c18708"
+    },
+    {
+      "file": "monitor-path.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "887f987f959c9547d40b6fc32edf9a1ab01c5d5054ad220b2a54f387e5ee6980"
+    },
+    {
+      "file": "monitor-trend.svg",
+      "source": "git:7e4ffd831315e68316136055e4bb6af1149b0116:internal/ui/shell_monitor_cards.go",
+      "conversion": "Preserved monitorMetricIcon geometry; SVG wrapper uses currentColor.",
+      "sha256": "a0d317a3218a461c41fca47deeab3e69688d5be39b8f0fb01ae4cd1c69ba571f"
+    }
   ]
 }

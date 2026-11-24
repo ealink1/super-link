@@ -6,7 +6,7 @@ use serde_json::Value;
 use superlink_domain::ResultSet;
 use superlink_drivers::registry;
 use superlink_files::cancel::NeverCancelled;
-use superlink_files::export::{Encoder, ExportOptions, Format};
+use superlink_files::export::{ExportOptions, Format, save_atomic};
 use superlink_files::import::{ReadOptions, read_file};
 use superlink_files::value::Cell;
 
@@ -46,25 +46,126 @@ pub fn export_result_csv(
     result: &ResultSet,
     path: &Path,
 ) -> Result<u64, superlink_files::error::FileError> {
-    if let Some(parent) = path.parent() {
-        let _ = std::fs::create_dir_all(parent);
+    export_result(
+        result,
+        path,
+        ExportOptions::new(Format::Csv),
+        &crate::QueryCancel::new(),
+    )
+}
+
+struct ExportCancel<'a>(&'a crate::QueryCancel);
+impl superlink_files::cancel::Cancellation for ExportCancel<'_> {
+    fn is_cancelled(&self) -> bool {
+        self.0.is_cancelled()
     }
-    let file = std::fs::File::create(path)
-        .map_err(|error| superlink_files::error::FileError::io("create export", error))?;
-    let cancel = NeverCancelled;
-    let mut encoder = Encoder::new(file, &cancel, ExportOptions::new(Format::Csv))?;
-    let names: Vec<String> = result
-        .columns
-        .iter()
-        .map(|column| column.name.clone())
-        .collect();
-    encoder.set_columns(&names)?;
-    for row in &result.rows {
-        let cells: Vec<Cell> = row.iter().map(json_to_cell).collect();
-        encoder.consume_row_values(&cells)?;
+}
+
+/// Publishes a complete file atomically; cancelled/failed exports preserve the destination.
+pub fn export_result(
+    result: &ResultSet,
+    path: &Path,
+    options: ExportOptions,
+    cancel: &crate::QueryCancel,
+) -> Result<u64, superlink_files::FileError> {
+    save_atomic(&ExportCancel(cancel), path, true, options, |encoder| {
+        let names: Vec<_> = result.columns.iter().map(|c| c.name.clone()).collect();
+        encoder.set_columns(&names)?;
+        for row in &result.rows {
+            encoder.consume_row_values(&row.iter().map(json_to_cell).collect::<Vec<_>>())?;
+        }
+        Ok(())
+    })
+}
+
+/// Chooses a supported encoder from the explicitly selected filename.
+pub fn export_options(path: &Path, dialect: &str, table: &str) -> Result<ExportOptions, String> {
+    let extension = path
+        .extension()
+        .and_then(|s| s.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let format = Format::ALL
+        .into_iter()
+        .find(|f| f.extension().trim_start_matches('.') == extension)
+        .ok_or("请选择 .xlsx、.csv、.json、.md、.html 或 .sql 文件")?;
+    let mut options = ExportOptions::new(format);
+    options.dialect = dialect.into();
+    options.table = table.into();
+    if format == Format::InsertSql && table.is_empty() {
+        return Err("INSERT SQL 导出需要目标表，请从表工作区导出".into());
     }
-    encoder.finish()?;
-    Ok(result.rows.len() as u64)
+    Ok(options)
+}
+
+impl crate::QueryService {
+    /// Re-executes a single read-only statement and exports frames without a result cache.
+    pub fn export_query(
+        &self,
+        profile: &superlink_domain::Profile,
+        credentials: &crate::Credentials,
+        request: &superlink_domain::Execution,
+        path: &Path,
+        options: ExportOptions,
+        cancel: &crate::QueryCancel,
+    ) -> Result<u64, String> {
+        if request.revision != profile.revision {
+            return Err("连接配置已修改，请重新导出".into());
+        }
+        let mut profile = profile.clone();
+        crate::scope::apply(&mut profile.config, &request.scope)?;
+        let dialect = profile.sql_dialect();
+        let statements = crate::execution_policy::split_sql(&request.text, dialect)?;
+        if statements.len() != 1
+            || crate::execution_policy::requires_write(&profile, &statements[0])?
+        {
+            return Err("完整导出只支持一条只读查询，请选中查询后执行".into());
+        }
+        if !request.args.is_empty() || !request.parameters.is_empty() {
+            return Err("带参数的结果请使用已加载结果导出".into());
+        }
+        let kind = profile.config.kind.as_str();
+        let binary = self
+            .agent_path(kind)
+            .ok_or("完整导出需要对应的数据源驱动")?;
+        let _operation = crate::execution::Operation::new(cancel, profile.config.query_timeout);
+        let mut session = superlink_drivers::DriverSession::open_with_cancel(binary, kind, cancel)
+            .map_err(|e| e.to_string())?;
+        session.set_cancellation(cancel);
+        session
+            .connect(&credentials.apply(&profile.config))
+            .map_err(|e| e.to_string())?;
+        if !request.schema.is_empty() {
+            session.open_sql_session().map_err(|e| e.to_string())?;
+            if !session.has_sql_session() {
+                return Err("此驱动不支持保持 Schema 会话".into());
+            }
+            let quoted = superlink_sql::quote_identifier(dialect, &request.schema)
+                .map_err(|e| e.to_string())?;
+            session
+                .exec(&format!("SET search_path TO {quoted}"), &[])
+                .map_err(|e| e.to_string())?;
+        }
+        save_atomic(&ExportCancel(cancel), path, true, options, |encoder| {
+            let mut started = false;
+            session
+                .stream_query(&statements[0], |columns, rows| {
+                    if !started {
+                        encoder.set_columns(columns).map_err(|e| e.to_string())?;
+                        started = true;
+                    }
+                    for row in rows {
+                        encoder
+                            .consume_row_values(&row.iter().map(json_to_cell).collect::<Vec<_>>())
+                            .map_err(|e| e.to_string())?;
+                    }
+                    Ok(())
+                })
+                .map_err(|e| superlink_files::FileError::invalid(e.to_string()))?;
+            Ok(())
+        })
+        .map_err(|e| e.to_string())
+    }
 }
 
 fn json_to_cell(value: &Value) -> Cell {
@@ -228,7 +329,12 @@ pub fn diagnostics() -> Vec<(String, String)> {
             },
         ));
     }
-    rows.push(("应用版本".into(), env!("CARGO_PKG_VERSION").to_string()));
+    rows.push((
+        "应用版本".into(),
+        option_env!("SUPERLINK_VERSION")
+            .unwrap_or(env!("CARGO_PKG_VERSION"))
+            .to_string(),
+    ));
     rows
 }
 
@@ -272,6 +378,7 @@ mod tests {
                 primary_key: false,
                 default_value: None,
                 comment: None,
+                extra: String::new(),
             },
             superlink_drivers::ColumnEntry {
                 name: "name".into(),
@@ -280,6 +387,7 @@ mod tests {
                 primary_key: false,
                 default_value: None,
                 comment: None,
+                extra: String::new(),
             },
         ];
         let (sql, count) = import_csv_to_table(&path, "sqlite", "t", &target).unwrap();

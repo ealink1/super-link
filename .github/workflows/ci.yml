@@ -5,39 +5,29 @@ on:
   pull_request:
 permissions:
   contents: read
-env:
-  GOPROXY: 'https://proxy.golang.org|direct'
 jobs:
   checks:
     runs-on: ubuntu-latest
+    env:
+      CARGO_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.26.3'
-          cache: true
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
       - name: Install GPUI Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-x11-dev
+        run: sudo apt-get update && sudo apt-get install -y libwayland-dev libxkbcommon-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-x11-dev protobuf-compiler libssl-dev
       - name: Architecture and provenance checks
         run: |
           python3 tools/check-architecture.py
-          go run ./tools/check-go-size
           python3 tools/verify-upstream.py
           python3 tools/verify-ui-assets.py
           python3 tools/verify-shell-assets.py
-      - name: Go driver agent checks
-        run: |
-          go test ./...
-          go test -tags superlink_full_drivers ./internal/upstream/db ./cmd/driver-agent
-          go vet ./...
       - name: Rust workspace checks
         run: |
-          cargo fmt --all -- --check
-          cargo clippy --workspace --all-targets
-          cargo test --workspace
+          cargo fmt --manifest-path rust/Cargo.toml --all -- --check
+          cargo clippy --manifest-path rust/Cargo.toml --workspace --all-targets
+          cargo test --manifest-path rust/Cargo.toml --workspace
       - name: Build driver agents
         run: python3 tools/build.py --all-drivers --skip-app
       - uses: actions/upload-artifact@v4

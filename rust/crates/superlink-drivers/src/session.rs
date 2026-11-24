@@ -1,3 +1,4 @@
+mod elasticsearch;
 use std::path::Path;
 
 use serde::Deserialize;
@@ -42,6 +43,8 @@ struct Metadata {
 /// A connected driver process. One session owns one child process; dropping it
 /// kills the child so a crashed query never leaves an orphan.
 pub struct DriverSession {
+    search_index: String,
+    session_id: String,
     agent: DriverAgent,
     kind: String,
     revision: String,
@@ -50,25 +53,56 @@ pub struct DriverSession {
 }
 
 impl DriverSession {
+    pub fn catalog(
+        &mut self,
+        method: &str,
+        database: &str,
+        table: &str,
+    ) -> Result<Value, DriverError> {
+        Ok(self.agent.call(
+            method,
+            named([
+                ("dbName", json!(database)),
+                ("tableName", json!(table)),
+                ("timeoutMs", json!(self.timeout_ms)),
+            ]),
+        )?)
+    }
+    pub fn set_cancellation(&self, cancel: &superlink_infra::QueryCancel) {
+        self.agent.set_cancellation(cancel);
+    }
     /// Spawns the agent and verifies its identity before any user data is sent.
     pub fn open(binary: impl AsRef<Path>, kind: &str) -> Result<Self, DriverError> {
+        Self::open_with_cancel(binary, kind, &superlink_infra::QueryCancel::new())
+    }
+    pub fn open_with_cancel(
+        binary: impl AsRef<Path>,
+        kind: &str,
+        cancel: &superlink_infra::QueryCancel,
+    ) -> Result<Self, DriverError> {
         let mut agent = DriverAgent::spawn(binary, &[])?;
+        agent.set_cancellation(cancel);
         let data = agent.call("metadata", Map::new())?;
         let metadata: Metadata =
             serde_json::from_value(data).map_err(|_| DriverError::Malformed("metadata"))?;
-        if !metadata.driver_type.is_empty() && metadata.driver_type != kind {
+        if metadata.driver_type != kind {
             return Err(DriverError::Identity {
                 kind: kind.to_string(),
                 actual: metadata.driver_type,
             });
         }
-        if !metadata.protocol_schema.is_empty() && metadata.protocol_schema != PROTOCOL {
+        if metadata.protocol_schema != PROTOCOL {
             return Err(DriverError::Protocol {
                 kind: kind.to_string(),
                 actual: metadata.protocol_schema,
             });
         }
+        if metadata.revision.is_empty() {
+            return Err(DriverError::Malformed("driver revision"));
+        }
         Ok(Self {
+            search_index: String::new(),
+            session_id: String::new(),
             agent,
             kind: kind.to_string(),
             revision: metadata.revision,
@@ -93,6 +127,7 @@ impl DriverSession {
     /// never persisted or logged by this layer.
     pub fn connect(&mut self, config: &ConnectionConfig) -> Result<&ConnectInfo, DriverError> {
         // Go 侧语义：queryTimeout 为秒，0 表示不设自动截止。
+        self.search_index = config.database.clone();
         self.timeout_ms = u64::from(config.query_timeout).saturating_mul(1000);
         let config = serde_json::to_value(config).map_err(|_| DriverError::Malformed("config"))?;
         let data = self.agent.call("connect", named([("config", config)]))?;
@@ -122,14 +157,96 @@ impl DriverSession {
         args: &[Value],
         max_rows: u32,
     ) -> Result<ResultSet, DriverError> {
-        let fields = query_request(sql, args, max_rows, self.timeout_ms);
+        self.validate_arguments(args)?;
+        let mut fields = query_request(sql, args, max_rows, self.timeout_ms);
+        if !self.session_id.is_empty() {
+            fields.insert("sessionId".into(), json!(self.session_id));
+        }
         let frame = self.agent.call_frame("query", fields)?;
         Ok(to_result_set(frame))
     }
 
     pub fn close(&mut self) -> Result<(), DriverError> {
+        if !self.session_id.is_empty() {
+            self.agent.call(
+                "closeSession",
+                named([("sessionId", json!(self.session_id))]),
+            )?;
+            self.session_id.clear();
+        }
         self.agent.call("close", Map::new())?;
         Ok(())
+    }
+
+    pub fn open_sql_session(&mut self) -> Result<bool, DriverError> {
+        match self.agent.call(
+            "openSession",
+            named([("timeoutMs", json!(self.timeout_ms))]),
+        ) {
+            Ok(value) => {
+                self.session_id = value
+                    .as_str()
+                    .ok_or(DriverError::Malformed("SQL session"))?
+                    .into();
+                Ok(true)
+            }
+            Err(AgentError::Remote(error)) if error.contains("不支持 SQL 编辑器托管事务") => {
+                Ok(false)
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+    /// Delivers bounded frames directly to a consumer, retaining no earlier rows.
+    pub fn stream_query(
+        &mut self,
+        sql: &str,
+        mut consume: impl FnMut(&[String], &[Vec<Value>]) -> Result<(), String>,
+    ) -> Result<u64, DriverError> {
+        let mut fields = query_request(sql, &[], 0, self.timeout_ms);
+        if !self.session_id.is_empty() {
+            fields.insert("sessionId".into(), json!(self.session_id));
+        }
+        let id = self.agent.send_request("streamQuery", fields)?;
+        let mut columns = Vec::new();
+        let mut count = 0u64;
+        loop {
+            let frame = self.agent.read_frame(id)?;
+            match frame.chunk_type.as_str() {
+                "columns" if columns.is_empty() && !frame.fields.is_empty() => {
+                    columns = frame.fields;
+                    consume(&columns, &[]).map_err(DriverError::Native)?;
+                }
+                "rows" if !columns.is_empty() => {
+                    let mut frame = frame;
+                    frame.fields = columns.clone();
+                    let result = to_result_set(frame);
+                    count = count.saturating_add(result.rows.len() as u64);
+                    consume(&columns, &result.rows).map_err(DriverError::Native)?;
+                }
+                "done" if !columns.is_empty() => return Ok(count),
+                _ => return Err(DriverError::Malformed("stream frame")),
+            }
+        }
+    }
+
+    fn validate_arguments(&self, args: &[Value]) -> Result<(), DriverError> {
+        if !args.is_empty() && !self.connect.typed_arguments {
+            return Err(DriverError::Malformed(
+                "driver does not support typed parameters",
+            ));
+        }
+        crate::arguments::wire(args).map(|_| ())
+    }
+    pub fn has_sql_session(&self) -> bool {
+        !self.session_id.is_empty()
+    }
+    pub fn exec(&mut self, sql: &str, args: &[Value]) -> Result<ResultSet, DriverError> {
+        self.validate_arguments(args)?;
+        let mut fields = query_request(sql, args, 0, self.timeout_ms);
+        if !self.session_id.is_empty() {
+            fields.insert("sessionId".into(), json!(self.session_id));
+        }
+        Ok(to_result_set(self.agent.call_frame("exec", fields)?))
     }
 }
 
@@ -144,13 +261,16 @@ fn named<const N: usize>(pairs: [(&str, Value); N]) -> Map<String, Value> {
 fn query_request(sql: &str, args: &[Value], max_rows: u32, timeout_ms: u64) -> Map<String, Value> {
     let mut fields = Map::new();
     fields.insert("query".into(), json!(sql));
-    if !args.is_empty() {
-        fields.insert("args".into(), json!(args));
+    if !args.is_empty()
+        && let Ok((values, types)) = crate::arguments::wire(args)
+    {
+        fields.insert("args".into(), json!(values));
+        fields.insert("argTypes".into(), json!(types));
     }
     if max_rows > 0 {
         fields.insert(
             "rowBudget".into(),
-            json!({ "maxRowsPerResult": max_rows, "maxTotalRows": max_rows }),
+            json!({ "maxRowsPerResult": max_rows, "maxTotalRows": max_rows, "maxTotalBytes": 24<<20, "maxFieldBytes": 1<<20 }),
         );
     }
     if timeout_ms > 0 {
@@ -227,7 +347,7 @@ mod tests {
 
     fn sqlite_agent() -> Option<String> {
         let path = format!(
-            "{}/../../bin/drivers/sqlite-driver-agent",
+            "{}/../../../bin/drivers/sqlite-driver-agent",
             env!("CARGO_MANIFEST_DIR")
         );
         Path::new(&path).is_file().then_some(path)
@@ -300,6 +420,42 @@ mod tests {
         );
         session.close().unwrap();
         let _ = std::fs::remove_file(&database);
+    }
+
+    #[test]
+    fn streams_more_than_the_display_budget_on_one_sql_session() {
+        let Some(binary) = sqlite_agent() else {
+            return;
+        };
+        let mut session = DriverSession::open(binary, "sqlite").unwrap();
+        session
+            .connect(&ConnectionConfig {
+                kind: "sqlite".into(),
+                database: ":memory:".into(),
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(session.open_sql_session().unwrap());
+        session.exec("CREATE TABLE t(a INTEGER)", &[]).unwrap();
+        session.exec("BEGIN", &[]).unwrap();
+        session.exec("INSERT INTO t VALUES (7)", &[]).unwrap();
+        session.exec("ROLLBACK", &[]).unwrap();
+        assert_eq!(
+            session
+                .query("SELECT count(*) n FROM t", &[], 1)
+                .unwrap()
+                .rows[0][0],
+            json!(0)
+        );
+        let mut count = 0;
+        let rows = session.stream_query("WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<2500) SELECT x FROM n", |columns, rows| {
+            assert_eq!(columns, &["x"]);
+            assert!(rows.len() <= 256);
+            count += rows.len();
+            Ok(())
+        }).unwrap();
+        assert_eq!(rows, 2500);
+        assert_eq!(count, 2500);
     }
 
     #[test]

@@ -1,224 +1,149 @@
 # Upstream provenance
 
-SuperLink is an independent Go module, desktop application and repository.
-The Fyne UI, application services, credential store, metadata storage, driver
-installer and signed whole-application updater are implemented in this project.
-The reviewed driver/protocol dependency closure derives from
-[Syngnat/GoNavi](https://github.com/Syngnat/GoNavi) at commit
-`6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871` (Apache-2.0).
-The Wails application object, React runtime and original application data are
-not imported or shared. Reviewed frontend icon assets are retained separately
-for the user-requested visual parity, with their original provenance.
+SuperLink is a Rust + GPUI desktop application. Application services, drivers,
+SSH/SFTP, update helper and asset tools are implemented in Rust. This branch has
+no Go source files, Go modules, Go compiler requirement or Go child process.
+SQLite and DuckDB use their bundled native database engines through Rust crates;
+OS frameworks and Cargo dependencies retain their own licenses.
 
-## Traceability
+## Historical attribution
 
-`docs/upstream-import.json` records the original source path/hash, the initial
-rewritten hash and the current retained hash for 523 files, including driver
-entry points, source/test fixtures, catalog generation and vendored libraries.
-`tools/verify-upstream.py` verifies those current hashes without network access.
-`docs/upstream-adaptations.patch` records text adaptations against the rewritten,
-`gofmt`-normalized source. The generated catalog ZIP is tracked by its hash.
+The original application and reviewed protocol behavior derive from
+[Syngnat/GoNavi](https://github.com/Syngnat/GoNavi), Apache-2.0, pinned at
+`6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871`. `LICENSE` and `NOTICE` preserve that
+attribution. Go/Fyne source was retired on 2026-11-02 at the user's request.
+Earlier implementation notes are retained as historical material in
+`docs/archive/go-app/upstream-history.md`; they do not describe current runtime dependencies.
+The old adaptation patch and Go module manifests were removed together with the Go source.
+Original source remains available through Git history and the `main` branch.
 
-`tools/import-upstream.py` documents the initial import. It reads a local checkout
-at the pinned commit, changes module paths, environment variables and application
-storage/log names, omits the Wails logger adapter, and refuses to overwrite an
-existing retained tree. It is an initial-import tool, not an automatic update
-mechanism. Subsequent imports must apply and review the recorded adaptations,
-regenerate catalogs, tidy dependencies and pass tests before refreshing hashes:
+## Reviewed Rust adaptations
 
-```sh
-python3 tools/verify-upstream.py
-# Only after reviewing intentional upstream changes:
-python3 tools/verify-upstream.py --refresh /path/to/pinned/upstream
-```
+- `rust/apps/driver-agent` replaces all 37 former process entry points. MySQL and
+  PostgreSQL compatible products share their protocol implementations; Oracle,
+  Dameng, SQL Server, IRIS/Caché, IoTDB and message services have dedicated adapters.
+  The binary reports `implementation: rust` and `json-lines-v3-rust`, preventing
+  accidental use of legacy Go agents. Connection-scoped processes bound requests,
+  responses and preview results; typed IPC preserves int64, exact decimal text,
+  binary values and NULL. SQLite/MySQL/PostgreSQL exports read cursor chunks.
+  MySQL Navicat script tunnels retain their bounded binary response protocol;
+  scripts refuse cross-request transactions. Oracle service names, catalog schema
+  selection, DuckDB file paths and virtual message catalogs stay separate.
+- IRIS/Caché list framing, credential obfuscation and SuperServer requests were
+  ported from `caretdev/go-irisnative` (MIT). Its original license is retained in
+  `third_party/protocol-licenses/go-irisnative-MIT.txt`. No Go source is linked or launched.
+- HighGo authentication code 13 and the two-stage SM3 password response follow
+  the former MIT `highgo-pq` adapter. Original license:
+  `third_party/protocol-licenses/highgo-pq-MIT.txt`.
+- `rust/vendor/tokio-opengauss` and `rust/vendor/opengauss-protocol` preserve
+  crates.io 0.1.0 sources and original licenses. Reviewed changes add HighGo SM3
+  authentication and remove protocol debug output from stdout.
+- `rust/vendor/dameng` preserves the MIT dameng 0.1.0 crate. Reviewed changes bound
+  protocol/LOB allocation, enforce exact frame reads, stop timeout polling,
+  bound retained fetch rows, preserve verified TLS options and correct UTF-8/quoted
+  placeholder substitution in the OPE fallback. The crate archive omits its license text; the original
+  `LICENSE.txt` is retained from https://github.com/rarnu/rust-dameng.
+- `superlink-tools` replaces the previous Go icon and catalog ZIP generators.
 
-## Intentional adaptations
+`docs/upstream-import.json` records source/current hashes for retained resources,
+licenses and Rust forks. `docs/rust-upstream-adaptations.patch` records the Rust
+fork diffs against the crate archives. Run `python3 tools/verify-upstream.py` after
+changes; provenance updates require review of changed source and hashes together.
 
-- On 2026-10-03 the project namespace became SuperLink: module imports use
-  `github.com/ealink1/super-link`, environment variables use `SUPERLINK_`, and
-  app-owned temporary paths and log names use `superlink`. The import rewrite,
-  retained source/tests, provenance hashes and adaptation patch were refreshed
-  together against the same pinned upstream commit. Original upstream attribution,
-  driver build tags and protocol revisions remain unchanged.
-- JVM management is excluded by user request. No JVM connector, Java helper,
-  JDK requirement, JVM DTO or JVM capability registry entry is retained. Unused
-  translation keys in the full upstream catalogs and Java wire-protocol names
-  of database services do not create a Java runtime dependency.
-- Module imports target `github.com/ealink1/super-link/internal/upstream`.
-  App-specific environment variables use `SUPERLINK_`; storage/log/agent names
-  are isolated from the upstream application. Existing `superlink_*_driver` build tags and `src-*`
-  compatibility revisions now carry the `fyne-values1-` prefix; agents from the
-  original baseline must be rebuilt/reinstalled for the adapted value transport.
-- The unused Wails logger adapter and its test are omitted. The retained logger
-  is independent of Wails. Legacy DTO tests/comments preserve upstream context.
-- MongoDB command execution checks server write and write-concern errors,
-  decodes cursor batches within the request row/byte/field budgets, and reports
-  truncation. The application also makes the first BSON key the actual command.
-- SOCKS5 uses its context-aware dialer to cancel unfinished handshakes. App-owned
-  proxy listeners/connections have explicit lifetimes rather than cache-only
-  cleanup. Unsupported SQL proxy/TLS/URI/multi-host combinations fail explicitly.
-- Embedded catalog generation references this project's generator, and the
-  compressed catalog is regenerated after namespace transformations.
-- Moved Oracle SQL and public TLS-certificate test fixtures use the new relative
-  paths. The two upstream TLS private-key fixtures are excluded from Git and the
-  provenance inventory. MySQL DSN tests generate their certificates and keys in
-  temporary directories. The vendored highgo-pq integration tests require locally
-  generated TLS fixtures; its `certs/Makefile` is retained for that purpose.
-  All rewritten Go files are formatted with `gofmt`.
-- Native SQL scanning preserves BLOB/BINARY/BYTEA values before display conversion.
-  JSON-lines v2 uses typed bound arguments and separately indexed binary-cell
-  metadata, preserving int64, bytes, dates, booleans and NULL. Old agents without
-  the typed-argument capability fail explicitly. Bound queries receive the same
-  scanner budgets as queries without parameters. These are reviewed IPC extensions.
-- Named parameter conversion retains exact integers/decimals, rejects non-finite
-  values and checks all missing names. Dialect lexer corrections preserve PostgreSQL
-  E-strings and MySQL hash/dash comment rules. Agent dispatch was split by subject.
+## Assets and notices
 
-## Licenses and assets
+Interface assets retain source paths and hashes in `assets/superlink/sources.json`
+and `assets/shell/sources.json`. Lucide shell icons retain their original license.
+Noto Sans SC and historical renamed font derivatives retain OFL/license texts in
+`assets/OFL.txt` and `third_party/fonts`. Trademark rights are not transferred by
+source-code licenses. Translation resources remain under `internal/upstream/i18n`;
+they contain JSON/ZIP data only. Unused historical TypeScript helpers were retired.
 
-`LICENSE` retains the upstream Apache-2.0 text; `NOTICE` records attribution.
-`third_party/highgo-pq` and `third_party/go-irisnative` retain their source and
-license files. `THIRD_PARTY_NOTICES.md` collects license texts from 164 linked
-Go modules and the Go standard library; regenerate it when dependencies change.
-The Dameng module download has no root license text, so its redistribution terms
-must be reviewed before public driver distribution. Native SDK/system-library
-licenses also remain part of distribution review.
+`THIRD_PARTY_NOTICES.md` is generated from Cargo metadata and available original
+license files by `python3 tools/generate-notices.py`. Cargo.lock pins dependency
+versions. Platform SDK/database-engine license terms remain applicable.
 
-The UI's CJK source is Noto Sans SC under SIL OFL 1.1. Original source:
-[google/fonts, Noto Sans SC](https://github.com/google/fonts/tree/main/ofl/notosanssc).
-`tools/generate-fonts.py` instantiated static weights 400 and 600 with FontTools
-4.63.0. `tools/build_fonts.py` composes their Latin glyphs with Fyne's licensed
-Inter Regular, Noto Sans Bold and DejaVu Sans Mono Powerline into renamed NaviUI
-and NaviMono derivatives. Source fonts and all notices are in `third_party/fonts`;
-the application package includes their license texts. No macOS system font is
-redistributed; native font rasterization parity remains unverified.
+## Verification limits
 
-The three complete font resources now use OpenType/CFF outlines. The conversion
-keeps all 30,890 mapped codepoints and 31,036 glyph advances in each face; it does
-not subset Chinese characters. `internal/ui/assets/fonts.json` pins their bytes,
-coverage and reference advances. CFF prevents eager decoding of every TrueType
-outline at startup. Repeated CFF instructions are shared using Adobe's
-[cffsubr 0.4.0](https://github.com/adobe-type-tools/cffsubr), reducing the three
-resources by about 17.5% without changing any glyph. FontTools and go-text each
-verified every pre/post compression outline and horizontal advance. Regeneration
-uses `tools/font-requirements.txt`; these Python tools are build-time only.
+Pure Rust source/build/runtime replacement and native functionality are distinct
+from live service compatibility. The current service/network verification matrix
+and unsupported combinations are tracked in
+`docs/plans/2026-11-02-pure-rust-drivers.md`; compile/identity probes do not constitute
+live integration acceptance of all 37 products. JVM management remains excluded.
 
-Fyne v2.8.1 is preserved in `third_party/fyne` with its BSD-3-Clause license.
-`docs/fyne-source.json` records all 2,145 original file hashes plus the 15 reviewed
-files, and `docs/fyne-memory.patch` is their exact diff. The memory work
-shares parsed fonts by content (a 32-entry bounded cache), bounds ephemeral font
-scope maps to 4,096 stores, and loads backup/locale fonts only for missing glyphs.
-Theme scopes share small display state instead of retaining their container.
-Destroying a theme renderer removes its retired child scopes while preserving
-independent nested themes. Those memory changes cover four production files and three
-regression test files; the complete pinned copy contains 2,153 files.
-Fonts and fallback behavior remain available. `tools/verify-fyne.py` validates
-the copy and module replacement; the painter/cache suites and affected container
-tests run in selfcheck/CI. See `docs/memory-analysis-2026-10-02.md` and
-`docs/memory-refinement-2026-10-02.md` for measurements and known upstream
-container snapshot failures on this Mac.
+## 2026-11-02 Shell monitor parity assets
 
-On 2026-10-12, the reviewed menu renderer now assigns its resolved theme font
-to non-symbol text primitives. `canvas.Text.MinSize` has no widget theme scope;
-without an explicit source it measures the application font while the painter
-uses the menu's overridden font, clipping the bottom of Chinese glyphs. Menu
-shortcut symbols retain their existing symbol-font selection. The application
-context menu uses the bundled complete Chinese face for consistent line metrics.
-The menu source hash and exact adaptation are recorded in the Fyne manifest and
-patch; `TestContextMenuChineseInkFitsTextTexture` checks independent oversized
-glyph rasters at four scales and includes disabled and mixed-script labels.
+`assets/shell/monitor-*.svg` retains the original project's
+`monitorMetricIcon` geometry from `9816f626^:internal/ui/shell_monitor_cards.go`.
+Only the standalone SVG wrapper/currentColor binding changed. Exact immutable
+source revision and new SVG hashes are recorded in `assets/shell/sources.json`
+under `project_assets`; these project drawings are not labeled as upstream
+Lucide originals. No historical Go source was restored to the working tree.
 
-`internal/ui/assets/superlink/sources.json` records hashes and source paths for 63
-UI icons, 21 database SVGs and 13 database PNGs. JSX icon geometry was extracted
-mechanically; PNG/SVG assets were copied, and ICO pixels converted to PNG.
+## 2026-11-03 SQL 工作区交互参考
 
-On 2026-10-21, `fyne.TextStyle` gained two SuperLink-only fields, `LineHeight`
-and `LineBaseline`, expressed in ems. `internal/painter.font.walkString` reserves
-the requested baseline and applies the extended height only while either field is
-non-zero, so ordinary text keeps the upstream metrics exactly; `CachedFontFace`
-clears both before its cache lookup so face keys stay compatible with plain
-styles. The SQL editor uses the extension to hold a stable line box while it
-switches between the primary face and fallback faces. Reviewed files are
-`text.go`, `internal/painter/font.go` and
-`internal/painter/fallback_line_bounds_test.go`; their current hashes are in
-`docs/fyne-source.json`. `docs/fyne-memory.patch` remains the memory-work diff;
-this line-box extension is tracked by the manifest hashes and this note only.
-`tools/verify-ui-assets.py` verifies the complete inventory. Fyne applies the
-original frames/scales and brand palette at rendering time, retaining outline
-strokes and explicit fills.
+按用户提供的 GoNavi 截图和已安装原生应用的只读界面观察，独立实现 Rust/GPUI
+SQL 工作区：连接树常驻及类型分组、多表标签、可调整列宽的滚动网格、底部分页、
+字段类型、JSON 预览、单元格完整值查看/复制与暂存变更保护。
+未复制 GoNavi 代码、图标或打包资源；继续复用现有已归档资源与 SQL 安全构造器。
 
-Retained upstream files preserve existing structure and size to support review
-and upstream comparisons. New production files follow the limits in AGENTS.md.
+### SQL 表分类补充
 
-## SuperLink namespace cleanup (2026-10-08)
+继续基于用户截图及 GoNavi 原生只读界面观察，独立实现列/索引/外键/触发器分类与
+右侧结构浏览联动、数据库范围已存查询与行数标注。分类复用既有已归档 SVG，未新增
+GoNavi 代码或二进制资源；外键和触发器编辑未声称已迁移。
 
-Product text, authored documentation, retained driver build tags, tests and
-internal protocol keys now use the SuperLink namespace. UI assets live under
-`internal/ui/assets/superlink`. Original repository URLs and attribution remain
-in provenance and license records. Retained hashes and the adaptation patch
-were refreshed against the pinned source. Driver revisions now carry the `superlink-values2-` prefix. Binaries must be rebuilt for
-this namespace change; do not reuse older driver builds.
+### 2026-11-03 可编辑字段设计器
 
-### macOS notebook input-method candidate position
+按用户提供的 GoNavi 字段设计器截图及已安装原生界面的只读观察，独立实现 Rust/GPUI
+字段草稿、类型候选、字段属性、多选、增删/插入/排序、字段复制粘贴、目标表复制与表备注。
+新增纯 SQL 变更计划与应用层完整元数据回读、保存前冲突检查。MySQL 字段变更合为一条
+ALTER TABLE，字段改名/排序保留已有复合主键顺序；提交时仅规范当前连接的字符串转义模式。
+修正原有 MySQL DDL COMMENT/DEFAULT 使用 CONVERT 表达式导致的语法错误；查询过滤字面量
+编码保持不变。无 GoNavi 源代码、图标或打包资源引入。
 
-The application-owned `internal/ui/note_ime_darwin.*` bridge supplies the rich editor caret rectangle to GLFWContentView while it has focus. The pinned GLFW Cocoa implementation of `firstRectForCharacterRange:actualRange:` returns the view frame origin, which leaves Chinese input-method candidates at the screen origin. The bridge converts Fyne canvas coordinates through AppKit view/window/screen coordinates, invalidates cached input coordinates and delegates to the original method for other focused controls. GLFW sources remain unchanged; the common Fyne caret API addition is described below.
+### 2026-11-03 表格横向滚动条
 
-The integration now covers all focused inputs, including inherited Entry controls, dialogs, SQL/grid/AI editors and terminal surfaces. The reviewed Fyne addition `widget/entry_ime.go` exposes only the rendered caret anchor, offset and size, including scroll hierarchy and blinking-independent positioning. Its hash and addition are recorded in the pinned Fyne manifest and patch. A window-scoped, coalesced UI update tracks focus without reading input values and stops on close.
+按用户标注的 GoNavi 底部滚动条独立实现常驻轨道、比例滑块、拖动和轨道定位，复用表头与数据
+共同的 ScrollHandle。补齐 SQL 工作区/滚动容器宽度约束，防止宽表撑开外层导致滚动范围为零；
+纵向区限制滚动轴并显式转发横向滚轮/Shift 滚轮。未引入 GoNavi 源代码或资源。
 
-### Host collection row theme scope (2026-10-09)
+### 2026-11-03 滚轮方向修正
 
-The reviewed Fyne List adaptation applies the list theme scope to virtual row wrappers, including pooled rows. Previously only row content inherited that scope, leaving the wrapper selection and hover background in the application theme. This permits the host grid to suppress row-wide highlights while retaining independent card and button feedback. The application regression test checks card hover, row selection/focus, empty slots and recycled card state. The pinned manifest and exact patch include `widget/list.go`.
+按用户明确交互规则，在数据网格滚轮事件的捕获阶段统一分发：普通 Y 滚轮只操作纵向数据，
+Shift+Y 只操作横向列；兼容平台已转换为 X 的 Shift 滚轮与触控板横滑。阻止嵌套原生滚动器
+再次处理同一事件，并禁用滚动轴自动映射。
 
-### Synthetic italic fallback rendering (2026-10-09)
+### 2026-11-03 表头悬停与排序入口
 
-The reviewed Fyne painter now shears rasterized upright fallback faces when italic text is requested, including CJK normal and bold fonts. Real italic faces retain their original outlines. The temporary surface is scoped to one draw and bounded by the destination image; shaping advances and caret geometry remain unchanged. Pixel regressions cover Chinese regular/bold fallback, unchanged advances, and avoiding double slant on real italic faces. The manifest and exact patch include the painter changes and tests.
+字段表头新增原生 GPUI tooltip，显示完整字段名、类型和已加载的主键/空值/默认值/注释等元数据。
+移除整块表头单击排序，改由独立排序箭头触发，避免查看被截断字段时意外重新查询。
 
-### Day/night switch cache retention (2026-10-10)
+### 表头控件尺寸样式补充
 
-A day/night switch rebuilt every font and icon because the settings listener emptied the painter caches unconditionally, and each `ThemeOverride` refresh repeated that wipe once per contained widget. The reviewed painter now records the active theme's font resources and scale, so a switch that changes colours alone reuses the resolved faces; `ClearFontCache` also forgets that record, because any other component may have emptied the caches in between. `cache.overrideWidget` no longer clears the shared SVG and metric caches per child widget, since each override resolves through its own scope identifier. `svg.Colorize` memoises its output by source content and resolved colour, so repeated icon recolouring skips the XML parse and marshal. Measured text metrics and rasterised SVGs are still dropped on every change: their cache keys carry neither the resolved font nor the colour value, which `TestAccordion_ChangeTheme` in the pinned widget suite detects when the mapping is wrong. `internal/painter/theme_caches_test.go` covers the three retained-face rules directly. Measured on the SQL workbench with three open query tabs (1,147 cached objects), the synchronous theme apply fell from 105 ms to 43 ms, Shell from 38 ms to 14 ms and Note from 32 ms to 6 ms. The manifest and exact patch include `internal/painter/font.go`, `internal/cache/theme.go`, `internal/svg/svg.go`, `internal/driver/glfw/loop.go`, `test/app.go` and the new painter test.
+按用户参考图将单一排序字符替换为紧凑漏斗与上下三角，控件靠首行对齐，排序激活方向高亮。
+漏斗复用现有 SVG 并打开当前字段的筛选区；上下三角独立绘制，未复制参考应用资源。
 
-### Compact CJK fallback with desktop primary fonts (2026-10-12)
+### 2026-11-03 连接树双击展开
 
-Switching primary fonts to desktop resources made missing Chinese glyphs load
-large system TrueType faces again. A native isolated welcome-page heap profile
-attributed about 130 MiB to system font fallback. The reviewed painter accepts
-an optional application-theme `FontFallbacks(fyne.TextStyle)` provider, including
-for explicitly sourced text and nested theme overrides. SuperLink supplies its
-existing complete CFF regular and semibold Chinese resources lazily; Latin text
-keeps the desktop primary face. System locale and rune fallback remain available
-for characters outside those resources. Fallback resources participate in the
-theme geometry key, so a replacement invalidates resolved faces while colour
-changes retain them. The manifest and exact patch include `font.go`,
-`parsed_font.go`, `configured_fonts_test.go` and `theme_caches_test.go`. Native
-monitor measurements and verification are recorded in
-`docs/qa/2026-10-12-memory-font-fallback.md`.
+按用户要求，分组、连接、数据库和对象目录名称改为双击展开/收起；小箭头继续单击切换，并阻止事件冒泡。保留表名称双击打开数据与箭头展开结构的交互，使用原生 GPUI 实现。
 
-### Shared fallback line metrics (2026-10-13)
+### 2026-11-03 表对象预览
 
-The reviewed painter used the tallest shaped run's ascent when drawing, but
-returned the primary space font's height and baseline when measuring. With
-desktop Arial/DejaVu and the configured CFF Chinese fallback, text textures
-therefore clipped lower glyph strokes across the notebook and ordinary UI.
-`walkString` now includes the ascent, descent and gap of every used face in
-its line extent, and reports the same shared baseline used for drawing. Empty
-and tab-only lines keep primary metrics, and resolving a fallback does not
-enlarge later Latin-only strings. The existing application monitoring offsets
-that compensated for the old mismatch are removed. The pinned manifest and
-exact patch include `font.go` and `fallback_line_bounds_test.go`; the application
-regression uses independent oversized Harfbuzz rasters for regular, bold, italic,
-monospace and mixed Chinese/Latin text at nine sizes and five scales.
+依据用户提供的对象列表参考图，在数据库与表目录名称单击时打开表对象预览，保留双击折叠与箭头操作；预览支持名称搜索、刷新、已加载行数和双击打开表数据。采用现有 Rust 元数据缓存及 GPUI 控件，未复制第三方代码或资源。
 
-### Stable SQL editor line boxes (2026-10-15)
+### 2026-11-04 固定对象入口
 
-The SQL editor reserves the combined Latin/CJK font height and baseline before
-input begins. The reviewed Fyne `TextStyle` extension adds optional minimum
-`LineHeight` and `LineBaseline` values in ems; the painter uses those values for
-both measurement and raster placement. Zero preserves ordinary widget behavior,
-and larger fallback extents still expand rather than clip. SuperLink enables the
-reservation only on SQL editor text and its line numbers. Native caret, selection,
-wrapping and syntax rendering consequently share stable vertical metrics while
-Chinese characters are inserted or deleted. Painter regressions check empty,
-Latin and mixed-script lines at multiple sizes and unchanged horizontal advances;
-the application checks that consecutive line and caret positions remain stable.
-The pinned manifest and exact patch include `text.go`, `font.go` and
-`fallback_line_bounds_test.go`.
+依据用户参考，将 SQL 表标签栏左端改为始终显示、不可关闭的固定“对象”入口，表标签在右侧独立滚动。入口复用当前表数据库或最近对象范围，使用现有原生 GPUI 与对象预览逻辑。
+
+### 2026-11-04 查询与表统一标签栏
+
+依据用户参考图，将查询标签提升到外层工作区，与固定对象入口及表标签共用一行；采用紧凑 30px 栏高、单行标题、细分隔线与小图标，保留查询草稿切换/关闭/新建逻辑。全部为原生 Rust/GPUI 自行实现，未复制参考应用资源。
+
+### 2026-11-04 SQL 标签右键关闭菜单
+
+按用户框选参考，为查询和表标签增加关闭、关闭其他选项卡、关闭右侧选项卡、全部关闭。按可见混合顺序计算目标，固定对象入口不参与关闭，批量操作预先检查表暂存变更与运行状态；沿用原有 Rust 标签释放逻辑，未复制第三方代码或资源。
+
+### 2026-11-04 标签溢出入口
+
+按用户参考移除统一标签栏末尾的新建加号，改为右端固定双箭头“»”入口。原生弹层列出打开的查询与表标签，标记当前标签并支持切换；新建查询保留顶部入口。使用原有 GPUI 组件自行实现。

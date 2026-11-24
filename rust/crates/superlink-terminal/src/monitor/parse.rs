@@ -37,7 +37,7 @@ pub fn parse_metrics(raw: &str) -> Result<Metrics> {
     let mut metrics = Metrics {
         system: sections[0].trim().to_owned(),
         load: sections[2].trim().to_owned(),
-        uptime: sections[6].trim().to_owned(),
+        uptime: super::uptime::parse_proc_uptime(sections[6]),
         disk: sections[8].trim().to_owned(),
         ..Metrics::default()
     };
@@ -302,7 +302,7 @@ pub(crate) fn decimal(value: &str) -> f64 {
 mod tests {
     use super::*;
 
-    const FIXTURE: &str = "Linux\n__LOAD__\n0.1 0.2 0.3 1/10 42\n__MEM__\nMemTotal: 1000 kB\nMemAvailable: 400 kB\n__UPTIME__\n123.0 50.0\n__DISK__\nFilesystem Blocks Used Available Capacity Mounted\n/dev/root 100 20 80 20% /\n";
+    const FIXTURE: &str = "Linux\n__LOAD__\n0.1 0.2 0.3 1/10 42\n__MEM__\nMemTotal: 1000 kB\nMemAvailable: 400 kB\n__UPTIME__\n86031.39 480622.73\n__DISK__\nFilesystem Blocks Used Available Capacity Mounted\n/dev/root 100 20 80 20% /\n";
 
     const DETAILED: &str = r"@KERNEL
 Linux 6.8.0
@@ -339,7 +339,7 @@ tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:*
         assert_eq!(metrics.memory_total, 1_024_000);
         assert_eq!(metrics.memory_used, 614_400);
         assert_eq!(metrics.load, "0.1 0.2 0.3 1/10 42");
-        assert_eq!(metrics.uptime, "123.0 50.0");
+        assert_eq!(metrics.uptime, "23小时 53分钟");
         assert_eq!(metrics.disk.lines().count(), 2);
     }
 

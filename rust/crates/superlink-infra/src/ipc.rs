@@ -1,6 +1,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::{Arc, Mutex};
 
 use serde_json::{Map, Value, json};
 
@@ -14,7 +15,7 @@ pub enum AgentError {
     Spawn(#[source] std::io::Error),
     #[error("driver agent I/O failed: {0}")]
     Io(#[source] std::io::Error),
-    #[error("driver agent frame exceeds 8 MiB")]
+    #[error("driver agent frame exceeds 32 MiB")]
     FrameTooLarge,
     #[error("driver agent returned an invalid frame")]
     InvalidFrame,
@@ -30,6 +31,7 @@ pub type AgentResult<T> = Result<T, AgentError>;
 /// separately on the wire, so the envelope is kept intact.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct AgentFrame {
+    pub chunk_type: String,
     pub data: Value,
     pub fields: Vec<String>,
     pub messages: Vec<String>,
@@ -40,11 +42,11 @@ pub struct AgentFrame {
 }
 
 /// One database driver running out of process. The wire format is the same
-/// JSON-lines protocol the Go agents already speak: one request object per
+/// JSON-lines protocol used by the Rust driver agents: one request object per
 /// line, exactly one response object per line, correlated by an integer id.
 pub struct DriverAgent {
     binary: PathBuf,
-    child: Child,
+    child: Arc<Mutex<Child>>,
     stdin: ChildStdin,
     stdout: BufReader<ChildStdout>,
     next_id: i64,
@@ -64,7 +66,7 @@ impl DriverAgent {
         let stdout = child.stdout.take().ok_or(AgentError::InvalidFrame)?;
         Ok(Self {
             binary,
-            child,
+            child: Arc::new(Mutex::new(child)),
             stdin,
             stdout: BufReader::with_capacity(64 << 10, stdout),
             next_id: 1,
@@ -73,6 +75,15 @@ impl DriverAgent {
 
     pub fn binary(&self) -> &Path {
         &self.binary
+    }
+
+    pub fn set_cancellation(&self, cancel: &crate::QueryCancel) {
+        let child = self.child.clone();
+        cancel.on_cancel(move || {
+            if let Ok(mut child) = child.lock() {
+                let _ = child.kill();
+            }
+        });
     }
 
     /// Sends one request and waits for its response. The caller owns timeouts
@@ -88,6 +99,11 @@ impl DriverAgent {
         method: &str,
         fields: Map<String, Value>,
     ) -> AgentResult<AgentFrame> {
+        let id = self.send_request(method, fields)?;
+        self.read_frame(id)
+    }
+
+    pub fn send_request(&mut self, method: &str, fields: Map<String, Value>) -> AgentResult<i64> {
         let id = self.next_id;
         self.next_id += 1;
         let mut request = fields;
@@ -105,6 +121,10 @@ impl DriverAgent {
             .and_then(|_| self.stdin.flush())
             .map_err(AgentError::Io)?;
 
+        Ok(id)
+    }
+
+    pub fn read_frame(&mut self, id: i64) -> AgentResult<AgentFrame> {
         let mut response = String::new();
         // read_line 本身无上限：用 take 限制单帧读取量，异常的无换行输出
         // 在触顶时立即报错，而不是先撑爆内存。
@@ -135,6 +155,11 @@ impl DriverAgent {
             return Err(AgentError::Remote(message));
         }
         Ok(AgentFrame {
+            chunk_type: object
+                .get("chunkType")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .into(),
             data: object.get("data").cloned().unwrap_or(Value::Null),
             fields: string_list(object.get("fields")),
             messages: string_list(object.get("messages")),
@@ -159,8 +184,10 @@ impl DriverAgent {
 
     pub fn shutdown(mut self) {
         let _ = self.stdin.flush();
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if let Ok(mut child) = self.child.lock() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
 }
 
@@ -179,7 +206,9 @@ fn string_list(value: Option<&Value>) -> Vec<String> {
 
 impl Drop for DriverAgent {
     fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        if let Ok(mut child) = self.child.lock() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
     }
 }

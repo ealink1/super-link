@@ -20,7 +20,7 @@ const MAX_FILENAME_BYTES: usize = 161;
 /// Artifact identifier used by the desktop application package.
 pub const APP_ARTIFACT_ID: &str = "superlink";
 /// Protocol version required from driver artifacts.
-pub const DRIVER_PROTOCOL: &str = "json-lines-v2";
+pub const DRIVER_PROTOCOL: &str = "json-lines-v3-rust";
 
 /// What an artifact contains.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

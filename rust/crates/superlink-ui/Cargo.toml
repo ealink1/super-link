@@ -17,3 +17,6 @@ unicode-segmentation = "1"
 uuid.workspace = true
 chrono.workspace = true
 vte = "0.13"
+
+unicode-width = "0.2"
+pulldown-cmark = { version = "0.13", default-features = false }

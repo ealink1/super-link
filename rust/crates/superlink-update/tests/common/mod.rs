@@ -116,7 +116,7 @@ pub fn driver_artifact(version: &str, filename: &str, data: &[u8], platform: Pla
         size: data.len() as u64,
         sha256: sha256_hex(data),
         revision: "revision-1".to_owned(),
-        protocol: "json-lines-v2".to_owned(),
+        protocol: "json-lines-v3-rust".to_owned(),
     }
 }
 

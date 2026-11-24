@@ -2,8 +2,7 @@ use std::path::{Path, PathBuf};
 
 use superlink_domain::{ConnectionConfig, Profile, ResultSet};
 use superlink_drivers::{
-    DriverError, DriverSession, NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres,
-    NativeSqlite, TableEntry, TableStructure,
+    DriverError, NativeMysql, NativePostgres, NativeSqlite, TableEntry, TableStructure,
 };
 
 use crate::profiles::Credentials;
@@ -12,6 +11,10 @@ const DEFAULT_MAX_ROWS: u32 = 1_000;
 
 #[derive(Debug, thiserror::Error)]
 pub enum QueryError {
+    #[error("{0}")]
+    Policy(String),
+    #[error("执行已停止或已超时；写入结果请刷新数据库确认")]
+    Cancelled,
     #[error(transparent)]
     Driver(#[from] DriverError),
     #[error("该数据源尚未接入 Rust 驱动层：{0}")]
@@ -24,38 +27,116 @@ pub enum QueryError {
 
 /// Resolves an installed agent, connects, runs one statement and always tears
 /// the process down. Credentials are injected only into the live config.
+type DriverStamp = (u64, Option<std::time::SystemTime>, (u64, i64, i64));
 pub struct QueryService {
     drivers_dir: PathBuf,
+    directories: Vec<PathBuf>,
+    verified_files: std::sync::Mutex<std::collections::HashMap<String, DriverStamp>>,
+    installed: std::sync::RwLock<Vec<superlink_drivers::InstalledDriver>>,
 }
 
 impl QueryService {
     pub fn new(drivers_dir: impl Into<PathBuf>) -> Self {
-        Self {
-            drivers_dir: drivers_dir.into(),
-        }
+        Self::with_directories(vec![drivers_dir.into()])
     }
-
+    pub fn with_directories(directories: Vec<PathBuf>) -> Self {
+        let service = Self {
+            drivers_dir: directories.first().cloned().unwrap_or_default(),
+            directories,
+            installed: Default::default(),
+            verified_files: Default::default(),
+        };
+        let _ = service.refresh_drivers();
+        service
+    }
+    pub fn refresh_drivers(&self) -> Result<(), String> {
+        let mut entries = Vec::new();
+        for directory in &self.directories {
+            let found =
+                superlink_drivers::registry::inventory(directory).map_err(|e| e.to_string())?;
+            for driver in found {
+                if !entries
+                    .iter()
+                    .any(|d: &superlink_drivers::InstalledDriver| d.kind == driver.kind)
+                {
+                    entries.push(driver);
+                }
+            }
+        }
+        *self.installed.write().unwrap_or_else(|e| e.into_inner()) = entries;
+        self.verified_files
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clear();
+        Ok(())
+    }
+    pub fn installed_drivers(&self) -> Vec<superlink_drivers::InstalledDriver> {
+        self.installed
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
+    }
     pub fn drivers_dir(&self) -> &Path {
         &self.drivers_dir
     }
-
     pub fn agent_path(&self, kind: &str) -> Option<PathBuf> {
-        let suffix = if cfg!(target_os = "windows") {
-            ".exe"
-        } else {
-            ""
+        let candidate = self
+            .installed
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .find(|d| d.kind == kind)
+            .cloned()?;
+        let metadata = std::fs::metadata(&candidate.path).ok()?;
+        #[cfg(unix)]
+        let identity = {
+            use std::os::unix::fs::MetadataExt;
+            (metadata.ino(), metadata.ctime(), metadata.ctime_nsec())
         };
-        let path = self
-            .drivers_dir
-            .join(format!("{kind}-driver-agent{suffix}"));
-        path.is_file().then_some(path)
+        #[cfg(not(unix))]
+        let identity = (0, 0, 0);
+        let stamp = (metadata.len(), metadata.modified().ok(), identity);
+        if candidate.is_usable()
+            && self
+                .verified_files
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(kind)
+                == Some(&stamp)
+        {
+            return Some(candidate.path);
+        }
+        let mut verified =
+            superlink_drivers::registry::scan_one(candidate.path.parent()?, kind).ok()?;
+        let driver = verified.pop().filter(|d| d.is_usable())?;
+        let path = driver.path.clone();
+        if let Some(record) = self
+            .installed
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter_mut()
+            .find(|d| d.kind == kind && d.path == driver.path)
+        {
+            *record = driver;
+        }
+        self.verified_files
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(kind.into(), stamp);
+        Some(path)
     }
 
     pub fn supports(&self, kind: &str) -> bool {
-        native_target(kind, NativeFlags::from_env()).is_some() || self.agent_path(kind).is_some()
+        native_target(kind, NativeFlags::from_env()).is_some()
+            || self
+                .installed
+                .read()
+                .unwrap_or_else(|e| e.into_inner())
+                .iter()
+                .any(|d| d.kind == kind && d.problem.is_none())
     }
 
-    /// 结构浏览：目前只有原生 SQLite 提供；其余方言仍由 agent 承担。
+    /// 结构浏览：原生 SQL 驱动优先，其余方言与隧道由 agent 承担。
     /// 层级对象树第一层：数据库列表。SQLite 返回空表示没有库层级。
     pub fn databases(
         &self,
@@ -63,12 +144,38 @@ impl QueryService {
         credentials: &Credentials,
     ) -> Result<Vec<String>, QueryError> {
         let kind = profile.sql_dialect().to_string();
-        let config = live_config(&profile.config, credentials);
-        match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.databases()?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.databases()?),
-            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.databases()?),
-            _ => Err(QueryError::Unsupported(kind)),
+        let mut config = live_config(&profile.config, credentials);
+        if config.query_timeout == 0 {
+            config.query_timeout = 30;
+        }
+        let cancel = crate::QueryCancel::new();
+        let _operation = crate::execution::Operation::new(&cancel, config.query_timeout);
+        match if profile.config.use_ssh
+            || profile.config.use_proxy
+            || profile.config.use_http_tunnel
+            || !profile.config.dsn.is_empty()
+            || !profile.config.uri.is_empty()
+        {
+            None
+        } else {
+            native_target(&kind, NativeFlags::from_env())
+        } {
+            Some(NativeKind::Sqlite) => {
+                let driver = NativeSqlite::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.databases()?)
+            }
+            Some(NativeKind::Mysql) => {
+                let mut driver = NativeMysql::open(&config)?;
+                driver.set_cancellation(&cancel, &config);
+                Ok(driver.databases()?)
+            }
+            Some(NativeKind::Postgres) => {
+                let mut driver = NativePostgres::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.databases()?)
+            }
+            _ => self.agent_databases(profile, credentials),
         }
     }
 
@@ -80,16 +187,45 @@ impl QueryService {
         database: &str,
     ) -> Result<Vec<TableEntry>, QueryError> {
         let kind = profile.sql_dialect().to_string();
-        let config = live_config(&profile.config, credentials);
-        match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.tables()?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.tables(database)?),
-            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.tables()?),
-            _ => Err(QueryError::Unsupported(kind)),
+        let mut config = live_config(&profile.config, credentials);
+        if !database.is_empty() {
+            config.database = database.into();
+        }
+        if config.query_timeout == 0 {
+            config.query_timeout = 30;
+        }
+        let cancel = crate::QueryCancel::new();
+        let _operation = crate::execution::Operation::new(&cancel, config.query_timeout);
+        match if profile.config.use_ssh
+            || profile.config.use_proxy
+            || profile.config.use_http_tunnel
+            || !profile.config.dsn.is_empty()
+            || !profile.config.uri.is_empty()
+        {
+            None
+        } else {
+            native_target(&kind, NativeFlags::from_env())
+        } {
+            Some(NativeKind::Sqlite) => {
+                let driver = NativeSqlite::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.tables()?)
+            }
+            Some(NativeKind::Mysql) => {
+                let mut driver = NativeMysql::open(&config)?;
+                driver.set_cancellation(&cancel, &config);
+                Ok(driver.tables(database)?)
+            }
+            Some(NativeKind::Postgres) => {
+                let mut driver = NativePostgres::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.tables()?)
+            }
+            _ => self.agent_tables(profile, credentials, database),
         }
     }
 
-    /// 单表的列定义；与 tables 一样目前只支持原生接入的方言。
+    /// 单表列、索引与外键，保持数据库上下文及请求期限。
     pub fn structure(
         &self,
         profile: &Profile,
@@ -98,12 +234,41 @@ impl QueryService {
         table: &str,
     ) -> Result<TableStructure, QueryError> {
         let kind = profile.sql_dialect().to_string();
-        let config = live_config(&profile.config, credentials);
-        match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => Ok(NativeSqlite::open(&config)?.structure(table)?),
-            Some(NativeKind::Mysql) => Ok(NativeMysql::open(&config)?.structure(database, table)?),
-            Some(NativeKind::Postgres) => Ok(NativePostgres::open(&config)?.structure(table)?),
-            _ => Err(QueryError::Unsupported(kind)),
+        let mut config = live_config(&profile.config, credentials);
+        if !database.is_empty() {
+            config.database = database.into();
+        }
+        if config.query_timeout == 0 {
+            config.query_timeout = 30;
+        }
+        let cancel = crate::QueryCancel::new();
+        let _operation = crate::execution::Operation::new(&cancel, config.query_timeout);
+        match if profile.config.use_ssh
+            || profile.config.use_proxy
+            || profile.config.use_http_tunnel
+            || !profile.config.dsn.is_empty()
+            || !profile.config.uri.is_empty()
+        {
+            None
+        } else {
+            native_target(&kind, NativeFlags::from_env())
+        } {
+            Some(NativeKind::Sqlite) => {
+                let driver = NativeSqlite::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.structure(table)?)
+            }
+            Some(NativeKind::Mysql) => {
+                let mut driver = NativeMysql::open(&config)?;
+                driver.set_cancellation(&cancel, &config);
+                Ok(driver.structure(database, table)?)
+            }
+            Some(NativeKind::Postgres) => {
+                let mut driver = NativePostgres::open(&config)?;
+                driver.set_cancellation(&cancel);
+                Ok(driver.structure(table)?)
+            }
+            _ => self.agent_structure(profile, credentials, database, table),
         }
     }
 
@@ -117,46 +282,26 @@ impl QueryService {
         if sql.trim().is_empty() {
             return Err(QueryError::Empty);
         }
-        let kind = profile.sql_dialect().to_string();
-        let config = live_config(&profile.config, credentials);
-        // 已移植的方言走进程内驱动，其余仍需 agent 二进制。
-        match native_target(&kind, NativeFlags::from_env()) {
-            Some(NativeKind::Sqlite) => {
-                let driver = NativeSqlite::open(&config)?;
-                return Ok(driver.query(sql, &[], max_rows)?);
-            }
-            Some(NativeKind::Postgres) => {
-                let mut driver = NativePostgres::open(&config)?;
-                return Ok(driver.query(sql, &[], max_rows)?);
-            }
-            Some(NativeKind::Mysql) => {
-                let mut driver = NativeMysql::open(&config)?;
-                return Ok(driver.query(sql, &[], max_rows)?);
-            }
-            Some(NativeKind::ClickHouse) => {
-                let mut driver = NativeClickHouse::open(&config)?;
-                return Ok(driver.query(sql, &[], max_rows)?);
-            }
-            Some(NativeKind::Elasticsearch) => {
-                let mut driver = NativeElasticsearch::open(&config)?;
-                return Ok(driver.query(sql, &[], max_rows)?);
-            }
-            None => {}
-        }
-        let binary = self
-            .agent_path(&kind)
-            .ok_or_else(|| QueryError::Unsupported(kind.clone()))?;
-        let budget = if max_rows == 0 {
-            DEFAULT_MAX_ROWS
-        } else {
-            max_rows
+        let request = superlink_domain::Execution {
+            text: sql.into(),
+            max_rows: if max_rows == 0 {
+                DEFAULT_MAX_ROWS
+            } else {
+                max_rows
+            },
+            write: true,
+            revision: profile.revision,
+            ..Default::default()
         };
-
-        let mut session = DriverSession::open(&binary, &kind)?;
-        session.connect(&config)?;
-        let result = session.query(sql, &[], budget)?;
-        let _ = session.close();
-        Ok(result)
+        Ok(self
+            .execute_request(
+                profile,
+                credentials,
+                &request,
+                &superlink_drivers::QueryCancel::new(),
+            )?
+            .pop()
+            .unwrap_or_default())
     }
 
     /// 连接测试：执行一条最便宜的探测语句并返回往返耗时（毫秒）。
@@ -166,12 +311,47 @@ impl QueryService {
         profile: &Profile,
         credentials: &Credentials,
     ) -> Result<u64, QueryError> {
-        let probe = match profile.sql_dialect() {
-            "elasticsearch" => "_count",
-            _ => "SELECT 1",
-        };
+        self.test_connection_with_cancel(profile, credentials, &crate::QueryCancel::new())
+    }
+    pub fn test_connection_with_cancel(
+        &self,
+        profile: &Profile,
+        credentials: &Credentials,
+        cancel: &crate::QueryCancel,
+    ) -> Result<u64, QueryError> {
         let started = std::time::Instant::now();
-        self.execute(profile, credentials, probe, 1)?;
+        let mut profile = profile.clone();
+        profile.config.query_timeout = profile.config.timeout.clamp(10, 60);
+        let descriptor = superlink_domain::resolve(&profile.config.kind)
+            .map_err(|_| QueryError::InvalidProfile)?;
+        match descriptor.family {
+            superlink_domain::Family::Sql | superlink_domain::Family::Search => {
+                let text = if descriptor.family == superlink_domain::Family::Search {
+                    "GET /_count"
+                } else {
+                    descriptor.default_query()
+                };
+                self.execute_request(
+                    &profile,
+                    credentials,
+                    &superlink_domain::Execution {
+                        revision: profile.revision,
+                        text: text.into(),
+                        max_rows: 1,
+                        ..Default::default()
+                    },
+                    cancel,
+                )?;
+            }
+            _ => {
+                let _operation =
+                    crate::execution::Operation::new(cancel, profile.config.query_timeout);
+                let _connection = self.open_operation(&profile, credentials, cancel)?;
+                if cancel.is_cancelled() {
+                    return Err(QueryError::Cancelled);
+                }
+            }
+        }
         Ok(started.elapsed().as_millis() as u64)
     }
 }
@@ -235,9 +415,7 @@ pub fn native_target(kind: &str, flags: NativeFlags) -> Option<NativeKind> {
 
 /// The vault keeps the password out of metadata; the driver still needs it.
 fn live_config(config: &ConnectionConfig, credentials: &Credentials) -> ConnectionConfig {
-    let mut live = config.clone();
-    live.password = credentials.password.clone();
-    live
+    credentials.apply(config)
 }
 
 #[cfg(test)]
@@ -245,9 +423,13 @@ mod tests {
     use super::*;
     use serde_json::json;
     use superlink_domain::ConnectionConfig;
+    use superlink_drivers::DriverSession;
 
     fn drivers_dir() -> PathBuf {
-        PathBuf::from(format!("{}/../../bin/drivers", env!("CARGO_MANIFEST_DIR")))
+        PathBuf::from(format!(
+            "{}/../../../bin/drivers",
+            env!("CARGO_MANIFEST_DIR")
+        ))
     }
 
     #[test]
@@ -353,7 +535,7 @@ mod tests {
         ));
     }
 
-    /// 同一数据库分别走原生驱动与 Go agent，结果必须逐值一致。
+    /// 同一数据库分别走原生驱动与 Rust agent，结果必须逐值一致。
     #[test]
     fn native_driver_matches_the_agent() {
         let service = QueryService::new(drivers_dir());

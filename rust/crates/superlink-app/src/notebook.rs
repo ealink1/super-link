@@ -47,14 +47,23 @@ impl NotebookService {
     pub fn save(&self, notebook: &Notebook) -> NotebookResult<Notebook> {
         notebook.validate()?;
         let revision = notebook.revision;
-        let reference = match self.store.notebook_ref()? {
-            Some((reference, _)) if revision > 0 => reference,
-            _ => format!("local:v1:{}", uuid::Uuid::new_v4()),
-        };
+        let previous = self.store.notebook_ref()?;
+        // Publish a new immutable snapshot. A stale writer must never overwrite
+        // the ciphertext referenced by the winning revision before CAS fails.
+        let reference = format!("local:v1:{}", uuid::Uuid::new_v4());
         let raw = serde_json::to_vec(notebook)
             .map_err(|err| DomainError::validation(format!("笔记本无法序列化：{err}")))?;
         self.vault.put(&reference, &raw)?;
-        let saved = self.store.save_notebook_ref(&reference, revision)?;
+        let saved = match self.store.save_notebook_ref(&reference, revision) {
+            Ok(saved) => saved,
+            Err(error) => {
+                let _ = self.vault.delete(&reference);
+                return Err(error.into());
+            }
+        };
+        if let Some((old, _)) = previous {
+            let _ = self.vault.delete(&old);
+        }
         let mut snapshot = notebook.clone();
         snapshot.revision = saved;
         Ok(snapshot)
@@ -146,6 +155,7 @@ mod tests {
             ..notebook.clone()
         };
         assert!(fixture.service.save(&stale).is_err());
+        assert_eq!(fixture.service.load().unwrap(), first);
         let next = Notebook {
             revision: first.revision,
             ..notebook

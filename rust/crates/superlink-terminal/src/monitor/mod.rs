@@ -13,6 +13,7 @@ pub mod local;
 pub mod parse;
 pub mod rates;
 pub mod remote;
+mod uptime;
 
 pub use commands::{large_files_command, stop_process_command};
 pub use local::{LocalMonitor, MonitorSnapshot};

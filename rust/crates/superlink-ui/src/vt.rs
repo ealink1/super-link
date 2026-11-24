@@ -6,6 +6,7 @@
 
 use std::collections::VecDeque;
 
+use unicode_width::UnicodeWidthChar;
 use vte::{Params, Perform};
 
 pub const SCROLLBACK_LIMIT: usize = 2_000;
@@ -23,12 +24,15 @@ pub struct Style {
     pub fg: Color,
     pub bg: Color,
     pub bold: bool,
+    pub italic: bool,
     pub underline: bool,
     pub reverse: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Cell {
+    combining: String,
+    continuation: bool,
     pub ch: char,
     pub style: Style,
 }
@@ -37,6 +41,8 @@ impl Default for Cell {
     fn default() -> Self {
         Self {
             ch: ' ',
+            combining: String::new(),
+            continuation: false,
             style: Style::default(),
         }
     }
@@ -54,6 +60,11 @@ pub struct Screen {
     style: Style,
     scroll_top: usize,
     scroll_bottom: usize,
+    alternate: Option<(Vec<Vec<Cell>>, usize, usize)>,
+    cursor_visible: bool,
+    application_cursor: bool,
+    bracketed_paste: bool,
+    replies: Vec<u8>,
 }
 
 impl Screen {
@@ -71,6 +82,11 @@ impl Screen {
             style: Style::default(),
             scroll_top: 0,
             scroll_bottom: rows - 1,
+            alternate: None,
+            cursor_visible: true,
+            application_cursor: false,
+            bracketed_paste: false,
+            replies: Vec::new(),
         }
     }
 
@@ -90,6 +106,25 @@ impl Screen {
         self.scrollback.len()
     }
 
+    pub fn application_cursor(&self) -> bool {
+        self.application_cursor
+    }
+    pub fn paste(&self, text: &str) -> Vec<u8> {
+        if self.bracketed_paste {
+            format!("\x1b[200~{text}\x1b[201~").into_bytes()
+        } else {
+            text.as_bytes().to_vec()
+        }
+    }
+    pub fn take_replies(&mut self) -> Vec<u8> {
+        std::mem::take(&mut self.replies)
+    }
+    fn reply(&mut self, bytes: &[u8]) {
+        if self.replies.len() + bytes.len() <= 1024 {
+            self.replies.extend_from_slice(bytes);
+        }
+    }
+
     /// Parses terminal output. The parser is owned by the caller so the grid
     /// can stay free of interior mutability.
     pub fn feed(&mut self, parser: &mut vte::Parser, bytes: &[u8]) {
@@ -107,7 +142,7 @@ impl Screen {
         let mut grid = vec![vec![Cell::default(); cols]; rows];
         for (row, line) in self.grid.iter().take(rows).enumerate() {
             for (col, cell) in line.iter().take(cols).enumerate() {
-                grid[row][col] = *cell;
+                grid[row][col] = cell.clone();
             }
         }
         self.grid = grid;
@@ -119,6 +154,35 @@ impl Screen {
         self.scroll_bottom = rows - 1;
     }
 
+    pub fn visible_row(
+        &self,
+        index: usize,
+        scroll: usize,
+    ) -> (String, Vec<(std::ops::Range<usize>, Style)>) {
+        let absolute = self.scrollback.len().saturating_sub(scroll) + index;
+        if absolute >= self.scrollback.len() {
+            return self.row(absolute - self.scrollback.len());
+        }
+        let Some(line) = self.scrollback.get(absolute) else {
+            return (String::new(), Vec::new());
+        };
+        let mut text = String::new();
+        let mut runs: Vec<(std::ops::Range<usize>, Style)> = Vec::new();
+        for cell in line {
+            if cell.continuation {
+                continue;
+            }
+            let start = text.len();
+            text.push(cell.ch);
+            text.push_str(&cell.combining);
+            match runs.last_mut() {
+                Some((range, style)) if *style == cell.style => range.end = text.len(),
+                _ => runs.push((start..text.len(), cell.style)),
+            }
+        }
+        (text, runs)
+    }
+
     /// One visible row as text plus styled runs, merging equal neighbors.
     pub fn row(&self, index: usize) -> (String, Vec<(std::ops::Range<usize>, Style)>) {
         let Some(line) = self.grid.get(index) else {
@@ -127,8 +191,12 @@ impl Screen {
         let mut text = String::with_capacity(self.cols);
         let mut runs: Vec<(std::ops::Range<usize>, Style)> = Vec::new();
         for cell in line {
+            if cell.continuation {
+                continue;
+            }
             let start = text.len();
             text.push(cell.ch);
+            text.push_str(&cell.combining);
             match runs.last_mut() {
                 Some((range, style)) if *style == cell.style && range.end == start => {
                     range.end = text.len();
@@ -139,17 +207,59 @@ impl Screen {
         (text, runs)
     }
 
+    pub fn cursor_visible(&self) -> bool {
+        self.cursor_visible
+    }
+    pub fn byte_index(&self, row: usize, col: usize) -> usize {
+        self.grid
+            .get(row)
+            .map(|line| {
+                line.iter()
+                    .take(col)
+                    .filter(|c| !c.continuation)
+                    .map(|c| c.ch.len_utf8() + c.combining.len())
+                    .sum()
+            })
+            .unwrap_or(0)
+    }
     fn put(&mut self, ch: char) {
-        if self.cursor_col >= self.cols {
+        let width = ch.width().unwrap_or(0).min(2);
+        if width == 0 {
+            let mut column = self.cursor_col.min(self.cols).saturating_sub(1);
+            if self.grid[self.cursor_row][column].continuation {
+                column = column.saturating_sub(1);
+            }
+            let cell = &mut self.grid[self.cursor_row][column];
+            if cell.combining.len() + ch.len_utf8() <= 32 {
+                cell.combining.push(ch);
+            }
+            return;
+        }
+        if self.cursor_col + width > self.cols {
             self.cursor_col = 0;
             self.line_feed();
         }
-        let cell = Cell {
+        let col = self.cursor_col;
+        if self.grid[self.cursor_row][col].continuation && col > 0 {
+            self.grid[self.cursor_row][col - 1] = Cell::default();
+        }
+        if col + 1 < self.cols && self.grid[self.cursor_row][col + 1].continuation {
+            self.grid[self.cursor_row][col + 1] = Cell::default();
+        }
+        self.grid[self.cursor_row][col] = Cell {
             ch,
             style: self.style,
+            combining: String::new(),
+            continuation: false,
         };
-        self.grid[self.cursor_row][self.cursor_col] = cell;
-        self.cursor_col += 1;
+        if width == 2 {
+            self.grid[self.cursor_row][col + 1] = Cell {
+                continuation: true,
+                style: self.style,
+                ..Default::default()
+            };
+        }
+        self.cursor_col += width;
     }
 
     fn line_feed(&mut self) {
@@ -220,6 +330,8 @@ impl Screen {
             match value {
                 0 => self.style = Style::default(),
                 1 => self.style.bold = true,
+                3 => self.style.italic = true,
+                23 => self.style.italic = false,
                 4 => self.style.underline = true,
                 7 => self.style.reverse = true,
                 22 => self.style.bold = false,
@@ -298,14 +410,53 @@ impl Perform for Screen {
         }
     }
 
-    fn csi_dispatch(
-        &mut self,
-        params: &Params,
-        _intermediates: &[u8],
-        _ignore: bool,
-        action: char,
-    ) {
+    fn csi_dispatch(&mut self, params: &Params, intermediates: &[u8], _ignore: bool, action: char) {
+        if intermediates.contains(&b'?') && matches!(action, 'h' | 'l') {
+            let enabled = action == 'h';
+            for mode in params.iter().filter_map(|p| p.first()) {
+                match *mode {
+                    1 => self.application_cursor = enabled,
+                    2004 => self.bracketed_paste = enabled,
+                    25 => self.cursor_visible = enabled,
+                    47 | 1047 | 1049 if enabled && self.alternate.is_none() => {
+                        let grid = std::mem::replace(
+                            &mut self.grid,
+                            vec![vec![Cell::default(); self.cols]; self.rows],
+                        );
+                        self.alternate = Some((grid, self.cursor_row, self.cursor_col));
+                        self.cursor_row = 0;
+                        self.cursor_col = 0;
+                    }
+                    47 | 1047 | 1049 if !enabled => {
+                        if let Some((mut grid, row, col)) = self.alternate.take() {
+                            grid.resize(self.rows, vec![Cell::default(); self.cols]);
+                            for line in &mut grid {
+                                line.resize(self.cols, Cell::default());
+                            }
+                            self.grid = grid;
+                            self.cursor_row = row.min(self.rows - 1);
+                            self.cursor_col = col.min(self.cols - 1);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            return;
+        }
         match action {
+            'n' => match param(params, 0, 0) {
+                5 => self.reply(b"\x1b[0n"),
+                6 => self.reply(
+                    format!(
+                        "\x1b[{};{}R",
+                        self.cursor_row + 1,
+                        self.cursor_col.min(self.cols - 1) + 1
+                    )
+                    .as_bytes(),
+                ),
+                _ => {}
+            },
+            'c' if param(params, 0, 0) == 0 => self.reply(b"\x1b[?1;2c"),
             'A' => self.cursor_row = self.cursor_row.saturating_sub(param(params, 0, 1)),
             'B' => {
                 self.cursor_row = (self.cursor_row + param(params, 0, 1)).min(self.rows - 1);
@@ -448,5 +599,53 @@ mod tests {
         let mut screen = Screen::new(20, 1);
         feed(&mut screen, b"a\tb");
         assert_eq!(text(&screen, 0), "a       b");
+    }
+}
+
+#[cfg(test)]
+mod unicode_tests {
+    use super::*;
+    #[test]
+    fn cjk_combining_and_cursor_use_terminal_cells() {
+        let mut screen = Screen::new(12, 3);
+        let mut parser = vte::Parser::new();
+        screen.feed(&mut parser, "中e\u{301}😀".as_bytes());
+        assert_eq!(screen.cursor(), (0, 5));
+        assert!(screen.row(0).0.starts_with("中e\u{301}😀"));
+        assert_eq!(screen.byte_index(0, 5), "中e\u{301}😀".len());
+    }
+    #[test]
+    fn alternate_screen_preserves_shell_output() {
+        let mut screen = Screen::new(12, 3);
+        let mut parser = vte::Parser::new();
+        screen.feed(&mut parser, b"shell\x1b[?1049hvim\x1b[?1049l");
+        assert!(screen.row(0).0.starts_with("shell"));
+        assert_eq!(screen.cursor(), (0, 5));
+    }
+    #[test]
+    fn terminal_modes_and_device_replies_follow_application_state() {
+        let mut screen = Screen::new(12, 3);
+        let mut parser = vte::Parser::new();
+        screen.feed(
+            &mut parser,
+            b"\x1b[?1h\x1b[?2004h\x1b[2;4H\x1b[6n\x1b[5n\x1b[c",
+        );
+        assert!(screen.application_cursor());
+        assert_eq!(screen.paste("echo ok\n"), b"\x1b[200~echo ok\n\x1b[201~");
+        assert_eq!(screen.take_replies(), b"\x1b[2;4R\x1b[0n\x1b[?1;2c");
+        assert!(screen.take_replies().is_empty());
+        screen.feed(&mut parser, b"\x1b[?1l\x1b[?2004l");
+        assert!(!screen.application_cursor());
+        assert_eq!(screen.paste("plain"), b"plain");
+    }
+    #[test]
+    fn ansi_styles_are_reset_independently() {
+        let mut screen = Screen::new(12, 3);
+        let mut parser = vte::Parser::new();
+        screen.feed(&mut parser, b"\x1b[1;3;4;7mA\x1b[23mB\x1b[0mC");
+        let (_, runs) = screen.row(0);
+        assert!(runs[0].1.bold && runs[0].1.italic && runs[0].1.underline && runs[0].1.reverse);
+        assert!(!runs[1].1.italic && runs[1].1.bold);
+        assert_eq!(runs[2].1, Style::default());
     }
 }

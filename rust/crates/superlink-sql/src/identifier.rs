@@ -97,6 +97,23 @@ pub fn text_literal(kind: &str, value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
+/// MySQL DDL COMMENT/DEFAULT grammar requires a string token, not CONVERT(...).
+/// Execute MySQL DDL with NO_BACKSLASH_ESCAPES removed from the local session.
+pub fn ddl_text_literal(kind: &str, value: &str) -> String {
+    if structure_dialect(kind) == "mysql" {
+        return format!(
+            "'{}'",
+            value
+                .replace('\\', "\\\\")
+                .replace('\'', "''")
+                .replace('\0', "\\0")
+        );
+    }
+    text_literal(kind, value)
+}
+
+pub const MYSQL_DDL_SESSION: &str = "SET SESSION sql_mode = TRIM(BOTH ',' FROM REPLACE(CONCAT(',', @@SESSION.sql_mode, ','), ',NO_BACKSLASH_ESCAPES,', ','))";
+
 /// Decodes the quoted PostgreSQL metadata path without splitting literal dots.
 pub fn parse_path(path: &str) -> SqlResult<Vec<String>> {
     let bytes = path.as_bytes();
@@ -134,6 +151,51 @@ pub fn parse_path(path: &str) -> SqlResult<Vec<String>> {
     parts.push(decode_part(&part)?);
     if parts.len() > 2 {
         return Err(SqlError::new("metadata path has too many components"));
+    }
+    Ok(parts)
+}
+
+/// Catalog/schema/object paths, including quoted dots and SQL Server brackets.
+/// The PostgreSQL-only two-part parser above retains its stricter contract.
+pub fn parse_catalog_path(path: &str) -> SqlResult<Vec<String>> {
+    if path.len() > 4096 || path.contains('\0') {
+        return Err(SqlError::new("invalid catalog path"));
+    }
+    let mut chars = path.chars().peekable();
+    let mut parts = Vec::new();
+    let mut part = String::new();
+    let mut quote = None;
+    while let Some(ch) = chars.next() {
+        if let Some(end) = quote {
+            if ch == end {
+                if chars.peek() == Some(&end) {
+                    part.push(chars.next().unwrap());
+                } else {
+                    quote = None;
+                }
+            } else {
+                part.push(ch);
+            }
+            continue;
+        }
+        match ch {
+            '"' | '`' => quote = Some(ch),
+            '[' => quote = Some(']'),
+            '.' => {
+                if part.is_empty() {
+                    return Err(SqlError::new("empty catalog path component"));
+                }
+                parts.push(std::mem::take(&mut part));
+            }
+            _ => part.push(ch),
+        }
+    }
+    if quote.is_some() || part.is_empty() {
+        return Err(SqlError::new("invalid quoted catalog path"));
+    }
+    parts.push(part);
+    if parts.len() > 3 {
+        return Err(SqlError::new("catalog path has too many components"));
     }
     Ok(parts)
 }

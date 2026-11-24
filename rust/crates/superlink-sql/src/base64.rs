@@ -31,7 +31,7 @@ pub(crate) fn decode(text: &str) -> Option<Vec<u8>> {
         .bytes()
         .filter(|byte| *byte != b'\r' && *byte != b'\n')
         .collect();
-    if filtered.len() % 4 != 0 {
+    if !filtered.len().is_multiple_of(4) {
         return None;
     }
     let mut output = Vec::with_capacity(filtered.len() / 4 * 3);

@@ -15,23 +15,29 @@ fn main() {
         eprintln!("无法创建本地工作区 {}: {err}", root.display());
         std::process::exit(1);
     }
-    let store = match Store::open(root.join("state.db")) {
+    let _lease = match superlink_infra::WorkspaceLease::acquire(&root) {
+        Ok(lease) => lease,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(1);
+        }
+    };
+    let store = match Store::open(superlink_infra::state::workspace_path(&root)) {
         Ok(store) => store,
         Err(err) => {
             eprintln!("无法打开本地工作区 {}: {err}", root.display());
             std::process::exit(1);
         }
     };
-    // 首次启动且新库为空时，接上 Fyne 版留下的 state.sqlite。
-    if let Err(err) = store.import_legacy(root.join("state.sqlite")) {
-        eprintln!("导入旧版工作区失败，将以空工作区启动: {err}");
-    }
     let store = Arc::new(store);
     let vault = Arc::new(LocalVault::new(&root));
     let service = Arc::new(ProfileService::new(store.clone(), vault.clone()));
-    let queries = Arc::new(QueryService::new(drivers_dir()));
+    let queries = Arc::new(QueryService::with_directories(vec![
+        superlink_app::drivers_dir(),
+        drivers_dir(),
+    ]));
     let history = Arc::new(HistoryService::new(store.clone()));
-    let structure = Arc::new(StructureService::new());
+    let structure = Arc::new(StructureService::with_queries(queries.clone()));
     let drafts = Arc::new(DraftService::new(store.clone()));
     let hosts = Arc::new(HostService::new(store.clone(), vault.clone()));
     let settings = Arc::new(SettingsService::new(store.clone()));
@@ -49,9 +55,16 @@ fn drivers_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("SUPERLINK_DRIVERS_DIR") {
         return PathBuf::from(dir);
     }
-    if let Ok(exe) = std::env::current_exe() {
-        for candidate in ["../../../bin/drivers", "../../bin/drivers"] {
-            let dir = exe.join(candidate);
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+    {
+        for candidate in [
+            "../Resources/drivers",
+            "drivers",
+            "../../../bin/drivers",
+            "../../bin/drivers",
+        ] {
+            let dir = parent.join(candidate);
             if dir.is_dir() {
                 return dir;
             }

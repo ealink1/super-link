@@ -1,5 +1,10 @@
 //! SQL workspace: query tabs, toolbar, statement input and a result table.
 
+mod part_new;
+mod part_saved_panel;
+mod part_toolbar;
+mod workspace_tabs;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -20,6 +25,13 @@ use crate::multiline_editor::SqlTextEditor;
 use crate::theme::Theme;
 use superlink_sql::CompletionTable;
 
+mod controls;
+mod execution;
+mod exporting;
+mod grid;
+mod library;
+mod protocols;
+
 const DISPLAY_ROWS: usize = 300;
 pub(crate) const COLUMN_WIDTH: f32 = 160.0;
 pub(crate) const ROW_NUMBER_WIDTH: f32 = 52.0;
@@ -30,6 +42,16 @@ struct QueryTab {
     id: String,
     title: String,
     text: String,
+    output: Option<ResultSet>,
+    other_results: Vec<ResultSet>,
+    selected_result: usize,
+    error: Option<SharedString>,
+    last_sql: Option<String>,
+    last_request: Option<superlink_domain::Execution>,
+    last_duration: Option<u64>,
+    parameters: String,
+    scope: String,
+    schema: String,
 }
 
 /// 结果区分区标签。
@@ -63,7 +85,36 @@ impl ResultTab {
     ];
 }
 
+pub struct QueryProfileChanged(pub String);
+impl gpui::EventEmitter<QueryProfileChanged> for QueryPage {}
+
 pub struct QueryPage {
+    protocol: protocols::ProtocolControls,
+    export_operation: Option<superlink_app::QueryCancel>,
+    export_open: bool,
+    other_results: Vec<ResultSet>,
+    selected_result: usize,
+    operation: Option<superlink_app::QueryCancel>,
+    request_generation: u64,
+    draft_generation: u64,
+    library_generation: u64,
+    library_busy: bool,
+    profile_choices: Vec<Profile>,
+    parameters: Entity<SqlEditor>,
+    scope_input: Entity<SqlEditor>,
+    schema_input: Entity<SqlEditor>,
+    scope_open: bool,
+    profiles_open: bool,
+    scope_options: Vec<String>,
+    scope: String,
+    schema: String,
+    editor_height: f32,
+    resizing: Option<(gpui::Pixels, f32)>,
+    display_page: usize,
+    column_page: usize,
+    column_widths: HashMap<usize, f32>,
+    column_drag: Option<(usize, gpui::Pixels, f32)>,
+    inspected: Option<(usize, usize)>,
     profiles: Arc<ProfileService>,
     queries: Arc<QueryService>,
     drafts: Arc<DraftService>,
@@ -72,6 +123,7 @@ pub struct QueryPage {
     theme: Theme,
     editor: Entity<SqlTextEditor>,
     profile: Option<Profile>,
+    tab_cache: HashMap<String, (Vec<QueryTab>, usize)>,
     tabs: Vec<QueryTab>,
     active: usize,
     result: Option<ResultSet>,
@@ -79,6 +131,7 @@ pub struct QueryPage {
     status: SharedString,
     result_tab: ResultTab,
     last_sql: Option<String>,
+    last_request: Option<superlink_domain::Execution>,
     last_duration: Option<u64>,
     running: bool,
     history_open: bool,
@@ -94,1723 +147,12 @@ pub struct QueryPage {
     /// Saved query library panel.
     saved: Arc<SavedQueryService>,
     saved_open: bool,
+    saved_context: Option<(String, String)>,
     saved_items: Vec<SavedQuery>,
     saved_title: Entity<SqlEditor>,
     /// Inline rename: (entry id, title editor).
     saved_renaming: Option<(String, Entity<SqlEditor>)>,
     saved_note: Option<SharedString>,
-}
-
-impl QueryPage {
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        profiles: Arc<ProfileService>,
-        queries: Arc<QueryService>,
-        drafts: Arc<DraftService>,
-        history: Arc<HistoryService>,
-        saved: Arc<SavedQueryService>,
-        settings: Arc<SettingsService>,
-        theme: Theme,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let connection_form =
-            cx.new(|cx| ConnectionForm::new(profiles.clone(), queries.clone(), theme, cx));
-        let saved_title = cx.new(SqlEditor::new);
-        saved_title.update(cx, |editor, cx| editor.set_placeholder("查询名称", cx));
-        let page = Self {
-            profiles,
-            queries,
-            drafts,
-            history,
-            settings,
-            theme,
-            editor: cx.new(|cx| {
-                let mut editor = SqlTextEditor::new(cx);
-                editor.set_theme(theme, cx);
-                editor
-            }),
-            profile: None,
-            tabs: Vec::new(),
-            active: 0,
-            result: None,
-            result_tab: ResultTab::default(),
-            last_sql: None,
-            last_duration: None,
-            error: None,
-            status: "选择连接后执行查询".into(),
-            running: false,
-            history_open: false,
-            entries: Vec::new(),
-            recent_sql: HashMap::new(),
-            redacted_notice: None,
-            confirm_run: false,
-            connection_form,
-            saved,
-            saved_open: false,
-            saved_items: Vec::new(),
-            saved_title,
-            saved_renaming: None,
-            saved_note: None,
-        };
-        // Cmd+R in the editor runs the statement, matching the toolbar label.
-        let weak = cx.entity().downgrade();
-        page.editor.update(cx, move |editor, cx| {
-            editor.set_on_run(
-                move |_window, app| {
-                    let weak = weak.clone();
-                    let _ = weak.update(app, |page, cx| page.run(cx));
-                },
-                cx,
-            );
-        });
-        page
-    }
-
-    /// Hands the editor the cached table/column snapshot from the object tree.
-    pub fn set_catalog(&mut self, tables: Vec<CompletionTable>, cx: &mut Context<Self>) {
-        self.editor
-            .update(cx, |editor, cx| editor.set_tables(tables, cx));
-    }
-
-    pub fn set_theme(&mut self, theme: Theme, cx: &mut Context<Self>) {
-        self.theme = theme;
-        self.editor
-            .update(cx, |editor, cx| editor.set_theme(theme, cx));
-        self.connection_form
-            .update(cx, |form, cx| form.set_theme(theme, cx));
-        cx.notify();
-    }
-
-    pub fn select_profile(&mut self, profile: Profile, cx: &mut Context<Self>) {
-        let supported = self.queries.supports(profile.sql_dialect());
-        self.redacted_notice = None;
-        self.confirm_run = false;
-        self.tabs = self.load_tabs(&profile);
-        self.active = 0;
-        let text = self
-            .tabs
-            .first()
-            .map(|tab| tab.text.clone())
-            .unwrap_or_default();
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(text, cx));
-        let dialect = profile.sql_dialect().to_string();
-        self.editor
-            .update(cx, |editor, cx| editor.set_dialect(&dialect, cx));
-        self.profile = Some(profile);
-        self.result = None;
-        self.error = None;
-        self.status = if supported {
-            "就绪 · 结果按行数上限截断".into()
-        } else {
-            "该数据源尚未提供 Rust 驱动 agent".into()
-        };
-        cx.notify();
-    }
-
-    fn load_tabs(&self, profile: &Profile) -> Vec<QueryTab> {
-        let mut tabs: Vec<QueryTab> = self
-            .drafts
-            .list()
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|draft| draft.profile_id == profile.id && !draft.closed)
-            .map(|draft| QueryTab {
-                id: draft.id,
-                title: draft.title,
-                text: draft.text,
-            })
-            .collect();
-        if tabs.is_empty() {
-            tabs.push(Self::new_tab(profile, 1));
-        }
-        tabs
-    }
-
-    fn new_tab(profile: &Profile, index: usize) -> QueryTab {
-        QueryTab {
-            id: format!("query-tab-{}-{index}", profile.id),
-            title: format!("查询 {index}"),
-            text: String::new(),
-        }
-    }
-
-    fn stash(&mut self, cx: &mut Context<Self>) {
-        let text = self.editor.read(cx).text().to_string();
-        if let Some(tab) = self.tabs.get_mut(self.active) {
-            tab.text = text;
-        }
-    }
-
-    fn switch_tab(&mut self, index: usize, cx: &mut Context<Self>) {
-        if index == self.active || index >= self.tabs.len() {
-            return;
-        }
-        self.save_active(cx);
-        self.active = index;
-        self.redacted_notice = None;
-        self.confirm_run = false;
-        let text = self.tabs[index].text.clone();
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(text, cx));
-        cx.notify();
-    }
-
-    pub fn add_tab(&mut self, cx: &mut Context<Self>) {
-        let Some(profile) = self.profile.clone() else {
-            return;
-        };
-        self.save_active(cx);
-        self.redacted_notice = None;
-        self.confirm_run = false;
-        let tab = Self::new_tab(&profile, self.tabs.len() + 1);
-        self.tabs.push(tab);
-        self.active = self.tabs.len() - 1;
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(String::new(), cx));
-        cx.notify();
-    }
-
-    fn close_tab(&mut self, index: usize, cx: &mut Context<Self>) {
-        self.save_active(cx);
-        if self.tabs.len() <= 1 {
-            if let Some(tab) = self.tabs.get_mut(0) {
-                tab.text.clear();
-            }
-            self.editor
-                .update(cx, |editor, cx| editor.set_text(String::new(), cx));
-            cx.notify();
-            return;
-        }
-        let tab = self.tabs.remove(index);
-        let _ = self.drafts.delete(&tab.id);
-        if self.active >= self.tabs.len() {
-            self.active = self.tabs.len() - 1;
-        } else if index < self.active {
-            self.active -= 1;
-        }
-        let text = self.tabs[self.active].text.clone();
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(text, cx));
-        cx.notify();
-    }
-
-    fn save_active(&mut self, cx: &mut Context<Self>) {
-        self.stash(cx);
-        let Some(profile) = self.profile.clone() else {
-            return;
-        };
-        let Some(tab) = self.tabs.get(self.active) else {
-            return;
-        };
-        let draft = Draft {
-            id: tab.id.clone(),
-            profile_id: profile.id,
-            title: tab.title.clone(),
-            text: tab.text.clone(),
-            ..Default::default()
-        };
-        let _ = self.drafts.save(&draft);
-    }
-
-    fn run(&mut self, cx: &mut Context<Self>) {
-        self.run_impl(false, cx);
-    }
-
-    fn run_impl(&mut self, force: bool, cx: &mut Context<Self>) {
-        if self.running {
-            return;
-        }
-        let Some(profile) = self.profile.clone() else {
-            self.error = Some("请先在左侧选择一个连接".into());
-            cx.notify();
-            return;
-        };
-        self.save_active(cx);
-        let sql = self.editor.read(cx).text().to_string();
-        if sql.trim().is_empty() {
-            self.error = Some("请输入 SQL".into());
-            cx.notify();
-            return;
-        }
-        if !force
-            && needs_execution_confirmation(self.redacted_notice.is_some(), placeholder_count(&sql))
-        {
-            self.confirm_run = true;
-            cx.notify();
-            return;
-        }
-        self.confirm_run = false;
-        let credentials = self
-            .profiles
-            .credentials(&profile)
-            .ok()
-            .flatten()
-            .unwrap_or_default();
-        let limit = self.settings.row_limit().max(100);
-        let queries = self.queries.clone();
-        let history = self.history.clone();
-        let profile_id = profile.id.clone();
-        let recorded = sql.clone();
-        self.running = true;
-        self.error = None;
-        self.status = "执行中…".into();
-        cx.notify();
-
-        let task = cx
-            .background_executor()
-            .spawn(async move { queries.execute(&profile, &credentials, &sql, limit) });
-        cx.spawn(async move |this, cx| {
-            let outcome = task.await;
-            let entry_id = match &outcome {
-                Ok(result) => history.record(
-                    &profile_id,
-                    &recorded,
-                    true,
-                    result.rows.len() as i64,
-                    result.duration_ns,
-                ),
-                Err(_) => history.record(&profile_id, &recorded, false, 0, 0),
-            };
-            let original = recorded.clone();
-            this.update(cx, |this, cx| {
-                if let Some(id) = entry_id {
-                    if this.recent_sql.len() >= 50
-                        && let Some(oldest) = this.recent_sql.keys().min().copied()
-                    {
-                        this.recent_sql.remove(&oldest);
-                    }
-                    this.recent_sql.insert(id, original.clone());
-                }
-                this.running = false;
-                this.last_sql = Some(original.clone());
-                if outcome.is_err() {
-                    this.last_duration = None;
-                }
-                match outcome {
-                    Ok(result) => {
-                        this.last_duration = Some(result.duration_ns);
-                        // A successful run means the literals were supplied.
-                        this.redacted_notice = None;
-                        this.status = format!(
-                            "{} 行 · {} 列{} · {:.1} ms",
-                            result.rows.len(),
-                            result.columns.len(),
-                            if result.truncated {
-                                " · 已截断"
-                            } else {
-                                ""
-                            },
-                            result.duration_ns as f64 / 1_000_000.0
-                        )
-                        .into();
-                        this.result = Some(result);
-                    }
-                    Err(err) => {
-                        this.status = "执行失败".into();
-                        this.error = Some(err.to_string().into());
-                    }
-                }
-                this.editor
-                    .update(cx, |editor, cx| editor.set_enabled(true, cx));
-                if this.history_open {
-                    this.reload_history();
-                }
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
-        self.editor
-            .update(cx, |editor, cx| editor.set_enabled(false, cx));
-    }
-
-    fn cancel_execution(&mut self, cx: &mut Context<Self>) {
-        self.confirm_run = false;
-        cx.notify();
-    }
-
-    /// Re-reads the editor so edits made while the prompt was open are kept.
-    fn confirm_execution(&mut self, cx: &mut Context<Self>) {
-        self.run_impl(true, cx);
-    }
-
-    fn reload_history(&mut self) {
-        self.entries = self
-            .profile
-            .as_ref()
-            .map(|profile| self.history.list(&profile.id))
-            .unwrap_or_default();
-    }
-
-    /// Clicking a row restores this session's exact statement, or the redacted
-    /// template for entries recorded before this window opened.
-    fn load_history(&mut self, id: i64, redacted: String, cx: &mut Context<Self>) {
-        let from_session = self.recent_sql.get(&id).cloned();
-        let placeholders = placeholder_count(&redacted);
-        let (text, note) = resolve_history_text(from_session.clone(), redacted);
-        self.redacted_notice = from_session.is_none().then_some(placeholders);
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(text, cx));
-        self.status = note.into();
-        cx.notify();
-    }
-
-    fn redacted_banner(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let count = self.redacted_notice.unwrap_or(0);
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .px_3()
-            .py_2()
-            .bg(theme.warning_bg)
-            .border_b_1()
-            .border_l_2()
-            .border_color(theme.warning_border)
-            .child(icons::icon(
-                "shell/circle-help.svg",
-                15.0,
-                theme.warning_text,
-            ))
-            .child(
-                div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(theme.warning_text)
-                    .child(format!(
-                        "该语句来自历史记录，{count} 处字面量已被替换为 ?，执行前请手动补值"
-                    )),
-            )
-            .child(div().flex_1())
-            .child(
-                div()
-                    .id("dismiss-redacted")
-                    .px_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(theme.warning_border))
-                    .on_click(cx.listener(|this, _event, _window, cx| {
-                        this.redacted_notice = None;
-                        cx.notify();
-                    }))
-                    .child(icons::icon("shell/x.svg", 12.0, theme.warning_text)),
-            )
-    }
-
-    fn confirm_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let placeholders = placeholder_count(self.editor.read(cx).text());
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .px_3()
-            .py_2()
-            .bg(theme.warning_bg)
-            .border_b_1()
-            .border_l_2()
-            .border_color(theme.warning_border)
-            .child(icons::icon(
-                "shell/circle-help.svg",
-                15.0,
-                theme.warning_text,
-            ))
-            .child(
-                div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(theme.warning_text)
-                    .child(format!(
-                        "语句仍有 {placeholders} 处 ? 占位符，直接执行大概率失败。仍要执行吗？"
-                    )),
-            )
-            .child(div().flex_1())
-            .child(
-                div()
-                    .id("cancel-run")
-                    .px_3()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .border_1()
-                    .border_color(theme.warning_border)
-                    .on_click(cx.listener(|this, _event, _window, cx| this.cancel_execution(cx)))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.warning_text)
-                            .child("取消"),
-                    ),
-            )
-            .child(
-                div()
-                    .id("confirm-run")
-                    .px_3()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(theme.warning_text)
-                    .on_click(cx.listener(|this, _event, _window, cx| this.confirm_execution(cx)))
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.surface)
-                            .child("仍然执行"),
-                    ),
-            )
-    }
-
-    pub fn toggle_history(&mut self, cx: &mut Context<Self>) {
-        self.history_open = !self.history_open;
-        if self.history_open {
-            self.reload_history();
-        }
-        cx.notify();
-    }
-
-    fn clear_history(&mut self, cx: &mut Context<Self>) {
-        if let Some(profile) = self.profile.clone() {
-            self.history.clear(&profile.id);
-        }
-        self.entries.clear();
-        cx.notify();
-    }
-
-    pub fn saved_open(&self) -> bool {
-        self.saved_open
-    }
-
-    pub fn open_saved(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.saved_open = true;
-        self.history_open = false;
-        use gpui::Focusable as _;
-        let handle = self.saved_title.read(cx).focus_handle(cx);
-        window.focus(&handle);
-        self.refresh_saved(cx);
-    }
-
-    fn close_saved(&mut self, cx: &mut Context<Self>) {
-        self.saved_open = false;
-        cx.notify();
-    }
-
-    fn refresh_saved(&mut self, cx: &mut Context<Self>) {
-        match self.saved.list() {
-            Ok(items) => {
-                self.saved_items = items;
-                self.saved_note = None;
-            }
-            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
-        }
-        cx.notify();
-    }
-
-    fn save_current_query(&mut self, cx: &mut Context<Self>) {
-        let Some(profile) = self.profile.clone() else {
-            self.saved_note = Some(SharedString::from("请先选择一个连接"));
-            cx.notify();
-            return;
-        };
-        let sql = self.editor.read(cx).text().to_string();
-        if sql.trim().is_empty() {
-            self.saved_note = Some(SharedString::from("当前查询为空，无法保存"));
-            cx.notify();
-            return;
-        }
-        let typed = Self::editor_text(&self.saved_title, cx).trim().to_string();
-        let title = if typed.is_empty() {
-            sql.lines()
-                .map(str::trim)
-                .find(|line| !line.is_empty())
-                .map(|line| line.chars().take(40).collect::<String>())
-                .unwrap_or_else(|| "未命名查询".into())
-        } else {
-            typed
-        };
-        let scope = profile.config.database.clone();
-        match self.saved.save(&profile.id, &title, &scope, &sql) {
-            Ok(saved) => {
-                self.saved_title
-                    .update(cx, |editor, cx| editor.set_text("", cx));
-                self.saved_note = Some(SharedString::from(format!("已保存《{}》", saved.title)));
-            }
-            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
-        }
-        self.refresh_saved(cx);
-    }
-
-    fn load_saved(&mut self, id: String, cx: &mut Context<Self>) {
-        let Some(item) = self.saved_items.iter().find(|item| item.id == id).cloned() else {
-            return;
-        };
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(item.text.clone(), cx));
-        self.status = SharedString::from(format!("已载入已存查询《{}》", item.title));
-        self.saved_open = false;
-        self.saved_note = None;
-        cx.notify();
-    }
-
-    fn delete_saved(&mut self, id: String, cx: &mut Context<Self>) {
-        if let Err(err) = self.saved.delete(&id) {
-            self.saved_note = Some(SharedString::from(err.to_string()));
-            cx.notify();
-            return;
-        }
-        self.saved_note = Some(SharedString::from("已删除"));
-        self.refresh_saved(cx);
-    }
-
-    fn start_saved_rename(&mut self, id: String, title: String, cx: &mut Context<Self>) {
-        let editor = cx.new(SqlEditor::new);
-        editor.update(cx, |editor, cx| {
-            editor.set_placeholder("查询名称", cx);
-            editor.set_text(title, cx);
-        });
-        self.saved_renaming = Some((id, editor));
-        cx.notify();
-    }
-
-    fn commit_saved_rename(&mut self, cx: &mut Context<Self>) {
-        let Some((id, editor)) = self.saved_renaming.clone() else {
-            return;
-        };
-        let title = Self::editor_text(&editor, cx).trim().to_string();
-        if title.is_empty() {
-            self.saved_note = Some(SharedString::from("名称不能为空"));
-            cx.notify();
-            return;
-        }
-        match self.saved.rename(&id, &title) {
-            Ok(saved) => {
-                self.saved_note =
-                    Some(SharedString::from(format!("已重命名为《{}》", saved.title)));
-                self.saved_renaming = None;
-            }
-            Err(err) => self.saved_note = Some(SharedString::from(err.to_string())),
-        }
-        self.refresh_saved(cx);
-    }
-
-    fn cancel_saved_rename(&mut self, cx: &mut Context<Self>) {
-        self.saved_renaming = None;
-        cx.notify();
-    }
-
-    /// 右侧已存查询面板：输入名称保存当前 SQL，或打开、删除已有条目。
-    fn saved_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let mut panel = div()
-            .flex()
-            .flex_col()
-            .w(px(SAVED_WIDTH))
-            .h_full()
-            .bg(theme.sidebar)
-            .border_l_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_3()
-                    .h(px(36.0))
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .child(icons::icon("superlink/sql-doc.svg", 13.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child("已存查询"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("close-saved")
-                            .px_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(|this, _event, _window, cx| this.close_saved(cx)))
-                            .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
-                    ),
-            )
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_2()
-                    .px_3()
-                    .py_2()
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .flex_1()
-                            .h(px(crate::theme::CONTROL_MIN))
-                            .px_2()
-                            .rounded_md()
-                            .border_1()
-                            .border_color(theme.border)
-                            .bg(theme.surface)
-                            .child(self.saved_title.clone()),
-                    )
-                    .child(
-                        div()
-                            .id("save-current-query")
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .h(px(crate::theme::CONTROL_MIN))
-                            .px_3()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .bg(theme.accent)
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.surface)
-                            .on_click(
-                                cx.listener(|this, _event, _window, cx| {
-                                    this.save_current_query(cx)
-                                }),
-                            )
-                            .child("保存当前"),
-                    ),
-            );
-
-        if let Some(note) = self.saved_note.clone() {
-            panel = panel.child(
-                div()
-                    .px_3()
-                    .pb_1()
-                    .text_size(px(12.0))
-                    .text_color(theme.muted)
-                    .child(note),
-            );
-        }
-
-        if self.saved_items.is_empty() {
-            return panel.child(
-                div()
-                    .px_3()
-                    .py_2()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child("还没有已存查询。填写名称后点击「保存当前」。"),
-            );
-        }
-
-        let mut list = div()
-            .id("saved-list")
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_h(px(0.0))
-            .overflow_y_scroll();
-        for item in &self.saved_items {
-            let renaming = self
-                .saved_renaming
-                .as_ref()
-                .map(|(rename_id, _)| rename_id == &item.id)
-                .unwrap_or(false);
-            if renaming {
-                let editor = self
-                    .saved_renaming
-                    .as_ref()
-                    .map(|(_, editor)| editor.clone())
-                    .expect("renaming state carries an editor");
-                list = list.child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap_2()
-                        .mx_2()
-                        .my(px(1.0))
-                        .px_2()
-                        .py_2()
-                        .rounded_md()
-                        .bg(theme.accent_soft)
-                        .child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .flex_1()
-                                .min_w(px(0.0))
-                                .h(px(28.0))
-                                .px_2()
-                                .rounded_md()
-                                .border_1()
-                                .border_color(theme.border)
-                                .bg(theme.surface)
-                                .child(editor),
-                        )
-                        .child(
-                            div()
-                                .id("confirm-saved-rename")
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .size(px(26.0))
-                                .rounded_md()
-                                .cursor_pointer()
-                                .bg(theme.accent)
-                                .on_click(cx.listener(|this, _event, _window, cx| {
-                                    this.commit_saved_rename(cx)
-                                }))
-                                .child(icons::icon("shell/check.svg", 13.0, theme.surface)),
-                        )
-                        .child(
-                            div()
-                                .id("cancel-saved-rename")
-                                .flex()
-                                .items_center()
-                                .justify_center()
-                                .size(px(26.0))
-                                .rounded_md()
-                                .cursor_pointer()
-                                .hover(move |style| style.bg(theme.accent_soft))
-                                .on_click(cx.listener(|this, _event, _window, cx| {
-                                    this.cancel_saved_rename(cx)
-                                }))
-                                .child(icons::icon("shell/x.svg", 13.0, theme.muted)),
-                        ),
-                );
-                continue;
-            }
-
-            let id = item.id.clone();
-            let open_id = item.id.clone();
-            let rename_id = item.id.clone();
-            let rename_title = item.title.clone();
-            let title = SharedString::from(if item.title.is_empty() {
-                "未命名查询".to_string()
-            } else {
-                item.title.clone()
-            });
-            let meta = match (item.scope.trim().is_empty(), item.updated_at) {
-                (true, Some(time)) => time
-                    .with_timezone(&chrono::Local)
-                    .format("%m/%d %H:%M")
-                    .to_string(),
-                (false, Some(time)) => format!(
-                    "{} · {}",
-                    item.scope,
-                    time.with_timezone(&chrono::Local).format("%m/%d %H:%M")
-                ),
-                (true, None) => "—".to_string(),
-                (false, None) => item.scope.clone(),
-            };
-            list = list.child(
-                div()
-                    .id(SharedString::from(format!("saved-{}", item.id)))
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .mx_2()
-                    .my(px(1.0))
-                    .px_2()
-                    .py_2()
-                    .rounded_md()
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_w(px(0.0))
-                            .pr_1()
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child(title),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(11.0))
-                                    .text_color(theme.muted)
-                                    .child(SharedString::from(meta)),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("rename-saved-{}", item.id)))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(26.0))
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.start_saved_rename(rename_id.clone(), rename_title.clone(), cx)
-                            }))
-                            .child(icons::icon("superlink/pencil.svg", 13.0, theme.muted)),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("open-saved-{}", item.id)))
-                            .px_2()
-                            .h(px(26.0))
-                            .flex()
-                            .items_center()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .bg(theme.button)
-                            .text_size(px(12.0))
-                            .text_color(theme.text)
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.load_saved(open_id.clone(), cx)
-                            }))
-                            .child("打开"),
-                    )
-                    .child(
-                        div()
-                            .id(SharedString::from(format!("delete-saved-{}", item.id)))
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .size(px(26.0))
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.delete_saved(id.clone(), cx)
-                            }))
-                            .child(icons::icon("superlink/trash.svg", 13.0, theme.muted)),
-                    ),
-            );
-        }
-        panel.child(list)
-    }
-
-    fn history_panel(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let mut panel = div()
-            .flex()
-            .flex_col()
-            .w(px(HISTORY_WIDTH))
-            .h_full()
-            .bg(theme.sidebar)
-            .border_l_1()
-            .border_color(theme.border)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .justify_between()
-                    .px_3()
-                    .h(px(36.0))
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .child(icons::icon("superlink/history.svg", 13.0, theme.muted))
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child("执行历史"),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .id("clear-history")
-                            .px_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(
-                                cx.listener(|this, _event, _window, cx| this.clear_history(cx)),
-                            )
-                            .child(icons::icon("superlink/trash.svg", 13.0, theme.muted)),
-                    ),
-            );
-
-        if self.entries.is_empty() {
-            return panel.child(
-                div()
-                    .px_3()
-                    .py_2()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child("还没有执行记录"),
-            );
-        }
-
-        for entry in &self.entries {
-            let theme = self.theme;
-            let time = entry
-                .created_at
-                .map(|value| {
-                    value
-                        .with_timezone(&chrono::Local)
-                        .format("%m-%d %H:%M:%S")
-                        .to_string()
-                })
-                .unwrap_or_default();
-            let line = entry.text.lines().next().unwrap_or("");
-            let text = if line.chars().count() > 48 {
-                format!("{}…", line.chars().take(48).collect::<String>())
-            } else {
-                line.to_string()
-            };
-            let entry_id = entry.id;
-            let redacted = entry.text.clone();
-            panel = panel.child(
-                div()
-                    .id(SharedString::from(format!("history-{}", entry.id)))
-                    .flex()
-                    .flex_col()
-                    .gap_1()
-                    .mx_2()
-                    .my_1()
-                    .px_2()
-                    .py_1()
-                    .rounded_md()
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.load_history(entry_id, redacted.clone(), cx)
-                    }))
-                    .bg(theme.surface)
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_between()
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(if entry.success {
-                                        theme.accent
-                                    } else {
-                                        theme.danger
-                                    })
-                                    .child(if entry.success { "成功" } else { "失败" }),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(time),
-                            ),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.text)
-                            .child(SharedString::from(text)),
-                    ),
-            );
-        }
-        panel
-    }
-
-    fn editor_text(entity: &Entity<SqlEditor>, cx: &Context<Self>) -> String {
-        entity.read(cx).text().to_string()
-    }
-
-    pub fn set_on_saved(
-        &mut self,
-        handler: impl Fn(&str, &mut App) + 'static,
-        cx: &mut Context<Self>,
-    ) {
-        self.connection_form
-            .update(cx, |form, cx| form.set_on_saved(handler, cx));
-    }
-
-    /// 把当前结果导出为 CSV 到数据目录。
-    fn export_result_csv(&mut self, cx: &mut Context<Self>) {
-        let Some(result) = self.result.as_ref() else {
-            self.status = "没有可导出的结果".into();
-            cx.notify();
-            return;
-        };
-        let stamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
-        let root = superlink_app::transfer::data_root();
-        let path = root.join("exports").join(format!("查询-{stamp}.csv"));
-        let path_display = path.display().to_string();
-        let outcome = superlink_app::transfer::export_result_csv(result, &path);
-        match outcome {
-            Ok(count) => {
-                self.status = format!("已导出 {count} 行 → {path_display}").into();
-            }
-            Err(err) => {
-                self.status = format!("导出失败：{err}").into();
-            }
-        }
-        cx.notify();
-    }
-
-    /// 从结构树点选表后回填查询。
-    pub fn load_sql(&mut self, sql: String, cx: &mut Context<Self>) {
-        self.editor
-            .update(cx, |editor, cx| editor.set_text(sql, cx));
-        self.redacted_notice = None;
-        self.confirm_run = false;
-        self.status = "已回填表查询".into();
-        cx.notify();
-    }
-
-    pub fn open_connection_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.connection_form
-            .update(cx, |form, cx| form.open_new(window, cx));
-        cx.notify();
-    }
-
-    /// 编辑当前选中的连接。
-    pub fn open_edit_connection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(profile) = self.profile.clone() else {
-            self.status = "请先选择连接".into();
-            cx.notify();
-            return;
-        };
-        self.connection_form
-            .update(cx, |form, cx| form.open_edit(profile, window, cx));
-        cx.notify();
-    }
-
-    pub fn close_connection_form(&mut self, cx: &mut Context<Self>) {
-        self.connection_form.update(cx, |form, cx| form.close(cx));
-        cx.notify();
-    }
-    fn tab_strip(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let mut strip = div()
-            .flex()
-            .items_center()
-            .h(px(34.0))
-            .px_2()
-            .gap_1()
-            .bg(theme.canvas)
-            .border_b_1()
-            .border_color(theme.border);
-        for (index, tab) in self.tabs.iter().enumerate() {
-            let active = index == self.active;
-            let title = SharedString::from(crate::text::shorten(&tab.title, 16));
-            strip = strip.child(
-                div()
-                    .id(("tab", index))
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .h(px(26.0))
-                    .rounded_md()
-                    .cursor_pointer()
-                    .bg(if active { theme.surface } else { theme.canvas })
-                    .border_1()
-                    .border_color(if active { theme.border } else { theme.canvas })
-                    .on_click(
-                        cx.listener(move |this, _event, _window, cx| this.switch_tab(index, cx)),
-                    )
-                    .child(div().size(px(6.0)).rounded_full().bg(if active {
-                        theme.success
-                    } else {
-                        theme.border
-                    }))
-                    .child(
-                        div()
-                            .max_w(px(160.0))
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(if active { theme.text } else { theme.muted })
-                            .child(title),
-                    )
-                    .child(
-                        div()
-                            .id(("close-tab", index))
-                            .px_1()
-                            .rounded_md()
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.accent_soft))
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.close_tab(index, cx)
-                            }))
-                            .child(icons::icon("shell/x.svg", 11.0, theme.muted)),
-                    ),
-            );
-        }
-        strip.child(
-            div()
-                .id("new-tab")
-                .px_2()
-                .h(px(26.0))
-                .flex()
-                .items_center()
-                .rounded_md()
-                .cursor_pointer()
-                .hover(move |style| style.bg(theme.accent_soft))
-                .on_click(cx.listener(|this, _event, _window, cx| this.add_tab(cx)))
-                .child(icons::icon("shell/plus.svg", 13.0, theme.muted)),
-        )
-    }
-
-    fn toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = self.theme;
-        let profile_label = self
-            .profile
-            .as_ref()
-            .map(|profile| profile.name.clone())
-            .unwrap_or_else(|| "未选择连接".to_string());
-        let profile_kind = self
-            .profile
-            .as_ref()
-            .map(|profile| profile.sql_dialect().to_string())
-            .unwrap_or_default();
-        let database = self
-            .profile
-            .as_ref()
-            .map(|profile| {
-                if profile.config.database.is_empty() {
-                    "数据库 / Namespace".to_string()
-                } else {
-                    profile.config.database.clone()
-                }
-            })
-            .unwrap_or_else(|| "数据库 / Namespace".to_string());
-        // 行数上限轮换档位
-        let limit = self.settings.row_limit();
-        let next_limit = match limit {
-            100 => 500,
-            500 => 1_000,
-            1_000 => 5_000,
-            5_000 => 10_000,
-            _ => 100,
-        };
-
-        div()
-            .flex()
-            .items_center()
-            .gap_2()
-            .px_3()
-            .h(px(42.0))
-            .bg(theme.surface)
-            .border_b_1()
-            .border_color(theme.border)
-            // 连接下拉
-            .child(
-                div()
-                    .id("profile-pill")
-                    .flex()
-                    .items_center()
-                    .gap_1()
-                    .px_2()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.surface)
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _event, _window, cx| {
-                        let list = this.profiles.list().unwrap_or_default();
-                        if list.is_empty() {
-                            return;
-                        }
-                        let current = this
-                            .profile
-                            .as_ref()
-                            .map(|profile| profile.name.clone())
-                            .unwrap_or_default();
-                        let index = list
-                            .iter()
-                            .position(|profile| profile.name == current)
-                            .map(|position| position + 1)
-                            .unwrap_or(0);
-                        let next = list[index % list.len()].clone();
-                        this.select_profile(next, cx);
-                    }))
-                    .child(icons::icon(
-                        icons::datasource_icon(profile_kind.as_str()),
-                        14.0,
-                        theme.muted,
-                    ))
-                    .child(
-                        div()
-                            .max_w(px(180.0))
-                            .overflow_hidden()
-                            .whitespace_nowrap()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.text)
-                            .child(SharedString::from(crate::text::shorten(&profile_label, 18))),
-                    )
-                    .child(
-                        div()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("▾"),
-                    ),
-            )
-            // 编辑当前连接
-            .children(self.profile.is_some().then(|| {
-                div()
-                    .id("edit-connection")
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .w(px(30.0))
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .rounded_md()
-                    .cursor_pointer()
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(
-                        cx.listener(|this, _event, window, cx| {
-                            this.open_edit_connection(window, cx)
-                        }),
-                    )
-                    .child(icons::icon("superlink/pencil.svg", 14.0, theme.muted))
-            }))
-            // 数据库 / Namespace
-            .child(
-                div()
-                    .px_2()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.surface)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(SharedString::from(database)),
-            )
-            // 行数上限（点击轮换）
-            .child(
-                div()
-                    .id("limit-pill")
-                    .px_2()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.surface)
-                    .cursor_pointer()
-                    .on_click(cx.listener(move |this, _event, _window, cx| {
-                        this.settings.set_row_limit(next_limit);
-                        this.status = format!("结果行数上限 → {}", next_limit).into();
-                        cx.notify();
-                    }))
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(SharedString::from(format!("{limit} ▾"))),
-            )
-            // 运行：蓝色圆形按钮
-            .child(
-                div()
-                    .id("run-query")
-                    .size(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded_full()
-                    .cursor_pointer()
-                    .bg(if self.running {
-                        theme.border
-                    } else {
-                        theme.accent
-                    })
-                    .on_click(cx.listener(|this, _event, _window, cx| this.run(cx)))
-                    .child(icons::icon("superlink/send.svg", 14.0, theme.surface)),
-            )
-            // 保存：圆形图标按钮
-            .child(
-                div()
-                    .id("save-query")
-                    .size(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded_full()
-                    .cursor_pointer()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.button)
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| {
-                        this.save_active(cx);
-                        this.status = "已保存到草稿".into();
-                        cx.notify();
-                    }))
-                    .child(icons::icon("shell/save.svg", 14.0, theme.muted)),
-            )
-            // 导出 CSV：圆形图标按钮
-            .child(
-                div()
-                    .id("export-csv")
-                    .size(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded_full()
-                    .cursor_pointer()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.button)
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| this.export_result_csv(cx)))
-                    .child(icons::icon("superlink/copy.svg", 14.0, theme.muted)),
-            )
-            // 执行历史：圆形图标按钮
-            .child(
-                div()
-                    .id("history")
-                    .size(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded_full()
-                    .cursor_pointer()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(if self.history_open {
-                        theme.accent_soft
-                    } else {
-                        theme.button
-                    })
-                    .hover(move |style| style.bg(theme.accent_soft))
-                    .on_click(cx.listener(|this, _event, _window, cx| this.toggle_history(cx)))
-                    .child(icons::icon(
-                        "superlink/history.svg",
-                        14.0,
-                        if self.history_open {
-                            theme.accent
-                        } else {
-                            theme.muted
-                        },
-                    )),
-            )
-            .child(div().flex_1())
-            .child(
-                div()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(self.status.clone()),
-            )
-    }
-
-    /// 编辑器与结果区之间的状态行（对齐 Fyne 时期的位置）。
-    fn status_row(&self) -> impl IntoElement {
-        let theme = self.theme;
-        let limit = self.settings.row_limit().max(100);
-        let text = if self.status.is_empty() {
-            SharedString::from(format!("就绪 · 结果最多 {} 行 / 64 MiB", limit * 10_000))
-        } else {
-            self.status.clone()
-        };
-        div()
-            .px_3()
-            .py_1()
-            .text_size(px(crate::theme::TEXT_SIZE))
-            .text_color(theme.muted)
-            .bg(theme.surface)
-            .border_t_1()
-            .border_color(theme.border)
-            .child(text)
-    }
-    fn editor_panel(&self) -> impl IntoElement {
-        let theme = self.theme;
-        div()
-            .flex()
-            .flex_col()
-            .px_3()
-            .py_2()
-            .gap_1()
-            .h(px(260.0))
-            .border_b_1()
-            .border_color(theme.border)
-            .text_color(theme.text)
-            .child(self.editor.clone())
-    }
-
-    fn result_panel(&self, cx: &mut Context<Self>) -> AnyElement {
-        let theme = self.theme;
-        let panel = div()
-            .flex()
-            .flex_col()
-            .flex_1()
-            .min_h(px(0.0))
-            .bg(theme.surface)
-            .child(
-                div()
-                    .flex()
-                    .items_center()
-                    .gap_3()
-                    .px_3()
-                    .h(px(32.0))
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .children(ResultTab::ALL.iter().map(|tab| {
-                        let active = *tab == self.result_tab;
-                        div()
-                            .id(SharedString::from(format!("result-tab-{:?}", tab)))
-                            .px_2()
-                            .py_1()
-                            .rounded_md()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(if active { theme.success } else { theme.muted })
-                            .font_weight(if active {
-                                FontWeight::BOLD
-                            } else {
-                                FontWeight::NORMAL
-                            })
-                            .bg(if active {
-                                theme.success_soft
-                            } else {
-                                theme.surface
-                            })
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, _event, _window, cx| {
-                                this.result_tab = *tab;
-                                cx.notify();
-                            }))
-                            .child(tab.label())
-                    })),
-            );
-
-        let content: AnyElement = match self.result_tab {
-            ResultTab::Log => {
-                let mut log = div().flex().flex_col().gap_2().p_3();
-                match (&self.last_sql, &self.error) {
-                    (Some(sql), error) => {
-                        let status_text: String = if let Some(err) = error {
-                            err.to_string()
-                        } else {
-                            format!(
-                                "成功 · {:.1} ms",
-                                self.last_duration
-                                    .map(|ns| ns as f64 / 1_000_000.0)
-                                    .unwrap_or_default()
-                            )
-                        };
-                        log = log.child(
-                            div()
-                                .flex()
-                                .items_center()
-                                .gap_2()
-                                .child(
-                                    div()
-                                        .text_size(px(crate::theme::TEXT_SIZE))
-                                        .text_color(theme.muted)
-                                        .child("状态"),
-                                )
-                                .child(
-                                    div()
-                                        .text_size(px(crate::theme::TEXT_SIZE))
-                                        .text_color(if error.is_some() {
-                                            theme.danger
-                                        } else {
-                                            theme.text
-                                        })
-                                        .child(SharedString::from(status_text)),
-                                ),
-                        );
-                        log = log.child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("语句"),
-                        );
-                        log = log.child(
-                            div()
-                                .p_2()
-                                .rounded_md()
-                                .bg(theme.canvas)
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.text)
-                                .child(SharedString::from(sql.clone())),
-                        );
-                    }
-                    _ => {
-                        log = log.child(
-                            div()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("还没有执行记录"),
-                        );
-                    }
-                }
-                log.into_any_element()
-            }
-            ResultTab::Params => div()
-                .p_3()
-                .text_size(px(crate::theme::TEXT_SIZE))
-                .text_color(theme.muted)
-                .child("当前查询未使用绑定参数；参数面板随后续参数支持开放。")
-                .into_any_element(),
-            ResultTab::Fields => {
-                let Some(result) = self.result.as_ref() else {
-                    return panel
-                        .child(
-                            div()
-                                .flex_1()
-                                .p_3()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("执行查询后显示字段"),
-                        )
-                        .into_any_element();
-                };
-                let mut fields = div().flex().flex_col().gap_1().p_3();
-                for (position, column) in result.columns.iter().enumerate() {
-                    fields = fields.child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_2()
-                            .child(
-                                div()
-                                    .w(px(28.0))
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(format!("{}", position + 1)),
-                            )
-                            .child(
-                                div()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child(SharedString::from(column.name.clone())),
-                            ),
-                    );
-                }
-                fields.into_any_element()
-            }
-            ResultTab::Ddl => {
-                let Some(sql) = self.last_sql.as_ref() else {
-                    return panel
-                        .child(
-                            div()
-                                .flex_1()
-                                .p_3()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("执行查询后显示语句"),
-                        )
-                        .into_any_element();
-                };
-                div()
-                    .p_3()
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.text)
-                    .child(SharedString::from(sql.clone()))
-                    .into_any_element()
-            }
-            ResultTab::Result => {
-                if let Some(error) = self.error.clone() {
-                    return panel
-                        .child(
-                            div()
-                                .px_3()
-                                .py_2()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.danger)
-                                .child(error),
-                        )
-                        .into_any_element();
-                }
-                let Some(result) = self.result.as_ref() else {
-                    return panel
-                        .child(
-                            div()
-                                .flex()
-                                .flex_1()
-                                .items_center()
-                                .justify_center()
-                                .text_size(px(crate::theme::TEXT_SIZE))
-                                .text_color(theme.muted)
-                                .child("执行查询后显示结果"),
-                        )
-                        .into_any_element();
-                };
-
-                let header = div()
-                    .flex()
-                    .items_center()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .bg(theme.canvas)
-                    .border_b_1()
-                    .border_color(theme.border)
-                    .child(
-                        div()
-                            .w(px(ROW_NUMBER_WIDTH))
-                            .px_2()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .text_color(theme.muted)
-                            .child("#"),
-                    )
-                    .children(result.columns.iter().map(|column| {
-                        div()
-                            .w(px(COLUMN_WIDTH))
-                            .px_2()
-                            .text_size(px(crate::theme::TEXT_SIZE))
-                            .font_weight(FontWeight::BOLD)
-                            .text_color(theme.muted)
-                            .child(SharedString::from(column.name.clone()))
-                    }));
-
-                let rows = result
-                    .rows
-                    .iter()
-                    .take(DISPLAY_ROWS)
-                    .enumerate()
-                    .map(|(index, row)| {
-                        div()
-                            .flex()
-                            .items_center()
-                            .h(px(24.0))
-                            .bg(if index % 2 == 0 {
-                                theme.surface
-                            } else {
-                                theme.canvas
-                            })
-                            .child(
-                                div()
-                                    .w(px(ROW_NUMBER_WIDTH))
-                                    .px_2()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.muted)
-                                    .child(format!("{}", index + 1)),
-                            )
-                            .children(row.iter().map(|cell| {
-                                div()
-                                    .w(px(COLUMN_WIDTH))
-                                    .px_2()
-                                    .text_size(px(crate::theme::TEXT_SIZE))
-                                    .text_color(theme.text)
-                                    .child(cell_text(cell))
-                            }))
-                    });
-
-                panel
-                    .child(header)
-                    .child(
-                        div()
-                            .flex()
-                            .flex_col()
-                            .flex_1()
-                            .min_h(px(0.0))
-                            .children(rows),
-                    )
-                    .into_any_element()
-            }
-        };
-        content
-    }
 }
 
 /// Only a redacted statement that still has placeholders needs a confirmation.
@@ -1837,11 +179,64 @@ pub(crate) fn cell_text(value: &Value) -> SharedString {
     }
 }
 
+impl QueryPage {
+    pub(crate) fn draft_service(&self) -> Arc<DraftService> {
+        self.drafts.clone()
+    }
+    pub(crate) fn prepare_quit(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Vec<superlink_app::QueryCancel> {
+        let mut cancels = Vec::new();
+        if let Some(cancel) = self.operation.clone() {
+            cancels.push(cancel);
+        }
+        if let Some(cancel) = self.export_operation.take() {
+            cancels.push(cancel);
+        }
+        self.save_active(cx);
+        self.stop_query(cx);
+        cancels
+    }
+    pub(crate) fn save_document(&mut self, cx: &mut Context<Self>) {
+        self.save_active(cx);
+    }
+}
+
 impl Render for QueryPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
-        div().flex().flex_col().size_full().bg(theme.surface).child(
-            if self.connection_form.read(cx).is_open() {
+        div()
+            .flex()
+            .flex_col()
+            .size_full()
+            .bg(theme.surface)
+            .on_mouse_move(
+                cx.listener(|this, event: &gpui::MouseMoveEvent, window, cx| {
+                    if let Some((column, origin, width)) = this.column_drag {
+                        this.column_widths.insert(
+                            column,
+                            (width + f32::from(event.position.x - origin)).clamp(64., 800.),
+                        );
+                        cx.notify();
+                    }
+                    if let Some((origin, height)) = this.resizing {
+                        this.editor_height = (height + f32::from(event.position.y - origin)).clamp(
+                            100.0,
+                            (f32::from(window.viewport_size().height) - 220.0).max(100.0),
+                        );
+                        cx.notify();
+                    }
+                }),
+            )
+            .on_mouse_up(
+                gpui::MouseButton::Left,
+                cx.listener(|this, _, _, _| {
+                    this.resizing = None;
+                    this.column_drag = None;
+                }),
+            )
+            .child(if self.connection_form.read(cx).is_open() {
                 div()
                     .flex()
                     .flex_1()
@@ -1855,8 +250,10 @@ impl Render for QueryPage {
                     .flex()
                     .flex_col()
                     .flex_1()
-                    .child(self.tab_strip(cx))
                     .child(self.toolbar(cx))
+                    .children(self.profiles_open.then(|| self.profile_options(cx)))
+                    .children(self.scope_open.then(|| self.scope_controls(cx)))
+                    .children(self.protocol_controls(cx))
                     // The confirmation replaces the notice: two stacked amber bars are noise.
                     .children(
                         (!self.confirm_run)
@@ -1876,6 +273,26 @@ impl Render for QueryPage {
                                     .flex_1()
                                     .min_w(px(0.0))
                                     .child(self.editor_panel())
+                                    .child(
+                                        div()
+                                            .id("query-divider")
+                                            .h(px(8.0))
+                                            .cursor(gpui::CursorStyle::ResizeUpDown)
+                                            .border_b_1()
+                                            .border_color(theme.border)
+                                            .on_mouse_down(
+                                                gpui::MouseButton::Left,
+                                                cx.listener(
+                                                    |this, event: &gpui::MouseDownEvent, _, cx| {
+                                                        this.resizing = Some((
+                                                            event.position.y,
+                                                            this.editor_height,
+                                                        ));
+                                                        cx.notify();
+                                                    },
+                                                ),
+                                            ),
+                                    )
                                     .child(self.status_row())
                                     .child(self.result_panel(cx)),
                             )
@@ -1883,8 +300,7 @@ impl Render for QueryPage {
                             .children(self.saved_open.then(|| self.saved_panel(cx))),
                     )
                     .into_any_element()
-            },
-        )
+            })
     }
 }
 

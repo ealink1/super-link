@@ -96,7 +96,7 @@ pub(super) fn compose(
         profile.id = uuid::Uuid::new_v4().to_string();
     }
     let credentials = Credentials {
-        password: values.password.trim().to_string(),
+        password: values.password.clone(),
         ..Default::default()
     };
     Ok((profile, credentials))

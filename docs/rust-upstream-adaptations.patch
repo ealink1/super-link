@@ -1,0 +1,295 @@
+--- a/rust/vendor/dameng/src/client.rs
++++ b/rust/vendor/dameng/src/client.rs
+@@ -192,6 +192,11 @@
+     pub challenge: Vec<u8>,
+     /// Auto-commit mode.
+     pub auto_commit: bool,
++    /// Maximum rows retained by the embedded client. SuperLink request budget.
++    pub result_row_limit: usize,
++    tls_connector: Option<TlsConnector>,
++    tls_server_name: Option<String>,
++    connect_timeout: std::time::Duration,
+     /// Transaction isolation level.
+     pub isolation_level: IsolationLevel,
+     /// Server encoding (1=UTF-8, 2=GB18030).
+@@ -211,6 +216,10 @@
+             handle: 0,
+             challenge: vec![],
+             auto_commit: true,
++            result_row_limit: 10000,
++            tls_connector: None,
++            tls_server_name: None,
++            connect_timeout: std::time::Duration::from_secs(10),
+             isolation_level: IsolationLevel::ReadCommitted,
+             server_encoding: ServerEncoding::Utf8,
+             new_lob_flag: false,
+@@ -231,16 +240,16 @@
+ 
+     /// Establish the underlying TCP or TLS stream.
+     fn connect_stream(&mut self, use_ssl: bool) -> Result<()> {
+-        let addr = format!("{}:{}", self.host, self.port);
+-        let stream = TcpStream::connect(&addr)?;
++        use std::net::ToSocketAddrs;
++        let addr = (self.host.as_str(),self.port).to_socket_addrs()?.next().ok_or_else(||Error::ConnectionFailed("empty server address".into()))?;
++        let stream = TcpStream::connect_timeout(&addr,self.connect_timeout)?;
+         stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
+         stream.set_write_timeout(Some(std::time::Duration::from_secs(10)))?;
+ 
+         if use_ssl {
+-            let connector = TlsConnector::new()
+-                .map_err(|e| Error::ConnectionFailed(format!("TLS init failed: {}", e)))?;
++            let connector = match self.tls_connector.clone() {Some(connector)=>connector,None=>TlsConnector::new().map_err(|e|Error::ConnectionFailed(format!("TLS init failed: {}",e)))?};
+             let tls_stream = connector
+-                .connect(&self.host, stream)
++                .connect(self.tls_server_name.as_deref().unwrap_or(&self.host), stream)
+                 .map_err(|e| Error::ConnectionFailed(format!("TLS handshake failed: {}", e)))?;
+             self.stream = Some(Stream::Tls(tls_stream));
+         } else {
+@@ -277,6 +286,9 @@
+     pub fn connect_with(opts: &crate::config::ConnectOptions) -> Result<Self> {
+         let mut client = Self::new(&opts.host, opts.port);
+         client.auto_commit = opts.auto_commit;
++        client.tls_connector=opts.tls_connector.clone();
++        client.tls_server_name=opts.tls_server_name.clone();
++        client.connect_timeout=opts.connect_timeout.unwrap_or(std::time::Duration::from_secs(10));
+         client.isolation_level = opts.isolation_level;
+ 
+         if let Some(_timeout) = opts.connect_timeout {
+@@ -511,19 +523,9 @@
+     }
+ 
+     /// Substitute ? placeholders with SQL literal values.
+-    fn substitute_params(sql: &str, params: &[BindParam]) -> String {
+-        let mut result = String::with_capacity(sql.len() + params.len() * 16);
+-        let mut pi = 0;
+-        for b in sql.bytes() {
+-            if b == b'?' && pi < params.len() {
+-                let lit = Self::bind_param_literal(&params[pi]);
+-                result.push_str(&lit);
+-                pi += 1;
+-            } else {
+-                result.push(b as char);
+-            }
+-        }
+-        result
++    fn substitute_params(sql: &str, params: &[BindParam]) -> Result<String> {
++        let literals=params.iter().map(Self::bind_param_literal).collect::<Vec<_>>();
++        crate::sql_bind::substitute(sql,&literals)
+     }
+ 
+     /// Convert a BindParam to a SQL literal string.
+@@ -615,7 +617,7 @@
+         // With params: use text substitution + OPE(91) no-params path.
+         // DM 8.1.3.62 does NOT support OPE(91) with embedded params or BIND_EXEC2
+         // inline data — substitute values into SQL text and use the OPE(91) no-params path.
+-        let substituted = Self::substitute_params(sql, params);
++        let substituted = Self::substitute_params(sql, params)?;
+         self.write_all(&Frame::new(READY, 0, 0).encode())?;
+         self.read_message()?;
+         let exec = ExecMessage::new(&substituted, 0);
+@@ -726,10 +728,10 @@
+ 
+             let fetched_rows = fetch_resp.rows;
+             let fetched_count = fetched_rows.len();
+-            all_rows.extend(fetched_rows);
++            all_rows.extend(fetched_rows.into_iter().take(self.result_row_limit.saturating_sub(all_rows.len())));
+             start_row += fetched_count as i64;
+ 
+-            if start_row >= fetch_resp.total_row_count as i64 || fetched_count == 0 {
++            if all_rows.len() >= self.result_row_limit || start_row >= fetch_resp.total_row_count as i64 || fetched_count == 0 {
+                 break;
+             }
+         }
+@@ -1039,7 +1041,7 @@
+             if std::time::Instant::now() > deadline {
+                 return None;
+             }
+-            let mut tmp = vec![0u8; 1024];
++            let mut tmp = vec![0u8; FRAME_HEADER_SIZE - buf.len()];
+             match stream.read(&mut tmp) {
+                 Ok(0) => return None,
+                 Ok(n) => buf.extend_from_slice(&tmp[..n]),
+@@ -1057,11 +1059,12 @@
+ 
+         // Read payload with polling
+         let body_len = frame.body_len.max(0) as usize;
++        if frame.body_len < 0 || body_len > 32 << 20 { return Some(Err(Error::ConnectionFailed("message exceeds 32 MiB".into()))); }
+         while buf.len() < body_len {
+             if std::time::Instant::now() > deadline {
+                 return None;
+             }
+-            let mut tmp = vec![0u8; 1024];
++            let mut tmp = vec![0u8; (body_len - buf.len()).min(1024)];
+             match stream.read(&mut tmp) {
+                 Ok(0) => break,
+                 Ok(n) => buf.extend_from_slice(&tmp[..n]),
+@@ -1219,13 +1222,12 @@
+             if buf.len() >= FRAME_HEADER_SIZE {
+                 break;
+             }
+-            let mut tmp = vec![0u8; FRAME_HEADER_SIZE];
++            let mut tmp = vec![0u8; FRAME_HEADER_SIZE - buf.len()];
+             let n = loop {
+                 match stream.read(&mut tmp) {
+                     Ok(n) => break n,
+                     Err(e) if e.kind() == ErrorKind::WouldBlock || e.raw_os_error() == Some(35) => {
+-                        std::thread::sleep(std::time::Duration::from_millis(10));
+-                        continue;
++                        return Err(Error::Io(e));
+                     }
+                     Err(e) => return Err(Error::Io(e)),
+                 }
+@@ -1242,14 +1244,14 @@
+         // After Frame::parse(), the header bytes have been consumed from buf.
+         // buf now only contains any payload bytes that were read before parsing.
+         let body_len = frame.body_len.max(0) as usize;
++        if frame.body_len < 0 || body_len > 32 << 20 { return Err(Error::ConnectionFailed("message exceeds 32 MiB".into())); }
+         while buf.len() < body_len {
+-            let mut tmp = vec![0u8; 1024];
++            let mut tmp = vec![0u8; (body_len - buf.len()).min(1024)];
+             let n = loop {
+                 match stream.read(&mut tmp) {
+                     Ok(n) => break n,
+                     Err(e) if e.kind() == ErrorKind::WouldBlock || e.raw_os_error() == Some(35) => {
+-                        std::thread::sleep(std::time::Duration::from_millis(10));
+-                        continue;
++                        return Err(Error::Io(e));
+                     }
+                     Err(e) => return Err(Error::Io(e)),
+                 }
+@@ -1354,6 +1356,7 @@
+         }
+         let getlen_resp = LobGetLenResponse::from_bytes(&getlen_resp_payload)?;
+         let total_len = getlen_resp.length as usize;
++        if total_len > 1 << 20 { return Err(Error::ConnectionFailed("LOB exceeds 1 MiB".into())); }
+ 
+         if total_len == 0 {
+             return Ok(vec![]);
+--- a/rust/vendor/dameng/src/config.rs
++++ b/rust/vendor/dameng/src/config.rs
+@@ -27,6 +27,9 @@
+     pub timezone: Option<i16>,
+     /// Enable SSL/TLS encryption.
+     pub ssl: bool,
++    /// SuperLink verified TLS settings.
++    pub tls_connector: Option<native_tls::TlsConnector>,
++    pub tls_server_name: Option<String>,
+     /// Maximum row size.
+     pub max_row_size: Option<i32>,
+     /// Connection timeout.
+@@ -49,6 +52,8 @@
+             schema: None,
+             timezone: None,
+             ssl: false,
++            tls_connector: None,
++            tls_server_name: None,
+             max_row_size: None,
+             connect_timeout: None,
+             auto_commit: true,
+--- a/rust/vendor/dameng/src/lib.rs
++++ b/rust/vendor/dameng/src/lib.rs
+@@ -8,6 +8,7 @@
+ pub mod error;
+ pub mod row;
+ pub mod transaction;
++pub mod sql_bind;
+ 
+ pub use client::Client;
+ pub use config::ConnectOptions;
+--- a/rust/vendor/opengauss-protocol/src/message/backend.rs
++++ b/rust/vendor/opengauss-protocol/src/message/backend.rs
+@@ -79,6 +79,7 @@
+     AuthenticationKerberosV5,
+     AuthenticationMd5Password(AuthenticationMd5PasswordBody),
+     AuthenticationSha256Password(AuthenticationSha256PasswordBody),
++    AuthenticationSm3Password(AuthenticationMd5PasswordBody),
+     AuthenticationOk,
+     AuthenticationScmCredential,
+     AuthenticationSspi,
+@@ -215,6 +216,11 @@
+                     Message::AuthenticationMd5Password(AuthenticationMd5PasswordBody { salt })
+                 }
+                 6 => Message::AuthenticationScmCredential,
++                13 => {
++                    let mut salt = [0; 4];
++                    buf.read_exact(&mut salt)?;
++                    Message::AuthenticationSm3Password(AuthenticationMd5PasswordBody { salt })
++                }
+                 7 => Message::AuthenticationGss,
+                 8 => {
+                     let storage = buf.read_all();
+@@ -241,7 +247,6 @@
+                         Message::AuthenticationMd5Password(AuthenticationMd5PasswordBody { salt })
+                     }
+                     tag => {
+-                        println!("unknown sha256 authentication tag `{}`", tag);
+                         return Err(io::Error::new(
+                             io::ErrorKind::InvalidInput,
+                             format!("unknown sha256 authentication tag `{}`", tag),
+--- a/rust/vendor/tokio-opengauss/Cargo.toml
++++ b/rust/vendor/tokio-opengauss/Cargo.toml
+@@ -80,6 +80,9 @@
+ version = "1.0"
+ features = ["io-util"]
+ 
++[dependencies.sm3]
++version = "0.4"
++
+ [dependencies.tokio-util]
+ version = "0.6"
+ features = ["codec"]
+--- a/rust/vendor/tokio-opengauss/src/connect_raw.rs
++++ b/rust/vendor/tokio-opengauss/src/connect_raw.rs
+@@ -182,6 +182,21 @@
+             let result: &[_] = &output;
+             authenticate_password(stream, result).await?;
+         }
++        Some(Message::AuthenticationSm3Password(body)) => {
++            use sm3::{Digest, Sm3};
++            can_skip_channel_binding(config)?;
++            let user = config.user.as_ref().ok_or_else(|| Error::config("user missing".into()))?;
++            let pass = config.password.as_ref().ok_or_else(|| Error::config("password missing".into()))?;
++            let mut inner = Sm3::new();
++            inner.update(pass);
++            inner.update(user.as_bytes());
++            let digest = format!("{:x}", inner.finalize());
++            let mut outer = Sm3::new();
++            outer.update(digest.as_bytes());
++            outer.update(body.salt());
++            let output = format!("sm3{:x}", outer.finalize());
++            authenticate_password(stream, output.as_bytes()).await?;
++        }
+         Some(Message::AuthenticationSasl(body)) => {
+             authenticate_sasl(stream, body, config).await?;
+         }
+--- a/rust/vendor/dameng/src/sql_bind.rs
++++ b/rust/vendor/dameng/src/sql_bind.rs
+@@ -0,0 +1,28 @@
++//! SuperLink: UTF-8 preserving positional substitution for DM's OPE fallback.
++//! SQL literals are already encoded by the typed parameter encoder.
++use crate::{Error,Result};
++pub fn substitute(sql:&str,literals:&[String])->Result<String>{
++    let mut chars=sql.chars().peekable();let mut result=String::with_capacity(sql.len());
++    let mut quote=None;let mut line=false;let mut block=0usize;let mut parameter=0;
++    while let Some(ch)=chars.next(){
++        if result.len()>32<<20{return Err(Error::QueryFailed("bound statement exceeds 32 MiB".into()));}
++        if line{result.push(ch);if ch=='\n'{line=false;}continue;}
++        if block>0{result.push(ch);if ch=='/'&&chars.peek()==Some(&'*'){result.push(chars.next().unwrap());block+=1;}else if ch=='*'&&chars.peek()==Some(&'/'){result.push(chars.next().unwrap());block-=1;}continue;}
++        if let Some(end)=quote{
++            result.push(ch);
++            if ch==end{if chars.peek()==Some(&end){result.push(chars.next().unwrap());}else{quote=None;}}
++            else if ch=='\\'&&end=='\''{if let Some(escaped)=chars.next(){result.push(escaped);}}
++            continue;
++        }
++        match ch{
++            '\''|'"'|'`'=>{quote=Some(ch);result.push(ch);},
++            '['=>{quote=Some(']');result.push(ch);},
++            '-' if chars.peek()==Some(&'-')=>{line=true;result.push(ch);result.push(chars.next().unwrap());},
++            '/' if chars.peek()==Some(&'*')=>{block=1;result.push(ch);result.push(chars.next().unwrap());},
++            '?'=>{let literal=literals.get(parameter).ok_or_else(||Error::QueryFailed("missing positional parameter".into()))?;result.push_str(literal);parameter+=1;},
++            _=>result.push(ch),
++        }
++    }
++    if parameter!=literals.len(){return Err(Error::QueryFailed("positional parameter count mismatch".into()));}
++    Ok(result)
++}

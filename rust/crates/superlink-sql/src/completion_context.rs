@@ -104,12 +104,12 @@ pub fn analyze_completion(source: &str, cursor: usize) -> CompletionQuery {
     if query.start > 1 && characters[query.start - 2] == '$' && characters[query.start - 1] == '{' {
         return query;
     }
-    if let Some(last) = before.last() {
-        if last.text == "." {
-            before.pop();
-            if let Some(previous) = before.pop() {
-                query.qualifier = previous.text;
-            }
+    if let Some(last) = before.last()
+        && last.text == "."
+    {
+        before.pop();
+        if let Some(previous) = before.pop() {
+            query.qualifier = previous.text;
         }
     }
     if let Some(last) = before.last() {

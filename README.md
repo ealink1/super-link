@@ -1,13 +1,9 @@
 # SuperLink · rewrite/rust-gpui
 
-这个分支正在用 **Rust + GPUI** 重写桌面应用。完整的 Go 应用仍在 `main` 分支维护；
-本分支只保留两样东西：
-
-1. **rust/** — Rust + GPUI 应用（正式开发目标）
-2. **internal/upstream + cmd/driver-agent** — Go 驱动进程（36 类数据源，Rust 通过 IPC 调用）
-
-其余 `internal/` 下被移除的 Go 目录（ui/infra/application 等）属于 main 分支的
-在产应用，随分支收敛会在验收后彻底退场。
+本分支使用 **Rust + GPUI**，应用、驱动进程、SSH/SFTP、更新助手与资源生成工具均为 Rust。
+37 个数据源入口已切换到 Rust 驱动宿主；源码、构建和运行链中不再依赖 Go。
+原 Go/Fyne 应用通过 `main` 分支和 Git 历史追溯，历史署名及许可证保留。
+SQLite 和 DuckDB 通过 Rust crate 使用其原生数据库引擎。
 
 - 设计与进度：[docs/plans/2026-10-27-rust-gpui-rewrite.md](docs/plans/2026-10-27-rust-gpui-rewrite.md)
 - Rust 结构与运行方式：[rust/README.md](rust/README.md)
@@ -17,37 +13,37 @@
 
 ```
 docs/
-  plans/        活跃计划（当前只有 Rust 重写计划）
+  plans/        Rust 重写与 Fyne 功能对齐计划
   archive/
     go-app/     main 分支 Go 版的历史设计、QA 与截图（已归档）
-  upstream-adaptations.patch   驱动层上游适配补丁（UPSTREAM.md 引用）
+  rust-upstream-adaptations.patch   Rust 驱动依赖适配补丁
   upstream-import.json         上游导入清单（同上）
 ```
 
-Go 版历史文档仅在追溯 main 分支行为时查阅，不随 Rust 开发更新。
+Go 版历史文档仅用于追溯，不描述当前运行时。
 
 ## 快速开始
 
 ```sh
-cd rust
-cargo test
-cargo run -p superlink          # 需要本机 OpenGL/Metal 工具链
-python3 tools/build.py --skip-app   # 只构建驱动 agent
+cargo test --manifest-path rust/Cargo.toml --workspace
+python3 tools/build.py --skip-app              # SQLite agent
+python3 tools/build.py --all-drivers --skip-app # 全部 37 个代理入口
+python3 tools/dev_run.py                       # 共用本地工作区，构建并重启
+python3 tools/dev_run.py --isolated-data       # 可选：使用 bin/dev/data 独立测试
 ```
 
 默认工作区为 `~/Library/Application Support/SuperLink`（可用
-`SUPERLINK_DATA_ROOT` 指向独立目录，避免与 Go 版互相影响）。
+`SUPERLINK_DATA_ROOT` 指定其他目录）。已有 `state.sqlite` 时直接共用原版数据库
+及同目录的加密凭据；没有时使用 `state.db`。同一工作区一次只能由一个应用打开，
+切换版本前请保存编辑并正常退出当前应用。
 
 ## 状态
 
-- 后端：驱动校验/会话、AES 凭据、SQLite 元数据、SQL 词法与补全、导入导出、
-  更新验签、SSH/SFTP/PTY 已全部就位并有测试
-- 驱动移植：SQLite（`SUPERLINK_NATIVE_SQLITE=1`）、PostgreSQL（`SUPERLINK_NATIVE_PG=1`，
-  含 TLS 与客户端证书）、MySQL 协议族（`SUPERLINK_NATIVE_MYSQL=1`，覆盖
-  MySQL/MariaDB/OceanBase/TiDB、Kingbase/Vastbase、ClickHouse、
-  Elasticsearch）已有进程内实现；
-  SQLite 与 agent 结果逐值一致，其余数据源继续走 agent
-  （GaussDB/OpenGauss/HighGo 因 sha256/SM3 认证保留 agent）
-- UI：SQL（编辑/运行/结果/历史/新建连接表单）、Shell（主机卡片/终端）、Note（预览）
-- 结构浏览：SQLite 原生驱动已支持表/视图列表与点击回填，其它方言待接入
-- 尚未对齐：多行编辑器、完整表目录（列/索引/DDL）、SFTP/监控面板、Note 编辑、发布打包
+纯 Rust 迁移及当前限制见 [驱动迁移清单](docs/plans/2026-11-02-pure-rust-drivers.md)。
+当前界面实现及逐项验收见 [Fyne 对齐清单](docs/plans/2026-11-02-fyne-parity.md)。原生操作结果及未验收边界见 [design-qa.md](design-qa.md)。
+SQL 执行、表编辑、文件导入导出、笔记编辑、多终端、SFTP、监控、AI 与签名更新入口
+已接通；远程数据源、SSH 与正式更新安装仍需在对应环境验收，编译通过不等于实机通过。
+
+开发启动只维护 `bin/dev/SuperLink.app` 及其进程，默认共用上述本地工作区，不替换
+`/Applications/SuperLink.app`。发布构建使用 `python3 tools/build.py --package`，
+签名更新校验公钥由构建环境 `SUPERLINK_RELEASE_PUBLIC_KEY` 注入；未配置时禁止自动更新。

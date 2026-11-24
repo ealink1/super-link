@@ -148,10 +148,10 @@ fn build_column_change(
             }
             if column.default != old.default || column.has_default != old.has_default {
                 let mut verb = "DROP DEFAULT".to_string();
-                if column.has_default {
-                    if let Some(value) = &column.default {
-                        verb = format!("SET DEFAULT {}", default_expression(kind, value)?);
-                    }
+                if column.has_default
+                    && let Some(value) = &column.default
+                {
+                    verb = format!("SET DEFAULT {}", default_expression(kind, value)?);
                 }
                 statements.push(format!(
                     "ALTER TABLE {table} ALTER COLUMN {old_name} {verb}"

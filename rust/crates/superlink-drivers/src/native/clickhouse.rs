@@ -11,6 +11,7 @@ use superlink_domain::{Column, ConnectionConfig, ResultSet};
 use crate::session::DriverError;
 
 pub struct NativeClickHouse {
+    http: super::http::Http,
     endpoint: String,
     user: String,
     password: String,
@@ -35,6 +36,7 @@ impl NativeClickHouse {
             "http"
         };
         Ok(Self {
+            http: super::http::Http::new(config)?,
             endpoint: format!("{scheme}://{host}:{port}/"),
             user: config.user.trim().to_string(),
             password: config.password.clone(),
@@ -42,6 +44,9 @@ impl NativeClickHouse {
         })
     }
 
+    pub fn set_cancellation(&mut self, cancel: &crate::QueryCancel) {
+        self.http.set_cancellation(cancel);
+    }
     pub fn revision(&self) -> &'static str {
         "native-clickhouse"
     }
@@ -61,27 +66,25 @@ impl NativeClickHouse {
         let limit = if max_rows == 0 { u32::MAX } else { max_rows };
         // 多取一行用于判断是否被服务端截断。
         let probe = u64::from(limit.saturating_add(1));
-        let mut request = ureq::post(&self.endpoint)
+        let mut request = self
+            .http
+            .post(&self.endpoint)
             .header("X-ClickHouse-User", &self.user)
             .header("X-ClickHouse-Key", &self.password)
-            .query("default_format", "JSONCompact")
-            .query("max_result_rows", probe.to_string())
-            .query("result_overflow_mode", "break");
+            .query(&[("default_format", "JSONCompact")])
+            .query(&[("max_result_rows", probe.to_string())])
+            .query(&[("result_overflow_mode", "break")]);
         if !self.database.is_empty() {
             request = request.header("X-ClickHouse-Database", &self.database);
         }
-        let mut response = request
-            .send(sql)
-            .map_err(|err| DriverError::Native(format!("ClickHouse 请求失败：{err}")))?;
-        let body = response
-            .body_mut()
-            .with_config()
-            .limit(64 << 20)
-            .read_to_string()
-            .map_err(|err| DriverError::Native(format!("读取响应失败：{err}")))?;
-        let payload: Value = serde_json::from_str(&body)
-            .map_err(|err| DriverError::Native(format!("响应不是 JSON：{err}")))?;
-
+        let payload = self.http.json(request.body(sql.to_string()))?;
+        if payload.is_null() {
+            return Ok(ResultSet {
+                messages: vec!["语句已执行，服务端未返回受影响行数".into()],
+                duration_ns: started.elapsed().as_nanos() as u64,
+                ..Default::default()
+            });
+        }
         let mut result = to_result_set(&payload, limit)?;
         result.duration_ns = started.elapsed().as_nanos() as u64;
         Ok(result)

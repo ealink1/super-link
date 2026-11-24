@@ -1,0 +1,10 @@
+[package]
+name = "superlink-tools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+serde_json.workspace = true

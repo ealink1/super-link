@@ -6,8 +6,11 @@
 pub mod catalog;
 pub mod error;
 pub mod note;
+pub mod object_query;
 pub mod profile;
+pub mod protocol;
 pub mod query;
+pub mod secrets;
 pub mod shell;
 pub mod structure;
 pub mod table;

@@ -196,31 +196,10 @@ fn is_zero(value: &u8) -> bool {
 impl ConnectionConfig {
     /// Removes every credential before metadata is persisted or serialized.
     /// Secrets belong to the vault and are addressed by Profile::secret_ref.
-    pub fn without_secrets(mut self) -> Self {
-        self.password.clear();
-        self.mysql_replica_password.clear();
-        self.mongo_replica_password.clear();
-        self.redis_sentinel_password.clear();
-        if let Some(ssh) = self.ssh.as_mut() {
-            redact_object(ssh, &["password", "passphrase", "privateKey"]);
-        }
-        if let Some(proxy) = self.proxy.as_mut() {
-            redact_object(proxy, &["password"]);
-        }
-        if let Some(tunnel) = self.http_tunnel.as_mut() {
-            redact_object(tunnel, &["password"]);
-        }
-        self
-    }
-}
-
-fn redact_object(value: &mut Value, keys: &[&str]) {
-    if let Some(object) = value.as_object_mut() {
-        for key in keys {
-            if object.contains_key(*key) {
-                object.insert((*key).to_string(), Value::String(String::new()));
-            }
-        }
+    pub fn without_secrets(self) -> Self {
+        crate::secrets::split_config(&self)
+            .map(|(public, _)| public)
+            .unwrap_or_default()
     }
 }
 
@@ -431,7 +410,7 @@ mod tests {
         let safe = config.without_secrets();
         assert!(safe.password.is_empty());
         let ssh = safe.ssh.unwrap();
-        assert_eq!(ssh["password"], "");
+        assert!(ssh.get("password").is_none());
         assert_eq!(ssh["host"], "h");
     }
 

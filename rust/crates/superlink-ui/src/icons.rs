@@ -39,7 +39,7 @@ impl Assets {
             }
         }
         Self {
-            root: PathBuf::from("internal/ui/assets"),
+            root: PathBuf::from("assets"),
         }
     }
 

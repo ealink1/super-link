@@ -15,6 +15,7 @@ pub struct ColumnEntry {
     pub nullable: bool,
     pub primary_key: bool,
     pub default_value: Option<String>,
+    pub extra: String,
     /// PostgreSQL 的列注释（COMMENT ON COLUMN），其它方言留空。
     pub comment: Option<String>,
 }

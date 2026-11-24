@@ -2,7 +2,7 @@
 //!
 //! 只移植 DevTools 常用路径：JSON DSL 或 `METHOD /index/_search` 单请求，
 //! 端点白名单限定 `_search`/`_count`，其余（msearch、SQL 兼容、批量）
-//! 仍由 Go agent 承担。响应解析与 Go 侧保持同一形状：
+//! 由独立 Rust agent 承担。响应解析与 Go 侧保持同一形状：
 //! `_index`/`_id`/`_score` + 扁平化 `_source` + `_source` 原串 + `_aggregations`。
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,6 +19,7 @@ const MAX_SOURCE_BYTES: usize = 32 << 20;
 const META_FIELDS: [&str; 4] = ["_index", "_id", "_score", "_aggregations"];
 
 pub struct NativeElasticsearch {
+    http: super::http::Http,
     endpoint: String,
     auth: Option<String>,
     /// 连接里配置的索引；裸 JSON DSL 默认打到它。
@@ -55,12 +56,19 @@ impl NativeElasticsearch {
             ))
         };
         Ok(Self {
+            http: super::http::Http::new(config)?,
             endpoint: format!("{scheme}://{host}:{port}"),
             auth,
             index: config.database.trim().to_string(),
         })
     }
 
+    pub fn set_cancellation(&mut self, cancel: &crate::QueryCancel) {
+        self.http.set_cancellation(cancel);
+    }
+    pub fn supports_request(source: &str) -> bool {
+        parse_request(source, "").is_ok()
+    }
     pub fn revision(&self) -> &'static str {
         "native-elasticsearch"
     }
@@ -81,28 +89,14 @@ impl NativeElasticsearch {
         let url = format!("{}{}", self.endpoint, path);
         // ES 对 _search/_count 同时接受 GET/POST；统一用 POST 以携带请求体。
         debug_assert!(matches!(request.method.as_str(), "GET" | "POST"));
-        let mut builder = ureq::post(&url).header("Content-Type", "application/json");
+        let mut builder = self
+            .http
+            .post(&url)
+            .header("Content-Type", "application/json");
         if let Some(auth) = &self.auth {
             builder = builder.header("Authorization", auth);
         }
-        let mut response = builder
-            .send(request.body.as_str())
-            .map_err(|err| DriverError::Native(format!("Elasticsearch 请求失败：{err}")))?;
-        let status = response.status().as_u16();
-        let body = response
-            .body_mut()
-            .with_config()
-            .limit(64 << 20)
-            .read_to_string()
-            .map_err(|err| DriverError::Native(format!("读取响应失败：{err}")))?;
-        if !(200..300).contains(&status) {
-            return Err(DriverError::Native(format!(
-                "Elasticsearch 返回 HTTP {status}：{}",
-                snippet(&body)
-            )));
-        }
-        let payload: Value = serde_json::from_str(&body)
-            .map_err(|err| DriverError::Native(format!("响应不是 JSON：{err}")))?;
+        let payload = self.http.json(builder.body(request.body.clone()))?;
         let mut result = if request.path.ends_with("/_count") {
             count_result_set(&payload)
         } else {
@@ -110,15 +104,6 @@ impl NativeElasticsearch {
         }?;
         result.duration_ns = started.elapsed().as_nanos() as u64;
         Ok(result)
-    }
-}
-
-fn snippet(body: &str) -> String {
-    let text: String = body.chars().take(300).collect();
-    if body.chars().count() > 300 {
-        format!("{text}…")
-    } else {
-        text
     }
 }
 
@@ -217,7 +202,7 @@ fn count_result_set(payload: &Value) -> Result<ResultSet, DriverError> {
 }
 
 /// 与 Go 侧 parseSearchResponseJSON 对齐：hits 展开、aggregations 附首行、列名排序且元字段置首。
-pub(crate) fn search_result_set(payload: &Value, max_rows: u32) -> Result<ResultSet, DriverError> {
+pub fn search_result_set(payload: &Value, max_rows: u32) -> Result<ResultSet, DriverError> {
     let hits = payload
         .get("hits")
         .and_then(|hits| hits.get("hits"))

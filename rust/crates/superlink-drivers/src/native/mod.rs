@@ -1,7 +1,8 @@
-//! 进程内原生驱动：逐步替换 Go agent 的四个方法子集。
+//! 可复用的进程内 Rust 协议实现；独立 Rust agent 同时复用这些实现。
 
 pub mod clickhouse;
 pub mod elasticsearch;
+pub mod http;
 pub mod mysql;
 pub mod postgres;
 pub mod sqlite;

@@ -16,7 +16,12 @@ use gpui::{
 use superlink_sql::lexer::tokenize;
 use superlink_sql::{CompletionCandidate, CompletionTable, analyze_completion, complete};
 
+mod actions;
+mod formatting;
+mod markdown;
 mod view;
+mod wrapping;
+use actions::utf16_byte;
 
 use crate::sql_highlight::{line_of, line_range, line_runs, line_starts};
 use crate::theme::Theme;
@@ -29,6 +34,12 @@ type RunHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
 type ChangeHandler = Box<dyn Fn(&str, &mut App) + 'static>;
 
 pub struct SqlTextEditor {
+    rich_markdown: bool,
+    plain: bool,
+    undo: Vec<(SharedString, Range<usize>)>,
+    redo: Vec<(SharedString, Range<usize>)>,
+    cached_starts: std::sync::Arc<Vec<usize>>,
+    cached_tokens: std::sync::Arc<Vec<superlink_sql::Token>>,
     focus_handle: FocusHandle,
     content: SharedString,
     placeholder: SharedString,
@@ -38,6 +49,11 @@ pub struct SqlTextEditor {
     enabled: bool,
     theme: Theme,
     /// First visible line.
+    source_revision: u64,
+    wrapped_rows: std::sync::Arc<Vec<wrapping::Row>>,
+    wrap_key: Option<(u64, u32, u32, bool)>,
+    reveal_caret: bool,
+    scroll_x: f32,
     scroll_line: usize,
     viewport_lines: usize,
     selecting: bool,
@@ -60,11 +76,14 @@ struct Completion {
 
 /// Geometry from the last frame, reused for hit testing and IME placement.
 struct Layout {
+    visual: Vec<wrapping::Row>,
+    tops: Vec<(Pixels, Pixels)>,
     bounds: Bounds<Pixels>,
     starts: Vec<usize>,
     first: usize,
     line_height: Pixels,
     lines: Vec<ShapedLine>,
+    mappings: Vec<Option<markdown::MarkdownLine>>,
 }
 
 impl SqlTextEditor {
@@ -72,6 +91,16 @@ impl SqlTextEditor {
         let mut focus_handle = cx.focus_handle();
         focus_handle.tab_stop = true;
         Self {
+            rich_markdown: false,
+            source_revision: 0,
+            wrapped_rows: Default::default(),
+            wrap_key: None,
+            reveal_caret: true,
+            plain: false,
+            undo: Vec::new(),
+            redo: Vec::new(),
+            cached_starts: std::sync::Arc::new(vec![0]),
+            cached_tokens: std::sync::Arc::new(Vec::new()),
             focus_handle,
             content: SharedString::default(),
             placeholder: "输入 SQL，例如 SELECT 1;".into(),
@@ -81,6 +110,7 @@ impl SqlTextEditor {
             enabled: true,
             theme: Theme::light(),
             scroll_line: 0,
+            scroll_x: 0.,
             viewport_lines: 1,
             selecting: false,
             last: None,
@@ -108,16 +138,29 @@ impl SqlTextEditor {
         self.on_run = Some(Box::new(handler));
     }
 
+    pub fn execution_text(&self) -> String {
+        if self.selected_range.is_empty() {
+            self.content.to_string()
+        } else {
+            self.content[self.selected_range.clone()].to_string()
+        }
+    }
+
     pub fn text(&self) -> &str {
         &self.content
     }
 
     pub fn set_text(&mut self, text: impl Into<SharedString>, cx: &mut Context<Self>) {
         self.content = text.into();
-        self.selected_range = self.content.len()..self.content.len();
+        self.undo.clear();
+        self.redo.clear();
+        self.rebuild();
+        self.selected_range = 0..0;
         self.selection_reversed = false;
         self.marked_range = None;
         self.scroll_line = 0;
+        self.scroll_x = 0.;
+        self.reveal_caret = true;
         cx.notify();
     }
 
@@ -154,7 +197,7 @@ impl SqlTextEditor {
     /// Recomputes the popup from the token under the caret. Metadata tables are
     /// not cached yet, so this offers keywords only.
     pub(crate) fn refresh_completion(&mut self, cx: &mut Context<Self>) {
-        if !self.enabled {
+        if !self.enabled || self.plain {
             self.completion = None;
             return;
         }
@@ -251,6 +294,11 @@ impl SqlTextEditor {
     }
 
     fn ensure_caret_visible(&mut self) {
+        self.reveal_caret = true;
+        if self.plain {
+            self.reveal_caret = true;
+            return;
+        }
         let line = self.caret_line();
         let viewport = self.viewport_lines.max(1);
         if line < self.scroll_line {
@@ -261,6 +309,16 @@ impl SqlTextEditor {
     }
 
     fn move_vertical(&mut self, delta: isize, extend: bool, cx: &mut Context<Self>) {
+        if self.plain
+            && let Some(offset) = wrapping::vertical(self, delta)
+        {
+            if extend {
+                self.select_to(offset, cx);
+            } else {
+                self.move_to(offset, cx);
+            }
+            return;
+        }
         let starts = line_starts(&self.content);
         let cursor = self.cursor_offset();
         let line = line_of(&starts, cursor);
@@ -297,9 +355,18 @@ impl SqlTextEditor {
     }
 
     fn scroll_by(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let lines = line_starts(&self.content).len();
+        self.reveal_caret = false;
+        let lines = if self.plain {
+            self.wrapped_rows.len()
+        } else {
+            self.cached_starts.len()
+        };
         let viewport = self.viewport_lines.max(1);
-        let max_first = lines.saturating_sub(viewport);
+        let max_first = if self.plain {
+            wrapping::max_scroll(&self.wrapped_rows, viewport)
+        } else {
+            lines.saturating_sub(viewport)
+        };
         self.scroll_line =
             (self.scroll_line as isize + delta).clamp(0, max_first as isize) as usize;
         cx.notify();
@@ -397,6 +464,13 @@ impl SqlTextEditor {
                 let step = self.viewport_lines.saturating_sub(1).max(1) as isize;
                 self.move_vertical(step, extend, cx);
             }
+            "z" if modifiers.platform => {
+                if modifiers.shift {
+                    self.redo(cx);
+                } else {
+                    self.undo(cx);
+                }
+            }
             "r" if modifiers.platform => {
                 if let Some(handler) = self.on_run.as_ref() {
                     handler(window, cx);
@@ -470,14 +544,41 @@ impl SqlTextEditor {
     fn index_for_position(&self, position: Point<Pixels>) -> Option<usize> {
         let layout = self.last.as_ref()?;
         let local = layout.bounds.localize(&position)?;
+        if !layout.visual.is_empty() {
+            let y = local.y - px(PAD_Y);
+            let index = layout
+                .tops
+                .iter()
+                .rposition(|(top, _)| *top <= y)
+                .unwrap_or(0);
+            let row = layout.visual.get(index)?;
+            let shaped = layout.lines.get(index)?;
+            return Some(
+                row.source(
+                    shaped
+                        .index_for_x(local.x - px(PAD_X))
+                        .unwrap_or(shaped.len()),
+                )
+                .min(row.range.end),
+            );
+        }
         let row = ((local.y - px(PAD_Y)) / layout.line_height).floor();
         let index = (row.max(0.0) as usize).min(layout.lines.len().saturating_sub(1));
         let line = layout.first + index;
         let shaped = layout.lines.get(index)?;
         let range = line_range(&self.content, &layout.starts, line);
         let offset = shaped
-            .index_for_x(local.x - px(GUTTER + PAD_X))
-            .map(|index| (range.start + index).min(range.end))
+            .index_for_x(local.x - px(self.gutter() + PAD_X) + px(self.scroll_x))
+            .map(|display| {
+                (range.start
+                    + layout
+                        .mappings
+                        .get(index)
+                        .and_then(|m| m.as_ref())
+                        .map(|m| m.source_offset(display))
+                        .unwrap_or(display))
+                .min(range.end)
+            })
             .unwrap_or(range.start);
         Some(offset)
     }
@@ -571,11 +672,15 @@ impl EntityInputHandler for SqlTextEditor {
             .map(|range| self.range_from_utf16(range))
             .or_else(|| self.marked_range.clone())
             .unwrap_or_else(|| self.selected_range.clone());
+        if self.marked_range.is_none() {
+            self.record_edit();
+        }
         self.content =
             (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
                 .into();
         self.selected_range = range.start + new_text.len()..range.start + new_text.len();
         self.marked_range.take();
+        self.rebuild();
         self.ensure_caret_visible();
         self.refresh_completion(cx);
         cx.notify();
@@ -595,15 +700,22 @@ impl EntityInputHandler for SqlTextEditor {
             .map(|range| self.range_from_utf16(range))
             .or_else(|| self.marked_range.clone())
             .unwrap_or_else(|| self.selected_range.clone());
+        if self.marked_range.is_none() {
+            self.record_edit();
+        }
         self.content =
             (self.content[0..range.start].to_owned() + new_text + &self.content[range.end..])
                 .into();
+        self.rebuild();
         self.marked_range =
             (!new_text.is_empty()).then_some(range.start..range.start + new_text.len());
         self.selected_range = new_selected_range_utf16
             .as_ref()
-            .map(|range| self.range_from_utf16(range))
-            .map(|range| range.start + range.start..range.end + range.end)
+            .map(|selected| {
+                let start = utf16_byte(new_text, selected.start);
+                let end = utf16_byte(new_text, selected.end);
+                range.start + start..range.start + end
+            })
             .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
         cx.notify();
     }
@@ -617,6 +729,19 @@ impl EntityInputHandler for SqlTextEditor {
     ) -> Option<Bounds<Pixels>> {
         let layout = self.last.as_ref()?;
         let range = self.range_from_utf16(&range_utf16);
+        if !layout.visual.is_empty() {
+            let index = layout.visual.iter().position(|r| r.contains(range.start))?;
+            let row = &layout.visual[index];
+            let line = &layout.lines[index];
+            let (top, height) = layout.tops[index];
+            return Some(Bounds::new(
+                point(
+                    bounds.left() + px(PAD_X) + line.x_for_index(row.offset(range.start)),
+                    bounds.top() + px(PAD_Y) + top,
+                ),
+                size(px(2.), height),
+            ));
+        }
         let line = line_of(&layout.starts, range.start);
         let index = line.saturating_sub(layout.first);
         let shaped = layout.lines.get(index)?;
@@ -624,11 +749,29 @@ impl EntityInputHandler for SqlTextEditor {
         let top = bounds.top() + px(PAD_Y) + layout.line_height * (index as f32);
         Some(Bounds::from_corners(
             point(
-                bounds.left() + px(GUTTER + PAD_X) + shaped.x_for_index(range.start - line_start),
+                bounds.left()
+                    + px(self.gutter() + PAD_X - self.scroll_x)
+                    + shaped.x_for_index(
+                        layout
+                            .mappings
+                            .get(index)
+                            .and_then(|m| m.as_ref())
+                            .map(|m| m.display_offset(range.start - line_start))
+                            .unwrap_or(range.start - line_start),
+                    ),
                 top,
             ),
             point(
-                bounds.left() + px(GUTTER + PAD_X) + shaped.x_for_index(range.end - line_start),
+                bounds.left()
+                    + px(self.gutter() + PAD_X - self.scroll_x)
+                    + shaped.x_for_index(
+                        layout
+                            .mappings
+                            .get(index)
+                            .and_then(|m| m.as_ref())
+                            .map(|m| m.display_offset(range.end - line_start))
+                            .unwrap_or(range.end - line_start),
+                    ),
                 top + layout.line_height,
             ),
         ))
@@ -646,87 +789,4 @@ impl EntityInputHandler for SqlTextEditor {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{candidates, char_to_byte};
-    use superlink_sql::CompletionTable;
-
-    fn catalog() -> Vec<CompletionTable> {
-        vec![CompletionTable {
-            schema: "public".into(),
-            name: "orders".into(),
-            columns: vec![
-                "id".into(),
-                "amount".into(),
-                "customer_id".into(),
-                "created_at".into(),
-            ],
-        }]
-    }
-
-    #[test]
-    fn keywords_complete_without_metadata() {
-        let text = "select * from orders where in";
-        let (start, end, items) = candidates(text, text.len(), "postgresql", &[]).unwrap();
-        assert_eq!(&text[start..end], "in");
-        assert!(items.iter().any(|item| item.text == "INNER"));
-        assert!(items.iter().all(|item| item.kind == "关键字"));
-    }
-
-    #[test]
-    fn tables_complete_after_from() {
-        let text = "select * from ord";
-        let (start, end, items) = candidates(text, text.len(), "postgresql", &catalog()).unwrap();
-        assert_eq!(&text[start..end], "ord");
-        let table = items.iter().find(|item| item.text == "orders").unwrap();
-        assert_eq!(table.kind, "表");
-    }
-
-    #[test]
-    fn qualifiers_complete_columns() {
-        let text = "select o. from orders o";
-        let caret = "select o.".len();
-        let (start, end, items) = candidates(text, caret, "postgresql", &catalog()).unwrap();
-        assert_eq!(&text[start..end], "");
-        assert!(
-            items
-                .iter()
-                .any(|item| item.text == "amount" && item.kind == "字段")
-        );
-        assert!(items.iter().all(|item| item.text != "orders"));
-    }
-
-    #[test]
-    fn column_prefixes_filter_the_qualified_list() {
-        let text = "select o.cu from orders o";
-        let caret = "select o.cu".len();
-        let (start, end, items) = candidates(text, caret, "postgresql", &catalog()).unwrap();
-        assert_eq!(&text[start..end], "cu");
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0].text, "customer_id");
-    }
-
-    #[test]
-    fn inside_a_string_nothing_is_offered() {
-        let text = "select * from orders where name = 'ord";
-        assert!(candidates(text, text.len(), "postgresql", &catalog()).is_none());
-    }
-
-    #[test]
-    fn char_offsets_convert_to_byte_offsets() {
-        assert_eq!(char_to_byte("", 0), 0);
-        assert_eq!(char_to_byte("select", 0), 0);
-        assert_eq!(char_to_byte("select", 3), 3);
-        assert_eq!(char_to_byte("select", 6), 6);
-        assert_eq!(char_to_byte("select", 99), 6);
-    }
-
-    #[test]
-    fn multi_byte_identifiers_stay_on_char_boundaries() {
-        let text = "-- 注释\nselect 1";
-        assert_eq!(char_to_byte(text, 0), 0);
-        assert_eq!(char_to_byte(text, 1), 1);
-        assert_eq!(char_to_byte(text, 2), 2);
-        assert_eq!(char_to_byte(text, 4), 6);
-        assert!(text.is_char_boundary(char_to_byte(text, 5)));
-    }
-}
+mod tests;

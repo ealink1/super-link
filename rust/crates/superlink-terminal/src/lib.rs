@@ -26,14 +26,17 @@ pub mod connect_progress;
 pub mod error;
 pub mod files;
 pub mod fingerprint;
+mod forward;
 pub mod handle;
 pub mod host_key;
+mod host_key_algorithms;
 pub mod local;
 pub mod monitor;
 pub mod runtime;
 pub mod session;
 pub mod sftp;
 pub mod ssh;
+pub use forward::TcpForward;
 pub mod transfer;
 
 pub use connect_progress::{ConnectEvent, ConnectStage, ConnectState};

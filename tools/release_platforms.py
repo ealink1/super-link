@@ -5,7 +5,8 @@ from pathlib import Path
 
 PLATFORMS = [('darwin', 'amd64'), ('darwin', 'arm64'), ('windows', 'amd64'),
              ('windows', 'arm64'), ('linux', 'amd64'), ('linux', 'arm64')]
-DRIVERS = ['mariadb', 'oceanbase', 'diros', 'starrocks', 'sphinx', 'sqlserver',
+DRIVERS = ['mysql', 'postgres', 'oracle', 'goldendb', 'custom', 'redis', 'nacos',
+           'chroma', 'qdrant', 'milvus', 'rocketmq', 'mqtt', 'kafka', 'rabbitmq', 'pulsar', 'mariadb', 'oceanbase', 'diros', 'starrocks', 'sphinx', 'sqlserver',
            'sqlite', 'duckdb', 'dameng', 'kingbase', 'highgo', 'vastbase',
            'opengauss', 'gaussdb', 'iris', 'cache', 'mongodb', 'tdengine',
            'iotdb', 'clickhouse', 'elasticsearch', 'trino']

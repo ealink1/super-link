@@ -48,6 +48,13 @@ pub fn trusted_url(text: &str) -> Result<Url> {
         && !REPOSITORY_PATHS
             .iter()
             .any(|prefix| url.path().starts_with(prefix))
+        && !matches!(
+            url.path(),
+            "/ealink1/super-link/releases/latest/download/manifest.json"
+                | "/ealink1/super-link/releases/latest/download/manifest.json.sig"
+                | "/ealink1/SuperLink-DriverAgents/releases/latest/download/manifest.json"
+                | "/ealink1/SuperLink-DriverAgents/releases/latest/download/manifest.json.sig"
+        )
     {
         return Err(UpdateError::UntrustedUrl(
             "artifact is outside the configured repository".into(),

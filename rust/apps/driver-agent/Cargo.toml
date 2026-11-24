@@ -1,0 +1,52 @@
+[package]
+name = "superlink-driver-agent"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+superlink-domain = { path = "../../crates/superlink-domain" }
+superlink-drivers = { path = "../../crates/superlink-drivers" }
+superlink-infra = { path = "../../crates/superlink-infra" }
+superlink-terminal = { path = "../../crates/superlink-terminal" }
+superlink-sql = { path = "../../crates/superlink-sql" }
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+redis = { version = "0.32", features = ["tls-rustls", "sentinel", "cluster"] }
+mongodb = { version = "3.4", features = ["sync"] }
+tiberius = { version = "0.12", default-features = false, features = ["rustls", "tds73", "chrono"] }
+tokio = { version = "1", features = ["rt-multi-thread", "net", "time", "io-util", "macros"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+oracledb = "=26.0.0-beta.5"
+dameng = "0.1"
+dameng-types = "0.1"
+futures-util = "0.3"
+chrono.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "socks"] }
+url = "2"
+shlex = "1"
+rumqttc = { version = "0.25", default-features = false, features = ["use-rustls"] }
+rskafka = { version = "0.6", features = ["transport-tls", "transport-socks5"] }
+iotdb-client-rs = "0.3.12"
+pulsar = { version = "6.9", default-features = false, features = ["tokio-rustls-runtime-ring", "compression"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
+rustls-native-certs = "0.8"
+hmac = "0.12"
+sha1 = "0.10"
+flate2 = "1"
+opengauss = { version = "0.1", features = ["with-chrono-0_4", "with-serde_json-1"] }
+opengauss-native-tls = "0.1"
+native-tls = "0.2"
+bytes = "1"
+fallible-iterator = "0.2"
+hex.workspace = true
+
+[[bin]]
+name = "superlink-driver-agent"
+path = "src/main.rs"
+
+[target.'cfg(not(all(target_os = "windows", target_arch = "aarch64")))'.dependencies]
+duckdb = { version = "=1.4.4", features = ["bundled"] }

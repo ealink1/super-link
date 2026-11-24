@@ -77,6 +77,28 @@ pub struct SshClient {
 }
 
 impl SshClient {
+    /// Opens a verified, authenticated transport without creating a PTY.
+    pub fn connect_transport(
+        host: &ShellHost,
+        policy: HostKeyPolicy,
+        cancel: &CancelToken,
+    ) -> Result<Self> {
+        host.validate()?;
+        let auth = PreparedAuth::new(host)?;
+        let (handle, fingerprint, remember) = runtime()?.block_on(async {
+            let deadline = Instant::now() + CONNECT_TIMEOUT;
+            let socket = connect_tcp(&socket_address(host), cancel).await?;
+            let (mut handle, fingerprint, remember) =
+                handshake(socket, &socket_address(host), policy, cancel, deadline).await?;
+            authenticate(&mut handle, host, auth, cancel, deadline).await?;
+            Ok::<_, TerminalError>((handle, fingerprint, remember))
+        })?;
+        Ok(Self {
+            handle: Arc::new(handle),
+            fingerprint,
+            remember,
+        })
+    }
     /// Connects, authenticates and opens an interactive PTY.
     ///
     /// An unknown host key is reported as [TerminalError::HostKeyUnknown] so
@@ -116,7 +138,7 @@ impl SshClient {
             progress.completed(ConnectStage::Tcp);
             progress.started(ConnectStage::Auth);
             let (mut handle, observed, remember) =
-                handshake(socket, policy.clone(), cancel, deadline).await?;
+                handshake(socket, &address, policy.clone(), cancel, deadline).await?;
             authenticate(&mut handle, host, auth, cancel, deadline).await?;
             progress.completed(ConnectStage::Auth);
             let handle = Arc::new(handle);
@@ -155,7 +177,7 @@ impl SshClient {
             let deadline = Instant::now() + CONNECT_TIMEOUT;
             let socket = connect_tcp(&address, cancel).await?;
             let (mut handle, observed, remember) =
-                handshake(socket, policy, cancel, deadline).await?;
+                handshake(socket, &address, policy, cancel, deadline).await?;
             authenticate(&mut handle, host, auth, cancel, deadline).await?;
             let _ = handle.disconnect(Disconnect::ByApplication, "", "en").await;
             Ok::<_, TerminalError>((observed, remember))
@@ -275,9 +297,41 @@ async fn connect_tcp(address: &str, cancel: &CancelToken) -> Result<TcpStream> {
 
 async fn handshake(
     socket: TcpStream,
+    address: &str,
     policy: HostKeyPolicy,
     cancel: &CancelToken,
     deadline: Instant,
+) -> Result<(Handle<ClientHandler>, String, bool)> {
+    let mut socket = Some(socket);
+    let mut changed = None;
+    for preferred in crate::host_key_algorithms::preferences() {
+        cancel.check()?;
+        let stream = match socket.take() {
+            Some(stream) => stream,
+            None => tokio::time::timeout_at(deadline, connect_tcp(address, cancel))
+                .await
+                .map_err(|_| TerminalError::Timeout)??,
+        };
+        match handshake_once(stream, policy.clone(), cancel, deadline, preferred).await {
+            Ok(outcome) => return Ok(outcome),
+            Err(error @ TerminalError::HostKeyChanged { .. }) => {
+                if changed.is_none() {
+                    changed = Some(error);
+                }
+            }
+            Err(TerminalError::Russh(russh::Error::NoCommonAlgo { .. })) if changed.is_some() => {}
+            Err(error) => return Err(error),
+        }
+    }
+    Err(changed.unwrap_or_else(|| TerminalError::Handshake("无可验证的服务器主机密钥".into())))
+}
+
+async fn handshake_once(
+    socket: TcpStream,
+    policy: HostKeyPolicy,
+    cancel: &CancelToken,
+    deadline: Instant,
+    preferred: russh::Preferred,
 ) -> Result<(Handle<ClientHandler>, String, bool)> {
     let observed = Arc::new(Mutex::new(None));
     let remember = Arc::new(AtomicBool::new(false));
@@ -287,6 +341,7 @@ async fn handshake(
         remember: Arc::clone(&remember),
     };
     let config = client::Config {
+        preferred,
         inactivity_timeout: None,
         keepalive_interval: Some(Duration::from_secs(30)),
         nodelay: true,

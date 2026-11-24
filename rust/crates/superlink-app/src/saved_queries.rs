@@ -29,11 +29,28 @@ impl SavedQueryService {
         scope: &str,
         text: &str,
     ) -> Result<SavedQuery, StoreError> {
+        self.save_with_context(profile_id, title, scope, "", text)
+    }
+
+    pub fn save_with_context(
+        &self,
+        profile_id: &str,
+        title: &str,
+        scope: &str,
+        schema: &str,
+        text: &str,
+    ) -> Result<SavedQuery, StoreError> {
+        if text.len() > 1 << 20 {
+            return Err(StoreError::Domain(
+                superlink_domain::DomainError::validation("查询超过 1 MiB"),
+            ));
+        }
         let query = SavedQuery {
             id: uuid::Uuid::new_v4().to_string(),
             profile_id: profile_id.to_string(),
             title: title.trim().to_string(),
             scope: scope.to_string(),
+            schema: schema.to_string(),
             text: text.to_string(),
             ..Default::default()
         };
@@ -85,7 +102,7 @@ mod tests {
         let (service, profile_id) = service(&dir);
 
         let saved = service
-            .save(&profile_id, "  每日订单  ", "app", "select 1")
+            .save_with_context(&profile_id, "  每日订单  ", "app", "reporting", "select 1")
             .unwrap();
         assert_eq!(saved.title, "每日订单");
         assert_eq!(saved.revision, 1);
@@ -94,6 +111,7 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].text, "select 1");
         assert_eq!(all[0].profile_id, profile_id);
+        assert_eq!(all[0].schema, "reporting");
 
         let renamed = service.rename(&saved.id, "  重命名后  ").unwrap();
         assert_eq!(renamed.title, "重命名后");

@@ -20,14 +20,14 @@ use crate::prepare::STAGE_PREFIX;
 use crate::scratch::Scratch;
 
 /// Local state database copied before the swap and restored on rollback.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateRestore {
     pub source: PathBuf,
     pub backup: PathBuf,
 }
 
 /// Everything needed to replace one installed bundle.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ApplyRequest {
     pub target: PathBuf,
     pub stage: PathBuf,

@@ -13,11 +13,30 @@ pub struct Credentials {
     pub passphrase: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub private_key: String,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Credentials {
     pub fn is_empty(&self) -> bool {
-        self.password.is_empty() && self.passphrase.is_empty() && self.private_key.is_empty()
+        self.password.is_empty()
+            && self.passphrase.is_empty()
+            && self.private_key.is_empty()
+            && self.extra.is_empty()
+    }
+    pub fn apply(
+        &self,
+        config: &superlink_domain::ConnectionConfig,
+    ) -> superlink_domain::ConnectionConfig {
+        let mut value = serde_json::to_value(config).unwrap_or_default();
+        if let Some(public) = value.as_object_mut() {
+            superlink_domain::secrets::merge(public, &self.extra);
+            public.insert(
+                "password".into(),
+                serde_json::Value::String(self.password.clone()),
+            );
+        }
+        serde_json::from_value(value).unwrap_or_else(|_| config.clone())
     }
 }
 
@@ -48,11 +67,19 @@ impl ServiceError {
 pub struct ProfileService {
     store: Arc<Store>,
     vault: Arc<LocalVault>,
+    temporary: std::sync::Mutex<std::collections::HashMap<String, Credentials>>,
 }
 
 impl ProfileService {
+    pub fn chat_service(&self) -> crate::chat::ChatService {
+        crate::chat::ChatService::new(self.store.clone(), self.vault.clone())
+    }
     pub fn new(store: Arc<Store>, vault: Arc<LocalVault>) -> Self {
-        Self { store, vault }
+        Self {
+            store,
+            vault,
+            temporary: Default::default(),
+        }
     }
 
     pub fn list(&self) -> ServiceResult<Vec<Profile>> {
@@ -65,18 +92,85 @@ impl ProfileService {
 
     /// Validates presentation, persists public metadata, then the vault bundle.
     pub fn save(&self, profile: Profile, credentials: &Credentials) -> ServiceResult<Profile> {
+        self.save_with_remember(profile, credentials, true)
+    }
+
+    pub fn save_with_remember(
+        &self,
+        mut profile: Profile,
+        credentials: &Credentials,
+        remember: bool,
+    ) -> ServiceResult<Profile> {
         profile.validate_presentation()?;
-        let saved = self.store.save_profile(&profile)?;
-        if !credentials.is_empty() {
-            let bundle = serde_json::to_vec(credentials).map_err(|err| {
-                ServiceError::Domain(DomainError::validation(format!("凭据无法序列化：{err}")))
-            })?;
-            self.vault.put(&saved.secret_ref, &bundle)?;
+        let (public, secret) = superlink_domain::secrets::split_config(&profile.config)?;
+        let old_reference = profile.secret_ref.clone();
+        let mut bundle = if profile.revision > 0 {
+            self.credentials(&profile)?.unwrap_or_default()
+        } else {
+            Credentials::default()
+        };
+        superlink_domain::secrets::merge(&mut bundle.extra, &secret);
+        superlink_domain::secrets::merge(&mut bundle.extra, &credentials.extra);
+        if let Some(password) = bundle
+            .extra
+            .remove("password")
+            .and_then(|v| v.as_str().map(str::to_owned))
+        {
+            bundle.password = password;
+        }
+        if !credentials.password.is_empty() {
+            bundle.password = credentials.password.clone();
+        }
+        if !credentials.passphrase.is_empty() {
+            bundle.passphrase = credentials.passphrase.clone();
+        }
+        if !credentials.private_key.is_empty() {
+            bundle.private_key = credentials.private_key.clone();
+        }
+        profile.config = public;
+        profile.config.save_password = remember;
+        profile.secret_ref = format!("local:v1:{}", uuid::Uuid::new_v4());
+        if remember && !bundle.is_empty() {
+            let raw = serde_json::to_vec(&bundle)
+                .map_err(|_| ServiceError::Domain(DomainError::validation("凭据无法编码")))?;
+            self.vault.put(&profile.secret_ref, &raw)?;
+        }
+        let saved = match self.store.save_profile(&profile) {
+            Ok(saved) => saved,
+            Err(error) => {
+                let _ = self.vault.delete(&profile.secret_ref);
+                return Err(error.into());
+            }
+        };
+        let mut temporary = self.temporary.lock().unwrap_or_else(|e| e.into_inner());
+        if remember {
+            temporary.remove(&saved.id);
+        } else {
+            if temporary.len() >= 256
+                && !temporary.contains_key(&saved.id)
+                && let Some(first) = temporary.keys().next().cloned()
+            {
+                temporary.remove(&first);
+            }
+            temporary.insert(saved.id.clone(), bundle);
+        }
+        drop(temporary);
+        if !old_reference.is_empty() && old_reference != saved.secret_ref {
+            let _ = self.vault.delete(&old_reference);
         }
         Ok(saved)
     }
 
     pub fn credentials(&self, profile: &Profile) -> ServiceResult<Option<Credentials>> {
+        if let Some(credentials) = self
+            .temporary
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&profile.id)
+            .cloned()
+        {
+            return Ok(Some(credentials));
+        }
         if profile.secret_ref.is_empty() {
             return Ok(None);
         }
@@ -94,6 +188,10 @@ impl ProfileService {
     pub fn delete(&self, id: &str, revision: i64) -> ServiceResult<()> {
         let profile = self.store.profile(id)?;
         self.store.delete_profile(id, revision)?;
+        self.temporary
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(id);
         if !profile.secret_ref.is_empty() {
             self.vault.delete(&profile.secret_ref)?;
         }

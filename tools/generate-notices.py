@@ -1,45 +1,55 @@
 #!/usr/bin/env python3
-"""Collect the license/notice files of linked Go modules for redistribution."""
+"""Collect the Cargo dependency graph's original license files for redistribution."""
 from pathlib import Path
+import json
 import subprocess
+import hashlib
 
 ROOT = Path(__file__).resolve().parent.parent
-template = '{{if .Module}}{{.Module.Path}}\t{{.Module.Version}}\t{{if .Module.Replace}}{{.Module.Replace.Dir}}{{else}}{{.Module.Dir}}{{end}}{{end}}'
-output = subprocess.check_output(['go', 'list', '-deps', '-tags', 'superlink_full_drivers',
-                                  '-f', template, './cmd/driver-agent',
-                                  './cmd/driver-agent'], cwd=ROOT, text=True)
-modules = sorted(set(line for line in output.splitlines() if line.strip()))
-parts = ['# Third-party notices\n\nGenerated from the native app, update helper and all-driver agent dependency graphs.\n'
-         'Module versions are pinned in go.mod/go.sum. License texts below retain their original wording.\n'
-         'Native SDK/system-library dependencies can have additional notices; retain their distribution licenses.\n']
+metadata = json.loads(subprocess.check_output(['cargo', 'metadata', '--locked', '--format-version', '1', '--manifest-path', 'rust/Cargo.toml'], cwd=ROOT, text=True))
+workspace = set(metadata['workspace_members'])
+parts = ['# Third-party notices\n\nGenerated from the Rust workspace dependency graph pinned by rust/Cargo.lock.\n'
+         'Cargo SPDX license expressions and available original license/notice texts are retained below.\n'
+         'This inventory includes build dependencies and platform-specific dependencies.\n']
 missing = []
-for entry in modules:
-    name, version, directory = entry.split('\t')
-    if name == 'github.com/ealink1/super-link':
+texts = {}
+
+
+def retain_license(path):
+    text = '\n'.join(line.rstrip() for line in path.read_text(errors='replace').splitlines()).rstrip()
+    key = hashlib.sha256(text.encode()).hexdigest()[:16]
+    texts.setdefault(key, text)
+    return f'[{path.name}](#license-{key})'
+
+
+for package in sorted(metadata['packages'], key=lambda p: (p['name'], p['version'])):
+    if package['id'] in workspace:
         continue
-    folder = Path(directory)
-    licenses = sorted(set(path for pattern in ['LICENSE*', 'LICENCE*', 'COPYING*', 'NOTICE*', 'COPYRIGHT*']
-                          for path in folder.glob(pattern) if path.is_file()))
-    parts.append(f'\n## {name} {version}\n')
-    if not licenses:
-        missing.append(name)
-        parts.append('\nNo root license file was included in this module download; review its upstream distribution.\n')
-    for license_file in licenses:
-        parts.append(f'\n### {license_file.name}\n\n```text\n{license_file.read_text(errors="replace").rstrip()}\n```\n')
-go_root = Path(subprocess.check_output(['go', 'env', 'GOROOT'], text=True).strip())
-parts.append(f'\n## Go standard library\n\n```text\n{(go_root / "LICENSE").read_text().rstrip()}\n```\n')
-parts.append('\n## GoNavi interface assets\n\nIcon geometry and database marks originate from Syngnat/GoNavi at the pinned commit. '
-             'Per-asset paths and SHA-256 hashes are in assets/superlink/sources.json. Apache-2.0 code licensing does not transfer trademark rights.\n')
-parts.append('\n## Lucide Shell interface icons\n\nOriginal SVG geometry from lucide-icons/lucide 0.468.0. '
-             'Per-asset source URLs and SHA-256 hashes are in assets/shell/sources.json. '
-             'Only currentColor is resolved at render time.\n\n```text\n'
-             + (ROOT / 'assets/shell/LICENSE').read_text().rstrip() + '\n```\n')
-parts.append('\n## Archived derivative font sources\n\nThese historical font assets are retained in the source tree but are no longer embedded in the application. NaviUI and NaviMono combine Noto Sans SC with Inter, Noto Sans and DejaVu Sans Mono Powerline glyphs. '
-             'Family names have been changed. Generation and source records are in tools/build_fonts.py and third_party/fonts.\n')
-for license_file in sorted((ROOT / 'third_party/fonts').glob('*')):
-    if license_file.is_file() and ('LICENSE' in license_file.name or 'OFL' in license_file.name):
-        parts.append(f'\n### {license_file.name}\n\n```text\n{license_file.read_text().rstrip()}\n```\n')
+    folder = Path(package['manifest_path']).parent
+    files = sorted({p for pattern in ['LICENSE*', 'LICENCE*', 'COPYING*', 'NOTICE*', 'COPYRIGHT*'] for p in folder.glob(pattern) if p.is_file()})
+    if package.get('license_file'):
+        path = folder / package['license_file']
+        if path.is_file() and path not in files:
+            files.append(path)
+    parts.append(f"\n## {package['name']} {package['version']}\n\nLicense: {package.get('license') or 'see license file'}.\n")
+    if package.get('repository'):
+        parts.append(f"Source: {package['repository']}\n")
+    if not files:
+        missing.append(f"{package['name']} {package['version']}")
+        parts.append('\nThis crate archive contains no root license text; use its declared SPDX license and upstream repository.\n')
+    for path in files:
+        parts.append(f'\nOriginal text: {retain_license(path)}\n')
+for folder in ['third_party/protocol-licenses', 'third_party/fonts', 'assets/shell']:
+    for path in sorted((ROOT / folder).glob('*')):
+        if path.is_file() and any(k in path.name.upper() for k in ['LICENSE', 'OFL', 'NOTICE']):
+            parts.append(f'\n## {path.relative_to(ROOT)}\n\nOriginal text: {retain_license(path)}\n')
+parts.append('\n## GoNavi interface and protocol attribution\n\nReviewed assets originate from Syngnat/GoNavi at commit 6e20b6ddf56b2ae76f7e5d5c6a3505cef1edc871. '
+             'Original paths/hashes are retained in assets/superlink/sources.json and docs/upstream-import.json. '
+             'Rust IRIS/Caché and HighGo SM3 protocol adaptations retain their original MIT attribution; see UPSTREAM.md. '
+             'Trademark rights are not transferred by source-code licenses.\n')
+for key, text in texts.items():
+    parts.append(f'\n<a id="license-{key}"></a>\n\n## License text {key}\n\n```text\n{text}\n```\n')
 (ROOT / 'THIRD_PARTY_NOTICES.md').write_text(''.join(parts))
-print(f'Collected notices for {len(modules)-1} modules.')
+print(f"Collected notices for {len(metadata['packages']) - len(workspace)} Cargo packages.")
 if missing:
-    print('Modules needing a distribution-license review: ' + ', '.join(missing))
+    print('Crate archives without root license text (SPDX metadata retained): ' + ', '.join(missing))

@@ -1,7 +1,7 @@
 //! Column type validation and definition assembly for DDL generation.
 
 use crate::error::{SqlError, SqlResult};
-use crate::identifier::{quote_identifier, text_literal};
+use crate::identifier::{ddl_text_literal, quote_identifier};
 use crate::model::ColumnDefinition;
 
 const TYPE_MODIFIERS: &[&str] = &["varying", "precision", "with", "without", "time", "zone"];
@@ -157,19 +157,20 @@ pub(crate) fn column_definition(
     if column.nullable == "NO" {
         definition.push_str(" NOT NULL");
     }
-    if column.has_default {
-        if let Some(value) = &column.default {
-            let value = if old.name.is_empty()
-                || column.default != old.default
-                || column.has_default != old.has_default
-            {
-                default_expression(kind, value)?
-            } else {
-                value.clone()
-            };
-            definition.push_str(" DEFAULT ");
-            definition.push_str(&value);
-        }
+    if column.has_default
+        && let Some(value) = &column.default
+    {
+        let value = if (kind == "mysql" && value.starts_with('\'') && value.ends_with('\''))
+            || old.name.is_empty()
+            || column.default != old.default
+            || column.has_default != old.has_default
+        {
+            default_expression(kind, value)?
+        } else {
+            value.clone()
+        };
+        definition.push_str(" DEFAULT ");
+        definition.push_str(&value);
     }
     if kind == "mysql" {
         if column.extra.to_lowercase().contains("auto_increment") {
@@ -177,7 +178,7 @@ pub(crate) fn column_definition(
         }
         if !column.comment.is_empty() {
             definition.push_str(" COMMENT ");
-            definition.push_str(&text_literal(kind, &column.comment));
+            definition.push_str(&ddl_text_literal(kind, &column.comment));
         }
     }
     Ok(definition)
@@ -197,10 +198,11 @@ pub(crate) fn default_expression(kind: &str, value: &str) -> SqlResult<String> {
         | "CURRENT_TIME" => return Ok(upper),
         _ => {}
     }
-    if let Some(first) = value.chars().next() {
-        if (first == '-' || first.is_ascii_digit()) && is_json_number(value) {
-            return Ok(value.to_string());
-        }
+    if let Some(first) = value.chars().next()
+        && (first == '-' || first.is_ascii_digit())
+        && is_json_number(value)
+    {
+        return Ok(value.to_string());
     }
     let bytes = value.as_bytes();
     if bytes.len() >= 2 && bytes[0] == b'\'' && bytes[bytes.len() - 1] == b'\'' {
@@ -217,7 +219,7 @@ pub(crate) fn default_expression(kind: &str, value: &str) -> SqlResult<String> {
                 index += 1;
             }
         }
-        return Ok(text_literal(kind, &inner.replace("''", "'")));
+        return Ok(ddl_text_literal(kind, &inner.replace("''", "'")));
     }
     Err(SqlError::new(
         "default requires a number, quoted string, NULL or a supported timestamp expression",
@@ -313,7 +315,7 @@ mod tests {
         let definition = column_definition("mysql", &column, &ColumnDefinition::default()).unwrap();
         assert_eq!(
             definition,
-            "\x60order\x60 INT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL AUTO_INCREMENT COMMENT CONVERT(X'69742773' USING utf8mb4)"
+            "\x60order\x60 INT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL AUTO_INCREMENT COMMENT 'it''s'"
         );
         // PostgreSQL ignores MySQL-only attributes instead of guessing.
         assert_eq!(

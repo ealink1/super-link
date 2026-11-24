@@ -97,6 +97,29 @@ pub fn tokenize(text: &str) -> Vec<Token> {
                     }
                 }
             }
+            '$' => {
+                let mut end = index;
+                while end < characters.len()
+                    && (characters[end].is_ascii_alphanumeric() || characters[end] == '_')
+                {
+                    end += 1;
+                }
+                if end < characters.len()
+                    && characters[end] == '$'
+                    && (end == index || !characters[index].is_ascii_digit())
+                {
+                    let delimiter = characters[start..=end].to_vec();
+                    index = end + 1;
+                    kind = TokenKind::String;
+                    while index < characters.len() {
+                        if characters[index..].starts_with(&delimiter) {
+                            index += delimiter.len();
+                            break;
+                        }
+                        index += 1;
+                    }
+                }
+            }
             '\'' | '"' | '\x60' => {
                 if current == '\'' {
                     kind = TokenKind::String;

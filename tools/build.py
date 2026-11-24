@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build native Fyne application and independently versioned driver agents."""
+"""Build native Rust/GPUI application and independently versioned driver agents."""
 import argparse
 import hashlib
 import json
@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import sys
 import zipfile
+import tomllib
+import platform
 
 ROOT = Path(__file__).resolve().parent.parent
 from release_platforms import DRIVER_BASE_URL, DRIVERS, platform_drivers, version_text
@@ -26,7 +28,7 @@ def main():
     parser.add_argument('--all-drivers', action='store_true')
     parser.add_argument('--application-only', action='store_true')
     parser.add_argument('--driver', action='append', choices=DRIVERS)
-    parser.add_argument('--version', default='0.1.0')
+    parser.add_argument('--version', default=tomllib.loads((ROOT/'rust/Cargo.toml').read_text())['workspace']['package']['version'])
     parser.add_argument('--package', action='store_true')
     parser.add_argument('--dist', type=Path, default=ROOT / 'dist')
     parser.add_argument('--binary-dir', type=Path, default=ROOT / 'bin')
@@ -34,13 +36,26 @@ def main():
     args = parser.parse_args()
     if args.application_only and (args.all_drivers or args.driver or args.skip_app or not args.package):
         parser.error('--application-only requires --package and the default bundled SQLite')
-    goos = subprocess.check_output(['go','env','GOOS'], cwd=ROOT, text=True).strip()
-    arch = subprocess.check_output(['go','env','GOARCH'], cwd=ROOT, text=True).strip()
+    goos = {'Darwin':'darwin','Windows':'windows','Linux':'linux'}.get(platform.system())
+    arch = {'arm64':'arm64','aarch64':'arm64','x86_64':'amd64','AMD64':'amd64'}.get(platform.machine())
+    if not goos or not arch:
+        raise SystemExit('unsupported native build platform')
     suffix = '.exe' if goos == 'windows' else ''
     binary = args.binary_dir.resolve()
     agents = binary / 'drivers'
     agents.mkdir(parents=True, exist_ok=True)
     artifacts, records = [], []
+    previous = agents / 'bundle.json'
+    if previous.is_file():
+        bundle = json.loads(previous.read_text())
+        if bundle.get('os') == goos and bundle.get('arch') == arch:
+            for record in bundle.get('drivers', []):
+                name = record.get('type', '')
+                if name not in DRIVERS or not record.get('revision','').startswith('rust-'):
+                    continue
+                existing = agents / f'{name}-driver-agent{suffix}'
+                if existing.is_file() and hashlib.sha256(existing.read_bytes()).hexdigest() == record.get('sha256'):
+                    records.append(record)
     available = platform_drivers(goos, arch)
     chosen = available if args.all_drivers else (args.driver or ['sqlite'])
     if any(driver not in available for driver in chosen):
@@ -56,21 +71,29 @@ def main():
     release_url = f'https://github.com/ealink1/super-link/releases/download/v{version}/'
     dist = args.dist.resolve()
     dist.mkdir(parents=True, exist_ok=True)
+    run(['cargo','build','--locked','--manifest-path','rust/Cargo.toml','--release','-p','superlink-driver-agent','-j','2'])
+    rust_agent = ROOT/'rust/target/release'/f'superlink-driver-agent{suffix}'
     for driver in chosen:
         print(f'Building {driver} agent ({goos}/{arch})', flush=True)
         output = agents / f'{driver}-driver-agent{suffix}'
-        run(['go','build','-trimpath','-ldflags','-s -w','-tags',f'superlink_{driver}_driver','-o',str(output),'./cmd/driver-agent'])
+        if output.exists():
+            output.unlink()
+        try:
+            os.link(rust_agent,output)
+        except OSError:
+            shutil.copy2(rust_agent,output)
         probe = subprocess.run([str(output)], input='{"id":1,"method":"metadata"}\n',
                                capture_output=True, text=True, timeout=45, check=True)
         response = json.loads(probe.stdout.strip())
         if not response.get('success'):
             raise RuntimeError(f'{driver} agent metadata probe failed')
         metadata = response['data']
-        if metadata.get('driverType') != driver or metadata.get('protocolSchema') != 'json-lines-v2':
+        if metadata.get('driverType') != driver or metadata.get('protocolSchema') != 'json-lines-v3-rust' or metadata.get('implementation') != 'rust':
             raise RuntimeError(f'{driver} agent protocol/identity mismatch')
         digest = hashlib.sha256(output.read_bytes()).hexdigest()
         record = {'type':driver,'sha256':digest,'revision':metadata['agentRevision'],
                   'protocol':metadata['protocolSchema'],'source':'application-bundle'}
+        records = [item for item in records if item["type"] != driver]
         records.append(record)
         if not args.application_only:
             filename = f'{driver}-agent_{version}_{goos}_{arch}{suffix}'
@@ -80,26 +103,12 @@ def main():
                               'revision':record['revision'],'protocol':record['protocol']})
     (agents / 'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':records},indent=2)+'\n')
     if not args.skip_app:
-        flags = f'-s -w -X main.version={version}'
-        if goos == 'windows':
-            flags += ' -H windowsgui'
-        if public_key:
-            flags += f' -X main.releasePublicKey={public_key}'
-        run(['go','build','-trimpath','-ldflags',flags,'-o',str(binary/f'superlink{suffix}'),'./cmd/superlink'])
-        run(['go','build','-trimpath','-ldflags','-s -w','-o',str(binary/f'update-helper{suffix}'),'./cmd/update-helper'])
-        if goos == 'darwin':
-            import plistlib
-            picker = binary/'SuperLinkFilePicker.app'/'Contents'
-            (picker/'MacOS').mkdir(parents=True, exist_ok=True)
-            (picker/'Info.plist').write_bytes(plistlib.dumps({
-                'CFBundleIdentifier':'io.github.ealink1.superlink.filepicker',
-                'CFBundleName':'SuperLinkFilePicker','CFBundleExecutable':'file-picker',
-                'CFBundlePackageType':'APPL','LSUIElement':True,
-                'CFBundleAllowMixedLocalizations':True,
-                'CFBundleLocalizations':['en','zh-Hans','zh-Hant','ja','ko','fr','de','es','it','pt','ru','ar','nl','sv','tr']}))
-            run(['clang','-fobjc-arc','-framework','AppKit','-framework','UniformTypeIdentifiers',
-                 str(ROOT/'tools/native/file_picker.m'),'-o',str(picker/'MacOS/file-picker')])
-            run(['codesign','--force','--sign',os.environ.get('SUPERLINK_MAC_SIGN_IDENTITY') or '-',str(picker.parent)])
+        environment = os.environ.copy()
+        environment['SUPERLINK_RELEASE_PUBLIC_KEY'] = public_key
+        environment['SUPERLINK_VERSION'] = version
+        run(['cargo', 'build', '--locked', '--manifest-path', 'rust/Cargo.toml', '--release', '-p', 'superlink', '-p', 'superlink-update-helper', '-j', '2'], env=environment)
+        for name in ['superlink', 'update-helper']:
+            shutil.copy2(ROOT/'rust/target/release'/f'{name}{suffix}', binary/f'{name}{suffix}')
 
     if args.package:
         if args.skip_app:
@@ -113,35 +122,33 @@ def main():
         resources.mkdir(parents=True, exist_ok=True)
         for name in [f'superlink{suffix}',f'update-helper{suffix}']:
             shutil.copy2(binary/name,executable_dir/name)
-        if goos == 'darwin':
-            shutil.copytree(binary/'SuperLinkFilePicker.app', executable_dir/'SuperLinkFilePicker.app')
         # SQLite is offline in every application package; optional agents remain
-        # separate release assets so the base app does not grow with all SDKs.
+        # separate release assets. The unified Rust agent contains all protocol libraries.
         bundled = [record for record in records if record['type']=='sqlite']
         if not bundled:
             raise RuntimeError('an application package must include SQLite')
         destination=resources/'drivers';destination.mkdir()
         shutil.copy2(agents/f'sqlite-driver-agent{suffix}',destination/f'sqlite-driver-agent{suffix}')
         (destination/'bundle.json').write_text(json.dumps({'schema':1,'os':goos,'arch':arch,'drivers':bundled},indent=2)+'\n')
+        shutil.copytree(ROOT/'assets', resources/'assets')
         for name in ['LICENSE','NOTICE','UPSTREAM.md','THIRD_PARTY_NOTICES.md']:
             shutil.copy2(ROOT/name,resources/name)
         license_dir=resources/'licenses';license_dir.mkdir()
-        shutil.copy2(ROOT/'internal/ui/assets/OFL.txt',license_dir/'NotoSansSC-OFL.txt')
+        shutil.copy2(ROOT/'assets/OFL.txt',license_dir/'NotoSansSC-OFL.txt')
         for source in (ROOT/'third_party/fonts').glob('*LICENSE*'):
             shutil.copy2(source, license_dir/source.name)
         for source in (ROOT/'third_party/fonts').glob('*OFL*'):
             shutil.copy2(source, license_dir/source.name)
-        shutil.copy2(ROOT/'internal/ui/assets/superlink/sources.json', resources/'superlink-ui-assets.json')
-        shutil.copy2(ROOT/'internal/ui/assets/shell/sources.json', resources/'shell-ui-assets.json')
-        shutil.copy2(ROOT/'internal/ui/assets/shell/LICENSE', license_dir/'Lucide-LICENSE.txt')
-        shutil.copy2(ROOT/'internal/branding/assets/superlink.png', resources/'superlink.png')
-        for name in ['highgo-pq','go-irisnative']:
-            source=ROOT/'third_party'/name
-            for item in source.glob('*LICENSE*'):
-                shutil.copy2(item,license_dir/f'{name}-{item.name}')
+        shutil.copy2(ROOT/'assets/superlink/sources.json', resources/'superlink-ui-assets.json')
+        shutil.copy2(ROOT/'assets/shell/sources.json', resources/'shell-ui-assets.json')
+        shutil.copy2(ROOT/'assets/shell/LICENSE', license_dir/'Lucide-LICENSE.txt')
+        shutil.copy2(ROOT/'assets/branding/superlink.png', resources/'superlink.png')
+        for item in (ROOT/'third_party/protocol-licenses').glob('*'):
+            if item.is_file():
+                shutil.copy2(item,license_dir/item.name)
         if goos=='darwin':
             import plistlib
-            shutil.copy2(ROOT/'internal/branding/assets/superlink.icns', resources/'SuperLink.icns')
+            shutil.copy2(ROOT/'assets/branding/superlink.icns', resources/'SuperLink.icns')
             (package_root/'Contents/Info.plist').write_bytes(plistlib.dumps({
                 'CFBundleName':'SuperLink','CFBundleDisplayName':'SuperLink',
                 'CFBundleIdentifier':'io.github.ealink1.superlink','CFBundleExecutable':'superlink',

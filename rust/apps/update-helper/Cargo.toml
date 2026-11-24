@@ -1,0 +1,13 @@
+[package]
+name = "superlink-update-helper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[[bin]]
+name = "update-helper"
+path = "src/main.rs"
+[dependencies]
+superlink-update = { path = "../../crates/superlink-update" }
+serde_json.workspace = true
+rusqlite.workspace = true
+sysinfo = "=0.31.4"

@@ -1,6 +1,6 @@
 # SuperLink · Rust / GPUI
 
-Go 版本的重写分支产物。目录结构与 Go 分层一一对应，驱动进程继续复用 Go agent。
+Rust + GPUI 桌面应用。37 类数据源使用 Rust 驱动进程，源码与构建不依赖 Go。
 
 ## 结构
 
@@ -9,7 +9,10 @@ crates/superlink-domain   纯领域模型（无 I/O、无 UI）
 crates/superlink-app      应用服务（凭据分离、修订冲突）
 crates/superlink-infra    SQLite 元数据、AES-256-GCM 凭据、驱动 IPC
 crates/superlink-ui       GPUI 主窗口与工作区
-apps/superlink            可执行程序
+apps/superlink            桌面可执行程序
+apps/update-helper       经用户确认后执行的独立更新助手
+apps/driver-agent        37 类数据源的 Rust 隔离宿主
+apps/tools               图标与语言目录 ZIP 生成工具
 ```
 
 ## 构建与运行
@@ -36,14 +39,15 @@ cargo run -p superlink
 - SQLite 表结构与 `user_version` 迁移与 Go 版本一致。
 - 凭据文件格式一致：`NFCR\x01` + 12 字节随机 nonce + AES-256-GCM，
   附加数据为凭据引用，目录 0700 / 文件 0600。
-- 驱动 agent 使用同一套 JSON-lines 协议。
+- 驱动使用 `json-lines-v3-rust`；旧 Go agent 不兼容，必须重新构建。
 
 ## 当前状态
 
-- 9 个 crate：domain / infra / app / drivers / sql / files / update / terminal / ui
-- 267 个测试通过（2 个真实 SSH 测试默认忽略）
-- 已接通：SQL 查询（含中文输入法与结果表）、终端（本地 PTY 与 SSH、VT 屏幕、
-  主机密钥确认）、加密笔记预览、驱动校验与执行
-- 未接通：笔记编辑、表目录浏览、SFTP/监控面板、更新网络客户端、打包
+逐项实现与验收记录见仓库根目录的
+[功能对齐清单](../docs/plans/2026-11-02-fyne-parity.md)。不再把底层模块存在等同于界面完成。
 
-详见 `docs/plans/2026-10-27-rust-gpui-rewrite.md`。
+从仓库根目录运行 `python3 tools/dev_run.py` 可自动构建并重启隔离的开发版，
+使用 `bin/dev/data`，保留已安装的正式版本。最低工具链为 Rust 1.89。
+
+驱动构建还需要 C/C++ 工具链（SQLite/DuckDB 原生引擎）及 protoc（Pulsar 协议）。
+当前迁移限制和服务联调状态见 [驱动迁移清单](../docs/plans/2026-11-02-pure-rust-drivers.md)。

@@ -14,6 +14,7 @@ use sysinfo::{
 
 use crate::monitor::rates::rates as compute_rates;
 use crate::monitor::rates::{CpuRate, MonitorRates};
+use crate::monitor::uptime::format_uptime;
 use crate::monitor::{Metrics, MonitorDetails, NetworkCounter, Partition, ProcessMetric};
 
 /// A local snapshot plus the rates derived from the previous one.
@@ -159,20 +160,13 @@ impl LocalMonitor {
                 pid: process.pid().as_u32() as i32,
                 name: process.name().to_string_lossy().into_owned(),
                 cpu: f64::from(process.cpu_usage()),
-                memory: 0.0,
+                memory: memory_percent(process.memory(), self.system.total_memory()),
                 rss: process.memory(),
                 start: 0,
                 ..ProcessMetric::default()
             })
             .collect();
-        processes.sort_by(|left, right| {
-            right
-                .cpu
-                .partial_cmp(&left.cpu)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        processes.truncate(20);
-        processes
+        ranked_processes(&mut processes)
     }
 
     fn disk_summary(&self) -> String {
@@ -197,6 +191,27 @@ impl LocalMonitor {
     }
 }
 
+fn memory_percent(used: u64, total: u64) -> f64 {
+    if total == 0 {
+        0.0
+    } else {
+        100.0 * used as f64 / total as f64
+    }
+}
+
+// Retain both rankings: a memory-heavy idle process may not be in the CPU top 20.
+fn ranked_processes(processes: &mut [ProcessMetric]) -> Vec<ProcessMetric> {
+    processes.sort_by(|a, b| b.cpu.total_cmp(&a.cpu));
+    let mut selected: Vec<_> = processes.iter().take(20).cloned().collect();
+    processes.sort_by_key(|p| std::cmp::Reverse(p.rss));
+    for process in processes.iter().take(20) {
+        if !selected.iter().any(|p| p.pid == process.pid) {
+            selected.push(process.clone());
+        }
+    }
+    selected
+}
+
 fn human_bytes(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["B", "KiB", "MiB", "GiB"];
     let mut value = bytes as f64;
@@ -212,19 +227,6 @@ fn human_bytes(bytes: u64) -> String {
     }
 }
 
-fn format_uptime(seconds: u64) -> String {
-    let days = seconds / 86_400;
-    let hours = (seconds % 86_400) / 3_600;
-    let minutes = (seconds % 3_600) / 60;
-    if days > 0 {
-        format!("{days}天 {hours}小时")
-    } else if hours > 0 {
-        format!("{hours}小时 {minutes}分钟")
-    } else {
-        format!("{minutes}分钟")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,7 +239,7 @@ mod tests {
         assert!(!first.metrics.system.is_empty());
         assert!(!first.metrics.uptime.is_empty());
         assert!(first.metrics.details.sampled.is_some());
-        assert!(first.metrics.details.processes.len() <= 20);
+        assert!(first.metrics.details.processes.len() <= 40);
         assert!(!first.rates.ready);
 
         let second = monitor.snapshot();
@@ -259,5 +261,23 @@ mod tests {
         assert_eq!(format_uptime(90_000), "1天 1小时");
         assert_eq!(human_bytes(512), "512 B");
         assert_eq!(human_bytes(1536), "1.5 KiB");
+    }
+
+    #[test]
+    fn retains_idle_memory_heavy_processes_and_correct_percentages() {
+        let mut processes: Vec<_> = (0..100)
+            .map(|pid| ProcessMetric {
+                pid,
+                cpu: f64::from(pid),
+                rss: (100 - pid) as u64,
+                ..ProcessMetric::default()
+            })
+            .collect();
+        let selected = ranked_processes(&mut processes);
+        assert_eq!(selected.len(), 40);
+        assert!(selected.iter().any(|p| p.pid == 0));
+        assert!(selected.iter().any(|p| p.pid == 99));
+        assert_eq!(memory_percent(256, 1024), 25.0);
+        assert_eq!(memory_percent(256, 0), 0.0);
     }
 }

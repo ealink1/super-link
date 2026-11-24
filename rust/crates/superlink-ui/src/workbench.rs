@@ -3,6 +3,9 @@
 //! SQL 组装完全复用 superlink-sql 的校验器；这里只持有状态并把
 //! 结构条目映射成建表模型。
 
+mod preview;
+pub use preview::json_preview;
+
 use gpui::SharedString;
 use superlink_domain::ResultSet;
 use superlink_drivers::ColumnEntry;
@@ -38,6 +41,39 @@ impl WorkbenchTab {
     ];
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TableSection {
+    #[default]
+    Columns,
+    Indexes,
+    ForeignKeys,
+    Triggers,
+}
+impl TableSection {
+    pub const ALL: [Self; 4] = [
+        Self::Columns,
+        Self::Indexes,
+        Self::ForeignKeys,
+        Self::Triggers,
+    ];
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Columns => "列",
+            Self::Indexes => "索引",
+            Self::ForeignKeys => "外键",
+            Self::Triggers => "触发器",
+        }
+    }
+    pub fn icon(self) -> &'static str {
+        match self {
+            Self::Columns => "superlink/fields.svg",
+            Self::Indexes => "superlink/index.svg",
+            Self::ForeignKeys => "superlink/link.svg",
+            Self::Triggers => "superlink/bolt.svg",
+        }
+    }
+}
+
 /// 条件构建的草稿（编辑框内容 + 当前选中的操作符）。
 #[derive(Debug, Clone, Default)]
 pub struct FilterDraft {
@@ -49,16 +85,40 @@ pub struct FilterDraft {
 
 #[derive(Debug, Clone)]
 pub struct Workbench {
+    pub stale: bool,
+    pub id: String,
+    pub request: u64,
+    pub edits: std::collections::BTreeMap<usize, superlink_sql::RowChange>,
+    pub selected: std::collections::BTreeSet<usize>,
+    pub cell: Option<(usize, usize)>,
+    pub preview: Option<String>,
+    pub operation: Option<superlink_app::QueryCancel>,
     pub conn: usize,
     pub database: String,
     pub table: String,
     pub tab: WorkbenchTab,
+    pub section: TableSection,
+    pub designer: Option<gpui::Entity<crate::schema_designer::SchemaDesigner>>,
+    pub metadata_only: bool,
+    pub triggers: Option<ResultSet>,
+    pub trigger_error: Option<SharedString>,
     pub columns: Vec<ColumnEntry>,
     pub filters: Vec<Filter>,
     pub sorts: Vec<Sort>,
     pub page: u32,
+    pub page_size: u32,
+    pub tools_open: bool,
+    pub inspected: Option<(usize, usize)>,
+    pub text_view: bool,
+    pub column_page: usize,
+    pub column_widths: std::collections::BTreeMap<usize, f32>,
+    pub horizontal: gpui::ScrollHandle,
+    pub vertical: gpui::ScrollHandle,
     pub result: Option<ResultSet>,
     pub total: Option<i64>,
+    pub import_plan: Option<std::sync::Arc<superlink_app::imports::ImportPlan>>,
+    pub ddl_source: Option<String>,
+    pub ddl_loading: bool,
     pub error: Option<SharedString>,
     pub loading: bool,
     pub draft: FilterDraft,
@@ -67,16 +127,40 @@ pub struct Workbench {
 impl Workbench {
     pub fn new(conn: usize, database: String, table: String, columns: Vec<ColumnEntry>) -> Self {
         Self {
+            stale: false,
+            id: uuid::Uuid::new_v4().to_string(),
+            request: 0,
+            edits: Default::default(),
+            selected: Default::default(),
+            cell: None,
+            preview: None,
+            operation: None,
             conn,
             database,
             table,
             tab: WorkbenchTab::default(),
+            section: TableSection::default(),
+            designer: None,
+            metadata_only: false,
+            triggers: None,
+            trigger_error: None,
             columns,
             filters: Vec::new(),
             sorts: Vec::new(),
             page: 1,
+            page_size: PAGE_SIZE,
+            tools_open: false,
+            inspected: None,
+            text_view: false,
+            column_page: 0,
+            column_widths: Default::default(),
+            horizontal: gpui::ScrollHandle::new(),
+            vertical: gpui::ScrollHandle::new(),
             result: None,
             total: None,
+            import_plan: None,
+            ddl_source: None,
+            ddl_loading: false,
             error: None,
             loading: false,
             draft: FilterDraft {
@@ -87,6 +171,17 @@ impl Workbench {
         }
     }
 
+    pub fn export_statement(&self, kind: &str) -> Result<String, SqlError> {
+        let request = TableRequest {
+            object: self.object(),
+            page: 1,
+            size: self.page_size.into(),
+            filters: self.filters.clone(),
+            sorts: self.sorts.clone(),
+            ..Default::default()
+        };
+        superlink_sql::build_export_query(kind, &request, &self.info())
+    }
     pub fn object(&self) -> Object {
         let (schema, name) = match self.table.split_once('.') {
             Some((schema, name)) => (schema.to_string(), name.to_string()),
@@ -94,9 +189,9 @@ impl Workbench {
         };
         Object {
             name,
+            scope: self.database.clone(),
             kind: "table".into(),
             schema,
-            ..Default::default()
         }
     }
 
@@ -110,6 +205,9 @@ impl Workbench {
                     data_type: column.data_type.clone(),
                     nullable: if column.nullable { "YES" } else { "NO" }.to_string(),
                     key: if column.primary_key { "PRI" } else { "" }.to_string(),
+                    default: column.default_value.clone(),
+                    has_default: column.default_value.is_some(),
+                    extra: column.extra.clone(),
                     ..Default::default()
                 })
                 .collect(),
@@ -123,7 +221,7 @@ impl Workbench {
             object: self.object(),
             revision: 0,
             page: self.page as i64,
-            size: PAGE_SIZE as i64,
+            size: self.page_size as i64,
             filters: self.filters.clone(),
             sorts: self.sorts.clone(),
             condition: String::new(),
@@ -219,9 +317,13 @@ impl Workbench {
         let full = self
             .result
             .as_ref()
-            .map(|value| value.rows.len() as u32 >= PAGE_SIZE)
+            .map(|value| value.rows.len() as u32 >= self.page_size)
             .unwrap_or(false);
-        if full {
+        if full
+            && self
+                .total
+                .is_none_or(|total| i64::from(self.page) * i64::from(self.page_size) < total)
+        {
             self.page += 1;
         }
     }
@@ -235,6 +337,13 @@ impl Workbench {
                 .and_then(|row| row.first())
                 .and_then(|value| value.as_i64())
         });
+        self.edits.clear();
+        self.selected.clear();
+        self.cell = None;
+        self.inspected = None;
+        self.preview = None;
+        self.vertical
+            .set_offset(gpui::point(gpui::px(0.), gpui::px(0.)));
         self.result = Some(result);
     }
 
@@ -260,6 +369,7 @@ mod tests {
                     primary_key: true,
                     default_value: None,
                     comment: None,
+                    extra: String::new(),
                 },
                 ColumnEntry {
                     name: "title".into(),
@@ -268,6 +378,7 @@ mod tests {
                     primary_key: false,
                     default_value: None,
                     comment: None,
+                    extra: String::new(),
                 },
             ],
         )
@@ -323,5 +434,22 @@ mod tests {
         bench.page = 3;
         bench.go_prev();
         assert_eq!(bench.page, 2);
+    }
+    #[test]
+    fn last_full_page_does_not_advance_and_page_size_controls_sql() {
+        let mut bench = workbench();
+        bench.page_size = 100;
+        bench.total = Some(200);
+        bench.result = Some(ResultSet {
+            rows: vec![vec![serde_json::json!(1)]; 100],
+            ..Default::default()
+        });
+        bench.go_next();
+        assert_eq!(bench.page, 2);
+        bench.go_next();
+        assert_eq!(bench.page, 2);
+        let (sql, _) = bench.page_statements("sqlite").unwrap();
+        assert!(sql.contains("LIMIT 100"), "{sql}");
+        assert!(sql.contains("OFFSET 100"), "{sql}");
     }
 }

@@ -8,11 +8,14 @@ use std::ops::Range;
 use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
     EntityInputHandler, FocusHandle, Focusable, GlobalElementId, InspectorElementId, KeyDownEvent,
-    LayoutId, MouseButton, PaintQuad, Pixels, Point, Render, ShapedLine, SharedString, Style,
-    TextRun, UTF16Selection, UnderlineStyle, Window, div, fill, point, prelude::*, px, relative,
-    rgba, size,
+    LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, PaintQuad, Pixels, Point, Render,
+    ShapedLine, SharedString, Style, TextRun, UTF16Selection, UnderlineStyle, Window, div, fill,
+    point, prelude::*, px, relative, rgba, size,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+#[path = "editor_input.rs"]
+mod input;
 
 type RunHandler = Box<dyn Fn(&mut Window, &mut App) + 'static>;
 /// Tab / Shift+Tab inside one input; owners wire their own field order.
@@ -35,8 +38,9 @@ pub struct SqlEditor {
     on_run: Option<RunHandler>,
     /// Fires after the text changed, used by search boxes.
     on_change: Option<ChangeHandler>,
-    /// Password fields render one dot per byte instead of the characters.
+    /// Password fields render one mask per grapheme.
     masked: bool,
+    selecting: bool,
     on_tab: Option<TabHandler>,
 }
 
@@ -59,6 +63,7 @@ impl SqlEditor {
             on_run: None,
             on_change: None,
             masked: false,
+            selecting: false,
             on_tab: None,
         }
     }
@@ -127,6 +132,16 @@ impl SqlEditor {
         cx.notify();
     }
 
+    fn index_for_position(&self, position: Point<Pixels>) -> Option<usize> {
+        let bounds = self.last_bounds?;
+        let line = self.last_layout.as_ref()?;
+        let x = position.x - bounds.left() + self.last_offset;
+        let index = line
+            .index_for_x(x)
+            .unwrap_or(if x < px(0.) { 0 } else { line.text.len() });
+        Some(input::source_offset(&self.content, self.masked, index))
+    }
+
     fn cursor_offset(&self) -> usize {
         if self.selection_reversed {
             self.selected_range.start
@@ -193,8 +208,19 @@ impl SqlEditor {
                 }
                 self.replace_text_in_range(None, "", window, cx);
             }
-            "left" => self.move_to(self.previous_boundary(self.cursor_offset()), cx),
-            "right" => self.move_to(self.next_boundary(self.cursor_offset()), cx),
+            "left" | "right" => {
+                let offset = match (key, modifiers.platform) {
+                    ("left", true) => 0,
+                    ("right", true) => self.content.len(),
+                    ("left", _) => self.previous_boundary(self.cursor_offset()),
+                    _ => self.next_boundary(self.cursor_offset()),
+                };
+                if modifiers.shift {
+                    self.select_to(offset, cx);
+                } else {
+                    self.move_to(offset, cx);
+                }
+            }
             "home" => self.move_to(0, cx),
             "end" => self.move_to(self.content.len(), cx),
             "tab" => {
@@ -352,9 +378,7 @@ impl EntityInputHandler for SqlEditor {
         self.marked_range =
             (!new_text.is_empty()).then_some(range.start..range.start + new_text.len());
         self.selected_range = new_selected_range_utf16
-            .as_ref()
-            .map(|range| self.range_from_utf16(range))
-            .map(|range| range.start + range.start..range.end + range.end)
+            .map(|selected| input::composition_selection(range.start, new_text, selected))
             .unwrap_or_else(|| range.start + new_text.len()..range.start + new_text.len());
         cx.notify();
     }
@@ -370,11 +394,23 @@ impl EntityInputHandler for SqlEditor {
         let range = self.range_from_utf16(&range_utf16);
         Some(Bounds::from_corners(
             point(
-                bounds.left() + layout.x_for_index(range.start) - self.last_offset,
+                bounds.left()
+                    + layout.x_for_index(input::display_offset(
+                        &self.content,
+                        self.masked,
+                        range.start,
+                    ))
+                    - self.last_offset,
                 bounds.top(),
             ),
             point(
-                bounds.left() + layout.x_for_index(range.end) - self.last_offset,
+                bounds.left()
+                    + layout.x_for_index(input::display_offset(
+                        &self.content,
+                        self.masked,
+                        range.end,
+                    ))
+                    - self.last_offset,
                 bounds.bottom(),
             ),
         ))
@@ -389,7 +425,7 @@ impl EntityInputHandler for SqlEditor {
         let local = self.last_bounds?.localize(&point)?;
         let layout = self.last_layout.as_ref()?;
         let index = layout.index_for_x(local.x + self.last_offset)?;
-        Some(self.offset_to_utf16(index))
+        Some(self.offset_to_utf16(input::source_offset(&self.content, self.masked, index)))
     }
 }
 
@@ -460,17 +496,21 @@ impl Element for EditorElement {
     ) -> Self::PrepaintState {
         let editor = self.editor.read(cx);
         let content = editor.content.clone();
-        let selected_range = editor.selected_range.clone();
-        let cursor = editor.cursor_offset();
+        let display = |offset| input::display_offset(&content, editor.masked, offset);
+        let selected_range =
+            display(editor.selected_range.start)..display(editor.selected_range.end);
+        let cursor = display(editor.cursor_offset());
         let style = window.text_style();
 
         let (display_text, text_color) = if content.is_empty() {
-            (editor.placeholder.clone(), rgba(0x8a8a8a55).into())
+            (editor.placeholder.clone(), style.color.opacity(0.55))
         } else if editor.masked {
-            // One dot per byte keeps caret math identical to the real text.
-            ("*".repeat(content.len()).into(), style.color)
+            (
+                "*".repeat(content.graphemes(true).count()).into(),
+                style.color,
+            )
         } else {
-            (content, style.color)
+            (content.clone(), style.color)
         };
         let run = TextRun {
             len: display_text.len(),
@@ -481,6 +521,7 @@ impl Element for EditorElement {
             strikethrough: None,
         };
         let runs = if let Some(marked) = editor.marked_range.as_ref() {
+            let marked = display(marked.start)..display(marked.end);
             vec![
                 TextRun {
                     len: marked.start,
@@ -605,10 +646,8 @@ impl Element for EditorElement {
         } else if let Some(line) = prepaint.line.as_ref() {
             let _ = line.paint(bounds.origin, window.line_height(), window, cx);
         }
-        if focused {
-            if let Some(cursor) = prepaint.cursor.take() {
-                window.paint_quad(cursor);
-            }
+        if focused && let Some(cursor) = prepaint.cursor.take() {
+            window.paint_quad(cursor);
         }
         let offset = prepaint.offset;
         self.editor.update(cx, |editor, _cx| {
@@ -637,12 +676,32 @@ impl Render for SqlEditor {
             .on_key_down(cx.listener(Self::on_key_down))
             .on_mouse_down(
                 MouseButton::Left,
-                cx.listener(|this, _event, window, cx| {
+                cx.listener(|this, event: &MouseDownEvent, window, cx| {
                     if this.enabled {
                         this.focus_handle.focus(window);
+                        this.selecting = true;
+                        if let Some(offset) = this.index_for_position(event.position) {
+                            if event.modifiers.shift {
+                                this.select_to(offset, cx);
+                            } else {
+                                this.move_to(offset, cx);
+                            }
+                        }
                         cx.notify();
                     }
                 }),
+            )
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                if this.selecting
+                    && this.enabled
+                    && let Some(offset) = this.index_for_position(event.position)
+                {
+                    this.select_to(offset, cx);
+                }
+            }))
+            .on_mouse_up(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.selecting = false),
             )
             .child(EditorElement {
                 editor: cx.entity(),

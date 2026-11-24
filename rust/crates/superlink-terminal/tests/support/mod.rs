@@ -47,6 +47,7 @@ Filesystem Blocks Used Available Capacity Mounted
 
 #[derive(Default)]
 pub struct Shared {
+    pub auth_attempts: usize,
     pub resizes: Vec<(u32, u32)>,
     pub channels: usize,
     pub terminals: Vec<String>,
@@ -55,6 +56,7 @@ pub struct Shared {
 
 #[derive(Default)]
 pub struct Options {
+    pub host_keys: Vec<PrivateKey>,
     pub reject_pty: bool,
     pub sftp: bool,
 }
@@ -85,6 +87,7 @@ impl server::Handler for FixtureHandler {
     type Error = russh::Error;
 
     async fn auth_password(&mut self, _user: &str, password: &str) -> Result<Auth, Self::Error> {
+        self.shared.lock().unwrap().auth_attempts += 1;
         if password == self.password {
             Ok(Auth::Accept)
         } else {
@@ -521,7 +524,11 @@ impl FixtureServer {
             let listener = tokio::net::TcpListener::from_std(listener).expect("tokio listener");
             let host_key = PrivateKey::from_openssh(HOST_KEY).expect("fixture host key");
             let config = Arc::new(server::Config {
-                keys: vec![host_key],
+                keys: if options.host_keys.is_empty() {
+                    vec![host_key]
+                } else {
+                    options.host_keys
+                },
                 inactivity_timeout: Some(Duration::from_secs(60)),
                 auth_rejection_time: Duration::from_millis(10),
                 auth_rejection_time_initial: Some(Duration::from_millis(0)),
