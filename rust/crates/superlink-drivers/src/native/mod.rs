@@ -25,4 +25,6 @@ pub use elasticsearch::NativeElasticsearch;
 pub use mysql::NativeMysql;
 pub use postgres::NativePostgres;
 pub use sqlite::NativeSqlite;
-pub use structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
+pub use structure::{
+    ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStats, TableStructure,
+};

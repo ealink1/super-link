@@ -34,6 +34,7 @@ use superlink_app::{
     QueryService, SavedQueryService, SettingsService, StructureService,
 };
 use superlink_domain::Profile;
+use superlink_drivers::TableStats;
 
 use crate::editor::SqlEditor;
 mod data_edit;
@@ -140,7 +141,7 @@ pub struct SuperLinkApp {
     expanded_dbs: HashSet<(usize, String)>,
     db_tables: HashMap<(usize, String), Option<Vec<superlink_drivers::TableEntry>>>,
     expanded_tables: HashSet<(usize, String, String)>,
-    table_counts: HashMap<(usize, String, String), i64>,
+    table_counts: HashMap<(usize, String, String), TableStats>,
     table_structures: HashMap<(usize, String, String), superlink_drivers::TableStructure>,
     column_errors: HashMap<(usize, String, String), SharedString>,
     structure: Arc<StructureService>,

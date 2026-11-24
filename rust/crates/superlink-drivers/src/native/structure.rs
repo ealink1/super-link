@@ -7,6 +7,21 @@ pub struct TableEntry {
     pub kind: String,
 }
 
+/// information_schema 提供的表统计；不支持的方言保持默认值。
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TableStats {
+    /// 引擎估算行数（MySQL 的 TABLE_ROWS 是采样值）。
+    pub rows: Option<u64>,
+    /// 数据长度，单位字节。
+    pub data_length: Option<u64>,
+    pub engine: Option<String>,
+    /// 建表时间，保留数据库返回的文本形式。
+    pub created: Option<String>,
+    pub updated: Option<String>,
+    pub collation: Option<String>,
+    pub comment: Option<String>,
+}
+
 /// 列定义。
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ColumnEntry {

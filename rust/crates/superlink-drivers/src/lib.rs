@@ -9,7 +9,9 @@ pub mod registry;
 pub mod session;
 pub mod stream;
 
-pub use native::structure::{ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStructure};
+pub use native::structure::{
+    ColumnEntry, ForeignKeyEntry, IndexEntry, TableEntry, TableStats, TableStructure,
+};
 pub use native::{
     NativeClickHouse, NativeElasticsearch, NativeMysql, NativePostgres, NativeSqlite,
     install_crypto_provider,

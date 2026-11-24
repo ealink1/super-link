@@ -1,5 +1,38 @@
 use super::*;
 
+/// 对象页的列定义：表头与数据行共用同一份宽度，避免两侧各自收缩导致错位。
+/// 名称列是复合单元格（图标 + 文本），单独定义。
+const ROW_HEIGHT: f32 = 30.0;
+const HEADER_HEIGHT: f32 = 32.0;
+const CELL_GAP: f32 = 12.0;
+const ROW_PADDING_X: f32 = 12.0;
+const NAME_WIDTH: f32 = 220.0;
+const NAME_ICON: f32 = 13.0;
+const NAME_ICON_GAP: f32 = 8.0;
+
+const COLUMNS: [(&str, f32); 8] = [
+    ("类型", 90.0),
+    ("行数", 100.0),
+    ("数据长度", 100.0),
+    ("引擎", 90.0),
+    ("创建日期", 210.0),
+    ("修改日期", 210.0),
+    ("排序规则", 130.0),
+    ("备注", 160.0),
+];
+
+/// 表格内容宽度 = 名称列 + 各固定列 + 列间距 + 左右内边距。
+const fn object_grid_width() -> f32 {
+    let mut total = NAME_WIDTH + ROW_PADDING_X * 2.;
+    let mut index = 0;
+    while index < COLUMNS.len() {
+        total += COLUMNS[index].1;
+        index += 1;
+    }
+    // 名称列之后每列（含名称列）之间的间距。
+    total + CELL_GAP * COLUMNS.len() as f32
+}
+
 impl SuperLinkApp {
     pub(super) fn open_object_preview(
         &mut self,
@@ -48,7 +81,7 @@ impl SuperLinkApp {
         self.open_object_preview(scope.0, scope.1, cx);
     }
 
-    pub(super) fn object_preview_panel(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn object_preview_panel(&mut self, cx: &mut Context<Self>) -> AnyElement {
         let Some((conn, database)) = &self.object_preview else {
             return div().into_any_element();
         };
@@ -127,12 +160,6 @@ impl SuperLinkApp {
         {
             panel = panel.child(div().p_3().child(error.clone()));
         }
-        let mut list = div()
-            .id("object-preview-list")
-            .flex_1()
-            .min_h(px(0.))
-            .overflow_y_scroll()
-            .text_size(px(12.));
         match self.db_tables.get(&key) {
             Some(Some(entries)) => {
                 let needle = self.sql_search.read(cx).text().to_lowercase();
@@ -142,66 +169,8 @@ impl SuperLinkApp {
                         (entry.kind.is_empty() || entry.kind == "table")
                             && (needle.is_empty() || entry.name.to_lowercase().contains(&needle))
                     })
+                    .take(10000)
                     .collect();
-                list = list.child(
-                    div()
-                        .flex()
-                        .h(px(30.))
-                        .items_center()
-                        .px_3()
-                        .gap_3()
-                        .bg(theme.canvas)
-                        .border_b_1()
-                        .border_color(theme.border)
-                        .child(div().flex_1().child("名称"))
-                        .child(div().w(px(80.)).child("类型"))
-                        .child(div().w(px(100.)).child("行数")),
-                );
-                if tables.is_empty() {
-                    list = list.child(div().p_3().text_color(theme.muted).child("没有表对象"));
-                }
-                for entry in tables.iter().take(10000) {
-                    let name = entry.name.clone();
-                    let db = database.clone();
-                    list = list.child(
-                        div()
-                            .id(SharedString::from(format!(
-                                "preview-{conn}-{database}-{name}"
-                            )))
-                            .flex()
-                            .items_center()
-                            .h(px(28.))
-                            .px_3()
-                            .gap_3()
-                            .border_b_1()
-                            .border_color(theme.border.opacity(0.4))
-                            .cursor_pointer()
-                            .hover(move |style| style.bg(theme.border.opacity(0.22)))
-                            .child(icons::icon("superlink/table.svg", 13., theme.muted))
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w(px(0.))
-                                    .overflow_hidden()
-                                    .whitespace_nowrap()
-                                    .child(name.clone()),
-                            )
-                            .child(div().w(px(80.)).child("表"))
-                            .child(
-                                div().w(px(100.)).text_color(theme.muted).child(
-                                    self.table_row_label(conn, &database, &name)
-                                        .unwrap_or_else(|| "—".into()),
-                                ),
-                            )
-                            .on_click(cx.listener(
-                                move |this, event: &gpui::ClickEvent, _window, cx| {
-                                    if event.click_count() == 2 {
-                                        this.open_workbench(conn, db.clone(), name.clone(), cx);
-                                    }
-                                },
-                            )),
-                    );
-                }
                 panel = panel.child(
                     div()
                         .px_3()
@@ -213,9 +182,182 @@ impl SuperLinkApp {
                             tables.len()
                         )),
                 );
+                panel = panel.child(self.object_grid(conn, &database, &tables, cx));
             }
-            _ => list = list.child(div().p_3().child("加载中…")),
+            _ => panel = panel.child(div().p_3().child("加载中…")),
         }
-        panel.child(list).into_any_element()
+        panel.into_any_element()
+    }
+
+    /// 纵向滚动 + 横向滚动的列信息表：表头与行都由 `COLUMNS` 生成，列宽一致。
+    fn object_grid(
+        &self,
+        conn: usize,
+        database: &str,
+        tables: &[&superlink_drivers::TableEntry],
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let mut body = div()
+            .flex()
+            .flex_col()
+            .w(px(object_grid_width()))
+            .flex_shrink_0()
+            .text_size(px(12.))
+            .child(self.object_header_row());
+        if tables.is_empty() {
+            body = body.child(
+                div()
+                    .px(px(ROW_PADDING_X))
+                    .py_2()
+                    .text_color(theme.muted)
+                    .child("没有表对象"),
+            );
+        }
+        for (row, entry) in tables.iter().enumerate() {
+            body = body.child(self.object_row(conn, database, entry, row, cx));
+        }
+        div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_h(px(0.))
+            .child(
+                div()
+                    .id("object-preview-scroll")
+                    .flex_1()
+                    .min_h(px(0.))
+                    .overflow_scroll()
+                    .scrollbar_width(px(8.))
+                    .child(body),
+            )
+            .into_any_element()
+    }
+
+    fn object_header_row(&self) -> AnyElement {
+        let theme = self.theme;
+        div()
+            .flex()
+            .items_center()
+            .h(px(HEADER_HEIGHT))
+            .px(px(ROW_PADDING_X))
+            .gap(px(CELL_GAP))
+            .flex_shrink_0()
+            .bg(theme.canvas)
+            .border_b_1()
+            .border_color(theme.border)
+            .text_size(px(12.))
+            .text_color(theme.muted)
+            .child(
+                div()
+                    .w(px(NAME_WIDTH))
+                    .flex_shrink_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .child("名称"),
+            )
+            .children(COLUMNS.iter().map(|(title, width)| {
+                div()
+                    .w(px(*width))
+                    .flex_shrink_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .child(*title)
+            }))
+            .into_any_element()
+    }
+
+    fn object_row(
+        &self,
+        conn: usize,
+        database: &str,
+        entry: &superlink_drivers::TableEntry,
+        row: usize,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let theme = self.theme;
+        let name = entry.name.clone();
+        let open_name = entry.name.clone();
+        let open_db = database.to_owned();
+        let stats = self.table_stats(conn, database, &name);
+        let striped = row % 2 == 1;
+        let values = [
+            "表".to_string(),
+            stats
+                .and_then(|stats| stats.rows)
+                .map(|rows| rows.to_string())
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.data_length)
+                .and_then(crate::shell::table_counts::format_bytes)
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.engine.clone())
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.created.clone())
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.updated.clone())
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.collation.clone())
+                .unwrap_or_default(),
+            stats
+                .and_then(|stats| stats.comment.clone())
+                .unwrap_or_default(),
+        ];
+        div()
+            .id(SharedString::from(format!(
+                "preview-{conn}-{database}-{name}"
+            )))
+            .flex()
+            .items_center()
+            .h(px(ROW_HEIGHT))
+            .px(px(ROW_PADDING_X))
+            .gap(px(CELL_GAP))
+            .flex_shrink_0()
+            .border_b_1()
+            .border_color(theme.border.opacity(0.4))
+            .bg(if striped {
+                theme.canvas.opacity(0.6)
+            } else {
+                gpui::transparent_black()
+            })
+            .cursor_pointer()
+            .hover(move |style| style.bg(theme.border.opacity(0.22)))
+            .child(
+                div()
+                    .w(px(NAME_WIDTH))
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .gap(px(NAME_ICON_GAP))
+                    .overflow_hidden()
+                    .child(icons::icon("superlink/table.svg", NAME_ICON, theme.muted))
+                    .child(div().min_w(px(0.)).truncate().child(name.clone())),
+            )
+            .children(COLUMNS.iter().enumerate().map(|(index, (_, width))| {
+                let text = &values[index];
+                div()
+                    .w(px(*width))
+                    .flex_shrink_0()
+                    .overflow_hidden()
+                    .whitespace_nowrap()
+                    .text_color(if index == 0 { theme.muted } else { theme.text })
+                    .child(if text.is_empty() {
+                        "—".to_string()
+                    } else {
+                        text.clone()
+                    })
+            }))
+            .on_click(
+                cx.listener(move |this, event: &gpui::ClickEvent, _window, cx| {
+                    if event.click_count() == 2 {
+                        this.open_workbench(conn, open_db.clone(), open_name.clone(), cx);
+                    }
+                }),
+            )
+            .into_any_element()
     }
 }

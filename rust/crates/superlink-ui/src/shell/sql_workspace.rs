@@ -2,7 +2,7 @@ use super::*;
 
 impl SuperLinkApp {
     /// All SQL surfaces share the object tree; opening a table never replaces it.
-    pub(super) fn sql_workspace(&self, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn sql_workspace(&mut self, cx: &mut Context<Self>) -> AnyElement {
         div()
             .flex()
             .flex_1()
