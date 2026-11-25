@@ -6,11 +6,7 @@ impl TerminalPage {
         let state = &self.auxiliary.monitor;
         let mut panel = div()
             .relative()
-            .bg(gpui::rgb(if theme.canvas.l > 0.5 {
-                0xeff1f5
-            } else {
-                0x1c2128
-            }))
+            .bg(theme.canvas)
             .flex()
             .flex_col()
             .flex_1()

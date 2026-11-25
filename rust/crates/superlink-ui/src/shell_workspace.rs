@@ -212,15 +212,20 @@ impl Render for ShellWorkspace {
                     .gap_1()
                     .h(px(34.0))
                     .text_size(px(12.))
-                    .border_b_1()
-                    .border_color(theme.border)
                     .child(
+                        // 图标栏宽度占位，竖分隔线贯穿标签栏与下方内容区。
                         div()
+                            .flex()
+                            .items_center()
+                            .justify_center()
                             .w(px(if self.home && self.rail_expanded {
                                 144.
                             } else {
                                 64.
                             }))
+                            .h_full()
+                            .border_r_1()
+                            .border_color(theme.border)
                             .when(self.home, |row| {
                                 row.child(
                                     div()
@@ -244,78 +249,117 @@ impl Render for ShellWorkspace {
                     )
                     .child(
                         div()
-                            .id("shell-tabs-scroll")
-                            .flex()
-                            .flex_1()
-                            .min_w(px(0.))
-                            .overflow_x_scroll()
-                            .children(self.tabs.iter().enumerate().map(|(index, tab)| {
-                                let active = self.active == Some(index);
-                                div()
-                                    .id(SharedString::from(tab.id.clone()))
-                                    .flex()
-                                    .items_center()
-                                    .gap_2()
-                                    .px_2()
-                                    .mx_1()
-                                    .h(px(30.))
-                                    .rounded_md()
-                                    .flex_shrink_0()
-                                    .bg(if active { theme.surface } else { theme.canvas })
-                                    .border_1()
-                                    .border_color(theme.border)
-                                    .text_size(px(12.0))
-                                    .text_color(theme.text)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
-                                        this.menu_left = px(f32::from(event.position().x).clamp(64., f32::from(window.viewport_size().width) - 200.));
-                                        this.show_tab_menu(index, cx);
-                                    }))
-                                    .on_mouse_down(
-                                        gpui::MouseButton::Right,
-                                        cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
-                                            this.menu_left = px(f32::from(event.position.x).clamp(64., f32::from(window.viewport_size().width) - 200.));
-                                            this.show_tab_menu(index, cx);
-                                        }),
-                                    )
-                                    .child(div().size(px(7.)).rounded_full().bg(tab.page.read(cx).indicator_color()))
-                                    .child(SharedString::from(tab.title.clone()))
-                                    .child(
-                                        div()
-                                            .id(SharedString::from(format!("close-{}", tab.id)))
-                                            .px_1()
-                                            .child("×")
-                                            .on_click(cx.listener(move |this, _, _, cx| {
-                                                cx.stop_propagation();
-                                                this.close(index, cx);
-                                            })),
-                                    )
-                            })),
-                    )
-                    .child(
-                        div()
-                            .id("shell-new-local")
-                            .cursor_pointer()
-                            .px_3()
-                            .text_color(theme.text)
-                            .child("+")
-                            .on_click(cx.listener(|this, _, _, cx| this.open(None, cx))),
-                    )
-                    .child(
-                        div()
-                            .id("shell-host-list")
-                            .cursor_pointer()
-                            .px_3()
-                            .py_1()
-                            .text_color(theme.text)
                             .flex()
                             .items_center()
                             .gap_1()
-                            .child(crate::icons::icon("shell/server.svg", 16., theme.muted))
-                            .child("主机")
-                            .on_click(cx.listener(|this, _, _, cx| {
-                                this.manage_hosts(cx);
-                            })),
+                            .flex_1()
+                            .h_full()
+                            .min_w(px(0.))
+                            .border_b_1()
+                            .border_color(theme.border)
+                            .child(
+                                div()
+                                    .id("shell-tabs-scroll")
+                                    .flex()
+                                    .items_center()
+                                    .flex_1()
+                                    .h_full()
+                                    .min_w(px(0.))
+                                    .overflow_x_scroll()
+                                    .children(self.tabs.iter().enumerate().map(|(index, tab)| {
+                                        let active = self.active == Some(index);
+                                        let status = tab.page.read(cx).indicator_color();
+                                        div()
+                                            .id(SharedString::from(tab.id.clone()))
+                                            .group("shell-tab")
+                                            .flex()
+                                            .items_center()
+                                            .gap(px(6.))
+                                            .px_3()
+                                            .mr_2()
+                                            .h(px(28.))
+                                            .rounded_lg()
+                                            .flex_shrink_0()
+                                            .border_1()
+                                            .bg(if active {
+                                                status.opacity(0.10)
+                                            } else {
+                                                theme.muted.opacity(0.10)
+                                            })
+                                            .border_color(if active {
+                                                status.opacity(0.38)
+                                            } else {
+                                                gpui::transparent_black()
+                                            })
+                                            .text_size(px(12.0))
+                                            .text_color(if active { theme.text } else { theme.muted })
+                                            .cursor_pointer()
+                                            .hover(move |style| {
+                                                style.bg(if active {
+                                                    status.opacity(0.14)
+                                                } else {
+                                                    theme.muted.opacity(0.16)
+                                                })
+                                            })
+                                            .on_click(cx.listener(move |this, _event: &gpui::ClickEvent, _, cx| {
+                                                this.activate(index, cx);
+                                            }))
+                                            .on_mouse_down(
+                                                gpui::MouseButton::Right,
+                                                cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                                                    this.menu_left = px(f32::from(event.position.x).clamp(64., f32::from(window.viewport_size().width) - 200.));
+                                                    this.show_tab_menu(index, cx);
+                                                }),
+                                            )
+                                            .child(crate::icons::icon(
+                                                "shell/terminal.svg",
+                                                12.,
+                                                if active { theme.accent } else { theme.muted },
+                                            ))
+                                            .child(SharedString::from(tab.title.clone()))
+                                            .child(
+                                                div()
+                                                    .id(SharedString::from(format!("close-{}", tab.id)))
+                                                    .ml_1()
+                                                    .opacity(if active { 1.0 } else { 0.0 })
+                                                    .group_hover("shell-tab", |style| style.opacity(1.0))
+                                                    .on_click(cx.listener(move |this, _, _, cx| {
+                                                        cx.stop_propagation();
+                                                        this.close(index, cx);
+                                                    }))
+                                                    .child(crate::icons::icon(
+                                                        "shell/x.svg",
+                                                        10.,
+                                                        theme.muted,
+                                                    )),
+                                            )
+                                    })),
+                            )
+                            .child(
+                                div()
+                                    .id("shell-new-local")
+                                    .cursor_pointer()
+                                    .px_3()
+                                    .text_color(theme.text)
+                                    .child("+")
+                                    .on_click(cx.listener(|this, _, _, cx| this.open(None, cx))),
+                            )
+                            .child(
+                                div()
+                                    .id("shell-host-list")
+                                    .cursor_pointer()
+                                    .px_3()
+                                    .py_1()
+                                    .text_color(theme.text)
+                                    .flex()
+                                    .items_center()
+                                    .gap_1()
+                                    .child(crate::icons::icon("shell/server.svg", 16., theme.muted))
+                                    .child("主机")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                        this.manage_hosts(cx);
+                                    })),
+                            ),
                     ),
             ))
             .child(div().flex().flex_1().min_h(px(0.0)).child(

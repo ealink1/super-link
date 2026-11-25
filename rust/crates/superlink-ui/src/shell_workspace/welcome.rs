@@ -15,6 +15,8 @@ impl ShellWorkspace {
                     .items_center()
                     .gap_2()
                     .py_3()
+                    .border_r_1()
+                    .border_color(theme.border)
                     .child(
                         div()
                             .id("welcome-hosts")

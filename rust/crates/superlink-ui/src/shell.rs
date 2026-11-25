@@ -261,6 +261,8 @@ impl Render for SuperLinkApp {
                     .h(px(TITLEBAR_HEIGHT))
                     .w_full()
                     .bg(theme.canvas)
+                    .border_b_1()
+                    .border_color(theme.border)
                     .child(
                         div()
                             .id("titlebar-lead")

@@ -25,6 +25,20 @@ fn targets(ids: &[String], anchor: &str, scope: CloseScope) -> Vec<String> {
 }
 
 impl ShellWorkspace {
+    /// Left click: switch to the tab only, never open the context menu.
+    pub(super) fn activate(&mut self, index: usize, cx: &mut Context<Self>) {
+        if index >= self.tabs.len() {
+            return;
+        }
+        self.active = Some(index);
+        self.home = false;
+        self.tab_menu = None;
+        self.tabs[index]
+            .page
+            .update(cx, |p, cx| p.request_focus(cx));
+        cx.notify();
+    }
+
     pub(super) fn show_tab_menu(&mut self, index: usize, cx: &mut Context<Self>) {
         let Some(tab) = self.tabs.get(index) else {
             return;
@@ -61,6 +75,10 @@ impl ShellWorkspace {
                 .bg(theme.surface)
                 .border_1()
                 .border_color(theme.border)
+                .on_mouse_down_out(cx.listener(|this, _, _, cx| {
+                    this.tab_menu = None;
+                    cx.notify();
+                }))
                 .children(
                     [
                         (CloseScope::Left, "关闭左边标签"),
