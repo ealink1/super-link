@@ -474,8 +474,9 @@ impl QueryPage {
     }
 
     pub fn open_connection_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // 新建先选数据源类型，再进入参数表单。
         self.connection_form
-            .update(cx, |form, cx| form.open_new(window, cx));
+            .update(cx, |form, cx| form.open_picker(window, cx));
         cx.notify();
     }
 

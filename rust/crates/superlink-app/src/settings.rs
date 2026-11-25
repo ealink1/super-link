@@ -6,6 +6,11 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use serde_json::Value;
 use superlink_infra::Store;
 
+/// Terminal text size, in points, before any user override.
+pub const DEFAULT_SHELL_FONT_SIZE: u64 = 14;
+pub const MIN_SHELL_FONT_SIZE: u64 = 10;
+pub const MAX_SHELL_FONT_SIZE: u64 = 24;
+
 pub struct SettingsService {
     values: RwLock<HashMap<String, Value>>,
     writer: Arc<(Mutex<Pending>, Condvar)>,
@@ -118,8 +123,8 @@ impl SettingsService {
                     .get("FontSize")
                     .and_then(Value::as_u64)
             })
-            .unwrap_or(16)
-            .clamp(10, 24) as u32
+            .unwrap_or(DEFAULT_SHELL_FONT_SIZE)
+            .clamp(MIN_SHELL_FONT_SIZE, MAX_SHELL_FONT_SIZE) as u32
     }
 
     pub fn shell_default_program(&self) -> Option<String> {
@@ -195,6 +200,8 @@ mod tests {
     fn defaults_then_round_trips() {
         let (dir, settings) = service();
         assert_eq!(settings.theme_mode(), "system");
+        assert_eq!(settings.shell_font_size(), DEFAULT_SHELL_FONT_SIZE as u32);
+        assert_eq!(settings.shell_font_size(), 14);
         settings.set_theme_mode("dark");
         assert_eq!(settings.theme_mode(), "dark");
         assert_eq!(settings.row_limit(), 5_000);

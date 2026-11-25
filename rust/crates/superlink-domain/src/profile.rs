@@ -277,6 +277,27 @@ impl Profile {
         self.config.kind.as_str()
     }
 
+    /// 连接串字段以表单原始文本保存，URI 携带的查询参数需要合并进
+    /// `connection_params`，否则驱动读不到。
+    pub fn merged_connection_params(&self) -> String {
+        let from_uri = self
+            .config
+            .uri
+            .split_once('?')
+            .map(|(_, query)| query.split('#').next().unwrap_or(query))
+            .unwrap_or("");
+        let from_field = self
+            .config
+            .connection_params
+            .trim()
+            .trim_start_matches(['?', '&']);
+        match (from_uri.trim().is_empty(), from_field.is_empty()) {
+            (true, _) => from_field.to_string(),
+            (false, true) => from_uri.trim().to_string(),
+            (false, false) => format!("{}&{}", from_uri.trim(), from_field),
+        }
+    }
+
     pub fn visible_databases(&self, names: &[String]) -> Vec<String> {
         names
             .iter()
@@ -359,6 +380,20 @@ fn match_name(pattern: &str, name: &str) -> bool {
     Regex::new(&expression)
         .map(|re| re.is_match(name))
         .unwrap_or(false)
+}
+
+/// 把逗号分隔的过滤输入拆成非空条目；与旧版表单的拆分/合并规则一致。
+pub fn split_patterns(text: &str) -> Vec<String> {
+    text.split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+/// 反向合并成一行，供表单回填。
+pub fn join_patterns(values: &[String]) -> String {
+    values.join(", ")
 }
 
 #[cfg(test)]

@@ -147,3 +147,7 @@ Shift+Y 只操作横向列；兼容平台已转换为 X 的 Shift 滚轮与触�
 ### 2026-11-04 标签溢出入口
 
 按用户参考移除统一标签栏末尾的新建加号，改为右端固定双箭头“»”入口。原生弹层列出打开的查询与表标签，标记当前标签并支持切换；新建查询保留顶部入口。使用原有 GPUI 组件自行实现。
+
+### 2026-11-24 新建连接表单对齐
+
+依据用户指出的「新建连接与 Fyne 版差距」，按 `main` 分支 `internal/ui/connection_forms.go`、`connection_network.go`、`connection_advanced.go`、`datasource_picker.go` 重建表单：新建先进入带分类计数与搜索的数据源选择器；表单分为「基本 / 网络与安全 / 外观 / 高级」，补回连接串解析/生成/复制、连接参数、数据库显示过滤、拓扑与节点地址、生产连接保护四项、SQLite/DuckDB 文件选择、类型说明、环境与分组、外观图标与颜色（侧栏使用 `iconType`），SSL 验证模式恢复 `required/preferred/disable/skip-verify` 并补充 CA 校验，超时上限改为连接 120 秒、查询 3600 秒，端口按旧版允许留空。原生驱动新增连接串/连接参数合并（MySQL charset、PostgreSQL application_name/options/connect_timeout）。纯 Rust/GPUI 自行实现，未复制 Fyne 代码或资源。

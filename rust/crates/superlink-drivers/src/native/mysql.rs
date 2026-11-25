@@ -133,6 +133,19 @@ impl NativeMysql {
                 return Err(DriverError::Native("MySQL 字符集无效".into()));
             }
             builder = builder.init(vec![format!("SET NAMES {charset}")]);
+        } else if let Some(charset) =
+            super::connection_params::merged_params(&config.uri, &config.connection_params)
+                .get("charset")
+                .cloned()
+        {
+            // 连接串里的 ?charset= 与旧版一致：SET NAMES 生效，拒绝注入字符集名。
+            if !charset
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_')
+            {
+                return Err(DriverError::Native("MySQL 字符集无效".into()));
+            }
+            builder = builder.init(vec![format!("SET NAMES {charset}")]);
         }
         let opts = Opts::from(builder);
         let conn = mysql::Conn::new(opts)

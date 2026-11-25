@@ -12,8 +12,15 @@ impl QueryPage {
         theme: Theme,
         cx: &mut Context<Self>,
     ) -> Self {
-        let connection_form =
-            cx.new(|cx| ConnectionForm::new(profiles.clone(), queries.clone(), theme, cx));
+        let connection_form = cx.new(|cx| {
+            ConnectionForm::new(
+                profiles.clone(),
+                queries.clone(),
+                settings.clone(),
+                theme,
+                cx,
+            )
+        });
         let saved_title = cx.new(SqlEditor::new);
         saved_title.update(cx, |editor, cx| editor.set_placeholder("查询名称", cx));
         let page = Self {

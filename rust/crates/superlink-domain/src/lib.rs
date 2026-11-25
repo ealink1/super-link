@@ -18,7 +18,7 @@ pub mod table;
 pub use catalog::{Descriptor, Family, catalog, resolve};
 pub use error::{DomainError, DomainResult};
 pub use note::{Note, NoteGroup, Notebook};
-pub use profile::{ConnectionConfig, Profile};
+pub use profile::{ConnectionConfig, Profile, join_patterns, split_patterns};
 pub use query::{
     Column, Draft, Execution, History, Parameter, ResultSet, RowChange, SavedQuery, Statement,
     TableChanges,

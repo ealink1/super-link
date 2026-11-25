@@ -140,7 +140,10 @@ impl TerminalPage {
             .into_any_element()
     }
     fn adjust_font(&mut self, delta: i64, cx: &mut Context<Self>) {
-        let size = (self.settings.shell_font_size() as i64 + delta).clamp(10, 24);
+        let size = (self.settings.shell_font_size() as i64 + delta).clamp(
+            superlink_app::MIN_SHELL_FONT_SIZE as i64,
+            superlink_app::MAX_SHELL_FONT_SIZE as i64,
+        );
         self.settings.set("shell.fontSize", serde_json::json!(size));
         cx.notify();
     }

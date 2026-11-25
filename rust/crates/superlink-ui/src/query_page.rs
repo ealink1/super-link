@@ -240,9 +240,7 @@ impl Render for QueryPage {
                 div()
                     .flex()
                     .flex_1()
-                    .items_start()
-                    .justify_center()
-                    .bg(theme.canvas)
+                    .min_h(px(0.0))
                     .child(self.connection_form.clone())
                     .into_any_element()
             } else {

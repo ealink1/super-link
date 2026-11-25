@@ -308,7 +308,7 @@ impl SuperLinkApp {
                             }),
                         )
                         .child(icons::icon(
-                            icons::datasource_icon(profile.sql_dialect()),
+                            icons::connection_icon(profile),
                             tree_style::ICON,
                             theme.muted,
                         ))

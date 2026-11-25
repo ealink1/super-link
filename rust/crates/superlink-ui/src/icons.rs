@@ -74,6 +74,16 @@ impl gpui::AssetSource for Assets {
     }
 }
 
+/// 连接图标：用户在外观页选的类型优先，非法值回退到 SQL 方言。
+pub fn connection_icon(profile: &superlink_domain::Profile) -> &'static str {
+    if !profile.icon_type.is_empty()
+        && let Ok(descriptor) = superlink_domain::resolve(&profile.icon_type)
+    {
+        return datasource_icon(descriptor.key);
+    }
+    datasource_icon(profile.sql_dialect())
+}
+
 /// Data source icon. Falls back to the generic database glyph for engines
 /// whose artwork only exists as PNG.
 pub fn datasource_icon(kind: &str) -> &'static str {
@@ -160,6 +170,22 @@ mod tests {
                 "{kind} maps to missing {path}"
             );
         }
+    }
+
+    #[test]
+    fn connection_icon_prefers_the_chosen_type() {
+        let mut profile = superlink_domain::Profile {
+            config: superlink_domain::ConnectionConfig {
+                kind: "mysql".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert_eq!(connection_icon(&profile), "superlink/db-mysql.svg");
+        profile.icon_type = "redis".into();
+        assert_eq!(connection_icon(&profile), "superlink/db-redis.svg");
+        profile.icon_type = "unknown-kind".into();
+        assert_eq!(connection_icon(&profile), "superlink/db-mysql.svg");
     }
 
     #[test]

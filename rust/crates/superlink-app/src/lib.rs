@@ -35,7 +35,9 @@ pub use profiles::{Credentials, ProfileService};
 pub use queries::QueryLibrary;
 pub use query::{QueryError, QueryService};
 pub use saved_queries::SavedQueryService;
-pub use settings::SettingsService;
+pub use settings::{
+    DEFAULT_SHELL_FONT_SIZE, MAX_SHELL_FONT_SIZE, MIN_SHELL_FONT_SIZE, SettingsService,
+};
 pub use shell_hosts::{HostCredentials, HostError, HostService};
 pub use structure::{StructureError, StructureService};
 pub use superlink_drivers::QueryCancel;

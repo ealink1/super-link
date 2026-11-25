@@ -66,6 +66,25 @@ impl NativePostgres {
                 .map_err(|_| DriverError::Native("转发地址无效".into()))?;
             params.hostaddr(address.ip()).port(address.port());
         }
+        // 连接串 / 连接参数里的 query 项合并进 libpq 风格选项；未知键忽略。
+        for (key, value) in
+            super::connection_params::merged_params(&config.uri, &config.connection_params)
+        {
+            match key.to_ascii_lowercase().as_str() {
+                "application_name" | "application name" => {
+                    params.application_name(&value);
+                }
+                "options" => {
+                    params.options(&value);
+                }
+                "connect_timeout" | "connect timeout" => {
+                    if let Ok(seconds) = value.parse::<u64>() {
+                        params.connect_timeout(Duration::from_secs(seconds));
+                    }
+                }
+                _ => {}
+            }
+        }
         params.application_name("SuperLink");
         if source.is_empty() && !config.user.trim().is_empty() {
             params.user(config.user.trim());
