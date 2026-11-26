@@ -33,6 +33,9 @@ pub struct Style {
 pub struct Cell {
     combining: String,
     continuation: bool,
+    /// Set on the last cell of a row that soft-wraps into the next row, so
+    /// resizing can join the run back into one logical line.
+    wrap: bool,
     pub ch: char,
     pub style: Style,
 }
@@ -43,6 +46,7 @@ impl Default for Cell {
             ch: ' ',
             combining: String::new(),
             continuation: false,
+            wrap: false,
             style: Style::default(),
         }
     }
@@ -133,12 +137,56 @@ impl Screen {
         }
     }
 
+    /// Re-wraps the whole buffer at the new size.
+    ///
+    /// Rows are first joined back into logical lines using the soft-wrap marks
+    /// left by `put`, so narrowing the window re-wraps long lines instead of
+    /// clipping them, and widening joins the fragments back together.
     pub fn resize(&mut self, cols: usize, rows: usize) {
         let cols = cols.clamp(2, 500);
         let rows = rows.clamp(2, 200);
         if cols == self.cols && rows == self.rows {
             return;
         }
+        if self.alternate.is_some() {
+            // Full-screen programs repaint themselves; re-wrapping their
+            // display would corrupt cursor-addressed output.
+            self.crop(cols, rows);
+            return;
+        }
+        let (lines, cursor_line, cursor_column) = self.logical_layout();
+        let mut wrapped: Vec<Vec<Cell>> = Vec::new();
+        let mut starts: Vec<usize> = Vec::with_capacity(lines.len());
+        let mut columns: Vec<usize> = Vec::with_capacity(lines.len());
+        for line in lines {
+            let (rows_of_line, column) = wrap_line(line, cols);
+            starts.push(wrapped.len());
+            columns.push(column);
+            wrapped.extend(rows_of_line);
+        }
+        let line = cursor_line.min(starts.len().saturating_sub(1));
+        let first_row = starts.get(line).copied().unwrap_or(0);
+        let column = cursor_column.min(columns.get(line).copied().unwrap_or(0).saturating_sub(1));
+        let cursor_row_abs = first_row + column / cols;
+        let grid_start = wrapped.len().saturating_sub(rows);
+        let mut grid = wrapped.split_off(grid_start);
+        grid.resize_with(rows, || vec![Cell::default(); cols]);
+        let mut scrollback: VecDeque<Vec<Cell>> = wrapped.into();
+        while scrollback.len() > SCROLLBACK_LIMIT {
+            scrollback.pop_front();
+        }
+        self.grid = grid;
+        self.scrollback = scrollback;
+        self.cols = cols;
+        self.rows = rows;
+        self.cursor_row = cursor_row_abs.saturating_sub(grid_start).min(rows - 1);
+        self.cursor_col = (column % cols).min(cols - 1);
+        self.saved = (self.saved.0.min(rows - 1), self.saved.1.min(cols - 1));
+        self.scroll_top = 0;
+        self.scroll_bottom = rows - 1;
+    }
+
+    fn crop(&mut self, cols: usize, rows: usize) {
         let mut grid = vec![vec![Cell::default(); cols]; rows];
         for (row, line) in self.grid.iter().take(rows).enumerate() {
             for (col, cell) in line.iter().take(cols).enumerate() {
@@ -150,8 +198,62 @@ impl Screen {
         self.rows = rows;
         self.cursor_row = self.cursor_row.min(rows - 1);
         self.cursor_col = self.cursor_col.min(cols - 1);
+        self.saved = (self.saved.0.min(rows - 1), self.saved.1.min(cols - 1));
         self.scroll_top = 0;
         self.scroll_bottom = rows - 1;
+    }
+
+    /// Joins soft-wrapped rows back into logical lines and reports where the
+    /// cursor sits inside its own logical line.
+    fn logical_layout(&self) -> (Vec<Vec<Cell>>, usize, usize) {
+        let mut lines: Vec<Vec<Cell>> = Vec::new();
+        let mut open = false;
+        let mut line = 0usize;
+        let mut lead = 0usize;
+        let mut cursor = (0usize, 0usize);
+        let scrollback = self.scrollback.len();
+        for index in 0..scrollback + self.grid.len() {
+            let row = if index < scrollback {
+                &self.scrollback[index]
+            } else {
+                &self.grid[index - scrollback]
+            };
+            if open {
+                if let Some(last) = lines.last_mut() {
+                    last.extend(row.iter().cloned());
+                }
+            } else {
+                if index > 0 {
+                    line += 1;
+                }
+                lead = 0;
+                lines.push(row.clone());
+            }
+            if index == scrollback + self.cursor_row {
+                cursor = (line, lead + self.cursor_col);
+            }
+            lead += self.cols;
+            open = row.last().is_some_and(|cell| cell.wrap);
+        }
+        if lines.is_empty() {
+            lines.push(Vec::new());
+        }
+        // Blank rows below the content and trailing blanks on each line carry
+        // no text; keeping them would wrap a short buffer into extra empty
+        // rows and push the real content out of view.
+        for line in &mut lines {
+            while line.len() > 1 && line.last() == Some(&Cell::default()) {
+                line.pop();
+            }
+        }
+        while lines.len() > 1
+            && lines
+                .last()
+                .is_some_and(|line| line.len() == 1 && line[0] == Cell::default())
+        {
+            lines.pop();
+        }
+        (lines, cursor.0, cursor.1)
     }
 
     pub fn visible_row(
@@ -236,6 +338,7 @@ impl Screen {
             return;
         }
         if self.cursor_col + width > self.cols {
+            self.mark_wrap();
             self.cursor_col = 0;
             self.line_feed();
         }
@@ -251,6 +354,7 @@ impl Screen {
             style: self.style,
             combining: String::new(),
             continuation: false,
+            wrap: false,
         };
         if width == 2 {
             self.grid[self.cursor_row][col + 1] = Cell {
@@ -267,6 +371,16 @@ impl Screen {
             self.scroll_up(1);
         } else if self.cursor_row + 1 < self.rows {
             self.cursor_row += 1;
+        }
+    }
+
+    /// Marks the cell just written as the end of a soft-wrapped row.
+    fn mark_wrap(&mut self) {
+        let column = self.cursor_col.min(self.cols.saturating_sub(1));
+        if let Some(cell) = self.grid[self.cursor_row].get_mut(column)
+            && !cell.continuation
+        {
+            cell.wrap = true;
         }
     }
 
@@ -390,6 +504,43 @@ fn param(params: &Params, index: usize, default: usize) -> usize {
         .map(|value| value as usize)
         .filter(|value| *value > 0)
         .unwrap_or(default)
+}
+
+/// Splits one logical line into fixed `cols`-wide rows, re-marking the
+/// soft-wrap ends for the new width. Returns the rows and the column count of
+/// the line, which the caller uses to place the cursor.
+fn wrap_line(line: Vec<Cell>, cols: usize) -> (Vec<Vec<Cell>>, usize) {
+    let mut rows: Vec<Vec<Cell>> = vec![Vec::new()];
+    let mut used = 0usize;
+    let mut columns = 0usize;
+    for cell in line {
+        let width = if cell.continuation {
+            0
+        } else {
+            cell.ch.width().unwrap_or(1).min(2)
+        };
+        if width > 0 && used + width > cols {
+            rows.push(Vec::new());
+            used = 0;
+        }
+        used += width;
+        if !cell.continuation {
+            columns += width;
+        }
+        if let Some(row) = rows.last_mut() {
+            row.push(cell);
+        }
+    }
+    let total = rows.len();
+    for (index, row) in rows.iter_mut().enumerate() {
+        if index + 1 < total
+            && let Some(cell) = row.iter_mut().rev().find(|cell| !cell.continuation)
+        {
+            cell.wrap = true;
+        }
+        row.resize_with(cols, Cell::default);
+    }
+    (rows, columns.max(1))
 }
 
 impl Perform for Screen {
@@ -547,6 +698,47 @@ mod tests {
         assert_eq!(text(&screen, 0), "byelo");
         feed(&mut screen, b"\x1b[K");
         assert_eq!(text(&screen, 0), "bye");
+    }
+
+    #[test]
+    fn narrowing_rewraps_instead_of_clipping() {
+        let mut screen = Screen::new(10, 4);
+        feed(&mut screen, b"0123456789abcdefghij");
+        assert_eq!(text(&screen, 0), "0123456789");
+        assert_eq!(text(&screen, 1), "abcdefghij");
+        screen.resize(5, 4);
+        assert_eq!(text(&screen, 0), "01234");
+        assert_eq!(text(&screen, 1), "56789");
+        assert_eq!(text(&screen, 2), "abcde");
+        assert_eq!(text(&screen, 3), "fghij");
+    }
+
+    #[test]
+    fn widening_joins_soft_wrapped_rows_and_keeps_cursor() {
+        let mut screen = Screen::new(5, 4);
+        feed(&mut screen, b"0123456789");
+        assert_eq!(screen.cursor(), (1, 5));
+        screen.resize(10, 4);
+        assert_eq!(text(&screen, 0), "0123456789");
+        assert_eq!(screen.cursor(), (0, 9));
+    }
+
+    #[test]
+    fn explicit_newlines_stay_separate_when_resizing() {
+        let mut screen = Screen::new(10, 4);
+        feed(&mut screen, b"one\r\ntwo");
+        screen.resize(4, 4);
+        assert_eq!(text(&screen, 0), "one");
+        assert_eq!(text(&screen, 1), "two");
+    }
+
+    #[test]
+    fn shrinking_rows_keeps_the_newest_lines() {
+        let mut screen = Screen::new(10, 5);
+        feed(&mut screen, b"a\r\nb\r\nc\r\nd\r\ne");
+        screen.resize(10, 2);
+        assert_eq!(text(&screen, 0), "d");
+        assert_eq!(text(&screen, 1), "e");
     }
 
     #[test]
