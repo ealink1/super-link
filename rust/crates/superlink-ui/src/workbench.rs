@@ -83,6 +83,51 @@ pub struct FilterDraft {
     pub join_and: bool,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct FindState {
+    pub open: bool,
+    pub query: String,
+    /// 当前结果下标（`matches` 里的位置），0 表示第一个命中。
+    pub current: usize,
+}
+
+impl FindState {
+    pub fn close(&mut self) {
+        self.open = false;
+        self.query.clear();
+        self.current = 0;
+    }
+
+    /// 在当前页结果里收集命中的 (行, 列)，按行优先顺序，大小写不敏感。
+    pub fn matches(&self, result: &ResultSet) -> Vec<(usize, usize)> {
+        let needle = self.query.trim().to_lowercase();
+        if needle.is_empty() {
+            return Vec::new();
+        }
+        let mut hits = Vec::new();
+        for (row, values) in result.rows.iter().enumerate() {
+            for (column, value) in values.iter().enumerate() {
+                if crate::query_page::cell_text(value)
+                    .to_lowercase()
+                    .contains(&needle)
+                {
+                    hits.push((row, column));
+                }
+            }
+        }
+        hits
+    }
+
+    /// 是否命中给定单元格，用于绘制高亮。
+    pub fn hits(&self, value: &serde_json::Value) -> bool {
+        let needle = self.query.trim().to_lowercase();
+        !needle.is_empty()
+            && crate::query_page::cell_text(value)
+                .to_lowercase()
+                .contains(&needle)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Workbench {
     pub stale: bool,
@@ -93,6 +138,7 @@ pub struct Workbench {
     pub cell: Option<(usize, usize)>,
     pub preview: Option<String>,
     pub operation: Option<superlink_app::QueryCancel>,
+    pub find: FindState,
     pub conn: usize,
     pub database: String,
     pub table: String,
@@ -135,6 +181,7 @@ impl Workbench {
             cell: None,
             preview: None,
             operation: None,
+            find: FindState::default(),
             conn,
             database,
             table,
@@ -435,6 +482,37 @@ mod tests {
         bench.go_prev();
         assert_eq!(bench.page, 2);
     }
+    #[test]
+    fn find_matches_are_row_major_and_case_insensitive() {
+        let result = ResultSet {
+            columns: Vec::new(),
+            rows: vec![
+                vec![serde_json::json!("Alice"), serde_json::json!("x")],
+                vec![serde_json::json!(1), serde_json::json!("ALICE")],
+            ],
+            ..Default::default()
+        };
+        let mut find = FindState::default();
+        find.query = "alice".into();
+        assert_eq!(find.matches(&result), vec![(0, 0), (1, 1)]);
+        find.query = "  ".into();
+        assert!(find.matches(&result).is_empty());
+        assert!(!find.hits(&serde_json::json!("Miss")));
+    }
+
+    #[test]
+    fn closing_find_clears_query_and_position() {
+        let mut find = FindState {
+            open: true,
+            query: "x".into(),
+            current: 3,
+        };
+        find.close();
+        assert!(!find.open);
+        assert!(find.query.is_empty());
+        assert_eq!(find.current, 0);
+    }
+
     #[test]
     fn last_full_page_does_not_advance_and_page_size_controls_sql() {
         let mut bench = workbench();

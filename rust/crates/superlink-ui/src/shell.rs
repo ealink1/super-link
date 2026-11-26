@@ -17,6 +17,7 @@ mod table_counts;
 mod table_sections;
 mod tree_style;
 mod workbench_controls;
+mod workbench_find;
 mod workbench_grid;
 mod workbench_header_actions;
 mod workbench_scrollbar;
@@ -174,6 +175,8 @@ pub struct SuperLinkApp {
     wb_value: Entity<SqlEditor>,
     wb_import: Entity<SqlEditor>,
     wb_editor: Entity<SqlEditor>,
+    /// 数据页 Cmd/Ctrl+F 的查找输入框。
+    wb_find: Entity<SqlEditor>,
     workspace: Workspace,
     theme: Theme,
     resolved_dark: bool,
@@ -246,6 +249,18 @@ impl Render for SuperLinkApp {
                 {
                     cx.stop_propagation();
                     cx.notify();
+                } else if event.keystroke.key == "f"
+                    && event.keystroke.modifiers.platform
+                    && this.workspace == Workspace::Sql
+                    && this.workbench.as_ref().is_some_and(|b| {
+                        b.tab == crate::workbench::WorkbenchTab::Data
+                            && !b.text_view
+                            && b.result.is_some()
+                    })
+                {
+                    // 焦点不在数据网格里时 Cmd/Ctrl+F 也能打开查找框。
+                    cx.stop_propagation();
+                    this.open_workbench_find(window, cx);
                 } else if event.keystroke.key == "tab" {
                     cx.stop_propagation();
                     if event.keystroke.modifiers.shift {

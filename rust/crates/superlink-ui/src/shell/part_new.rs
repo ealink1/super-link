@@ -164,6 +164,33 @@ impl SuperLinkApp {
             wb_column: cx.new(SqlEditor::new),
             wb_value: cx.new(SqlEditor::new),
             wb_editor: cx.new(SqlEditor::new),
+            wb_find: {
+                let shell = cx.entity().downgrade();
+                cx.new(|cx| {
+                    let mut editor = SqlEditor::new(cx);
+                    editor.set_placeholder("当前页查找…", cx);
+                    editor.set_on_change(
+                        move |text, app| {
+                            let text = text.to_string();
+                            let shell = shell.clone();
+                            // 输入回调发生在编辑器自身更新中，排队再更新外壳。
+                            app.defer(move |app| {
+                                let _ = shell.update(app, |this, cx| {
+                                    if let Some(bench) = this.workbench.as_mut() {
+                                        if bench.find.query != text {
+                                            bench.find.current = 0;
+                                        }
+                                        bench.find.query = text;
+                                    }
+                                    cx.notify();
+                                });
+                            });
+                        },
+                        cx,
+                    );
+                    editor
+                })
+            },
             wb_import: {
                 let editor = cx.new(SqlEditor::new);
                 editor.update(cx, |editor, cx| {

@@ -1,7 +1,7 @@
 use super::*;
 use superlink_domain::ResultSet;
 
-const DEFAULT_COLUMN_WIDTH: f32 = 100.;
+pub(super) const DEFAULT_COLUMN_WIDTH: f32 = 100.;
 
 impl SuperLinkApp {
     pub(super) fn workbench_grid(&self, result: &ResultSet, cx: &mut Context<Self>) -> AnyElement {
@@ -25,9 +25,11 @@ impl SuperLinkApp {
                 .copied()
                 .unwrap_or(DEFAULT_COLUMN_WIDTH)
         };
-        let start = (b.column_page * 40).min(result.columns.len().saturating_sub(1));
-        let end = (start + 40).min(result.columns.len());
-        let total_width = 70. + (start..end).map(width).sum::<f32>();
+        let start = (b.column_page * super::workbench_find::COLUMN_PAGE_SIZE)
+            .min(result.columns.len().saturating_sub(1));
+        let end = (start + super::workbench_find::COLUMN_PAGE_SIZE).min(result.columns.len());
+        let total_width =
+            super::workbench_find::INDEX_COLUMN_WIDTH + (start..end).map(width).sum::<f32>();
         let header = div()
             .flex()
             .h(px(42.))
@@ -38,7 +40,7 @@ impl SuperLinkApp {
             .child(
                 div()
                     .id("wb-select-all")
-                    .w(px(70.))
+                    .w(px(super::workbench_find::INDEX_COLUMN_WIDTH))
                     .flex_shrink_0()
                     .px_2()
                     .cursor_pointer()
@@ -142,10 +144,16 @@ impl SuperLinkApp {
                             )
                     }),
             );
+        let active_cell = b.find.matches(result).get(b.find.current).copied();
+        let find_bar = self
+            .workbench
+            .as_ref()
+            .is_some_and(|b| b.find.open)
+            .then(|| self.workbench_find_bar(cx));
         let rows = result.rows.iter().enumerate().map(|(row, values)| {
             div()
                 .flex()
-                .h(px(27.))
+                .h(px(super::workbench_find::ROW_HEIGHT))
                 .flex_shrink_0()
                 .bg(if row % 2 == 0 {
                     theme.surface
@@ -157,7 +165,7 @@ impl SuperLinkApp {
                 .child(
                     div()
                         .id(("wb-select-row", row))
-                        .w(px(70.))
+                        .w(px(super::workbench_find::INDEX_COLUMN_WIDTH))
                         .h_full()
                         .flex_shrink_0()
                         .px_2()
@@ -191,6 +199,8 @@ impl SuperLinkApp {
                         .map(|(column, _)| {
                             let value = values.get(column).unwrap_or(&serde_json::Value::Null);
                             let selected = b.inspected == Some((row, column));
+                            let hit = b.find.hits(value);
+                            let active = b.find.open && active_cell == Some((row, column));
                             div()
                                 .id(SharedString::from(format!("wb-cell-{row}-{column}")))
                                 .w(px(width(column)))
@@ -206,7 +216,11 @@ impl SuperLinkApp {
                                 } else {
                                     theme.border.opacity(0.3)
                                 })
-                                .bg(if selected {
+                                .bg(if active {
+                                    gpui::Hsla::from(gpui::rgb(0xe8a33d)).opacity(0.45)
+                                } else if hit {
+                                    gpui::Hsla::from(gpui::rgb(0xe8a33d)).opacity(0.18)
+                                } else if selected {
                                     gpui::Hsla::from(gpui::rgb(0x17823b)).opacity(0.08)
                                 } else {
                                     gpui::transparent_black()
@@ -235,6 +249,7 @@ impl SuperLinkApp {
                 )
         });
         let mut panel = div()
+            .relative()
             .flex()
             .flex_col()
             .flex_1()
@@ -242,6 +257,37 @@ impl SuperLinkApp {
             .min_w(px(0.))
             .text_size(px(12.))
             .text_color(theme.text)
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                use gpui::Focusable as _;
+                if let Some(bench) = this.workbench.as_ref()
+                    && bench.find.open
+                    && this.wb_find.read(cx).focus_handle(cx).is_focused(window)
+                {
+                    match event.keystroke.key.as_str() {
+                        "escape" => {
+                            cx.stop_propagation();
+                            this.close_workbench_find(cx);
+                            return;
+                        }
+                        "enter" => {
+                            cx.stop_propagation();
+                            let delta = if event.keystroke.modifiers.shift {
+                                -1
+                            } else {
+                                1
+                            };
+                            this.step_workbench_find(delta, cx);
+                            return;
+                        }
+                        _ => {}
+                    }
+                }
+                if event.keystroke.key == "f" && event.keystroke.modifiers.platform {
+                    cx.stop_propagation();
+                    this.open_workbench_find(window, cx);
+                }
+            }))
+            .children(find_bar)
             .child(
                 div()
                     .id("wb-horizontal")
