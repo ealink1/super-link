@@ -1,6 +1,9 @@
 use super::*;
 use superlink_terminal::{ConnectEvent, ConnectStage};
 
+/// 侧栏开合时长：太短会显得生硬，200ms 左右滑动才看得清。
+const PANEL_DURATION: Duration = Duration::from_millis(200);
+
 pub(super) fn this_progress(page: &mut TerminalPage, event: ConnectEvent) {
     let index = match event.stage {
         ConnectStage::Tcp => 0,
@@ -104,14 +107,75 @@ impl TerminalPage {
         }
     }
     pub(super) fn hide_panel(&mut self, cx: &mut Context<Self>) {
+        if self.auxiliary.mode == auxiliary::Mode::Terminal {
+            return;
+        }
+        // 收起时先留着旧模式，动画播完再切回终端，否则面板会直接消失。
         self.auxiliary.collapsed = Some(self.auxiliary.mode);
-        self.auxiliary.mode = auxiliary::Mode::Terminal;
         self.needs_focus = true;
-        cx.notify();
+        self.animate_panel(0., cx);
     }
     pub(super) fn restore_panel(&mut self, cx: &mut Context<Self>) {
-        if let Some(mode) = self.auxiliary.collapsed.take() {
-            self.toggle_panel(mode, cx);
+        let Some(mode) = self.auxiliary.collapsed else {
+            return;
+        };
+        self.open_panel(mode, cx);
+    }
+    /// 打开的侧栏模式并带缓动展开；重复调用不会重放动画。
+    pub(super) fn open_panel(&mut self, mode: auxiliary::Mode, cx: &mut Context<Self>) {
+        self.auxiliary.collapsed = None;
+        self.auxiliary.mode = mode;
+        if mode == auxiliary::Mode::Files {
+            self.list_files(cx);
+        }
+        if mode == auxiliary::Mode::Monitor {
+            self.refresh_monitor(cx);
+        }
+        self.animate_panel(1., cx);
+    }
+    /// 每帧推进一点开合进度，直到到达目标；动画结束时再落定模式。
+    fn animate_panel(&mut self, target: f32, cx: &mut Context<Self>) {
+        if self.panel_target == target && self.panel_start.is_none() {
+            return;
+        }
+        self.panel_from = self.panel_current();
+        self.panel_target = target;
+        self.panel_start = Some(Instant::now());
+        cx.notify();
+    }
+    /// 按真实时间连续插值，而不是每帧跳固定比例，否则动画会一卡一卡。
+    /// 没有动画在跑时，开合状态直接由当前模式决定。
+    fn panel_current(&self) -> f32 {
+        let Some(start) = self.panel_start else {
+            return if self.auxiliary.mode == auxiliary::Mode::Terminal {
+                0.
+            } else {
+                1.
+            };
+        };
+        let elapsed = start.elapsed().as_secs_f32() / PANEL_DURATION.as_secs_f32();
+        if elapsed >= 1. {
+            return self.panel_target;
+        }
+        let eased = panel_ease(elapsed);
+        self.panel_from + (self.panel_target - self.panel_from) * eased
+    }
+    pub(super) fn panel_progress(&mut self) -> f32 {
+        let progress = self.panel_current();
+        if let Some(start) = self.panel_start
+            && start.elapsed() >= PANEL_DURATION
+        {
+            self.panel_start = None;
+            self.panel_from = self.panel_target;
+            self.settle_panel();
+        }
+        progress
+    }
+    fn settle_panel(&mut self) {
+        if self.panel_target <= 0. {
+            self.auxiliary.mode = auxiliary::Mode::Terminal;
+        } else {
+            self.auxiliary.collapsed = None;
         }
     }
     fn session_button(
@@ -148,17 +212,10 @@ impl TerminalPage {
         cx.notify();
     }
     pub(super) fn toggle_panel(&mut self, mode: auxiliary::Mode, cx: &mut Context<Self>) {
-        self.auxiliary.mode = if self.auxiliary.mode == mode {
-            auxiliary::Mode::Terminal
-        } else {
-            mode
-        };
-        if self.auxiliary.mode == auxiliary::Mode::Files {
-            self.list_files(cx);
+        if self.auxiliary.mode == mode && self.auxiliary.collapsed.is_none() {
+            self.hide_panel(cx);
+            return;
         }
-        if self.auxiliary.mode == auxiliary::Mode::Monitor {
-            self.refresh_monitor(cx);
-        }
-        cx.notify();
+        self.open_panel(mode, cx);
     }
 }

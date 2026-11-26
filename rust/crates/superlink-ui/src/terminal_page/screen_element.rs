@@ -5,6 +5,8 @@ pub(super) struct ScreenElement {
     pub(super) rows: usize,
     pub(super) scroll_offset: usize,
     pub(super) focused: bool,
+    /// 侧栏动画期间保持屏幕尺寸不变，动画结束再重排一次。
+    pub(super) hold_size: bool,
 }
 
 pub(super) struct Prepaint {
@@ -81,23 +83,31 @@ impl Element for ScreenElement {
         let rows = (bounds.size.height / window.line_height())
             .floor()
             .clamp(2.0, 200.0) as usize;
-        self.rows = rows;
+        let hold_size = self.hold_size;
         self.page.update(cx, |page, cx| {
             page.screen_bounds = Some(bounds);
-            if page.screen.cols() != cols || page.screen.rows() != rows {
-                page.screen.resize(cols, rows);
-                if let Some(handle) = page.session.clone() {
-                    cx.background_executor()
-                        .spawn(async move {
-                            let _ = handle.resize(cols as u16, rows as u16);
-                        })
-                        .detach();
-                }
+            if hold_size || (page.screen.cols() == cols && page.screen.rows() == rows) {
+                return;
+            }
+            page.screen.resize(cols, rows);
+            if let Some(handle) = page.session.clone() {
+                cx.background_executor()
+                    .spawn(async move {
+                        let _ = handle.resize(cols as u16, rows as u16);
+                    })
+                    .detach();
             }
         });
+        let theme = self.page.read(cx).theme;
+        // 动画期间沿用旧几何，否则整块 scrollback 每帧都要重排一次。
+        let rows = if self.hold_size {
+            self.page.read(cx).screen.rows()
+        } else {
+            rows
+        };
+        self.rows = rows;
         let mut lines = Vec::with_capacity(self.rows);
         let mut cursor = None;
-        let theme = self.page.read(cx).theme;
         let screen = &self.page.read(cx).screen;
         for row in 0..self.rows {
             let (text, runs) = screen.visible_row(row, self.scroll_offset);

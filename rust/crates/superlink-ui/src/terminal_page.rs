@@ -23,7 +23,7 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui::{
     App, Bounds, Context, CursorStyle, Element, ElementId, ElementInputHandler, Entity,
@@ -59,6 +59,12 @@ fn backoff_delay(attempt: u32) -> Option<u64> {
     RECONNECT_BACKOFF_SECS
         .get(attempt.checked_sub(1)? as usize)
         .copied()
+}
+
+/// 侧栏开合用 smoothstep 缓动，起止都不突兀。
+fn panel_ease(progress: f32) -> f32 {
+    let progress = progress.clamp(0., 1.);
+    progress * progress * (3. - 2. * progress)
 }
 
 enum Event {
@@ -115,7 +121,6 @@ pub struct TerminalPage {
     probe_pending: Option<(String, u16, String, String)>,
     open_handler: Option<OpenHandler>,
     back_handler: Option<BackHandler>,
-    terminal_handler: Option<BackHandler>,
     connect_cancel: CancelToken,
     transport: Option<Arc<SshClient>>,
     auxiliary: auxiliary::Auxiliary,
@@ -167,8 +172,11 @@ pub struct TerminalPage {
     privacy: bool,
     list_mode: bool,
     group: String,
-    rail_expanded: bool,
     notice: Option<SharedString>,
+    /// 侧栏滑动动画：起点、目标与起始时刻，0 收起、1 展开。
+    panel_from: f32,
+    panel_target: f32,
+    panel_start: Option<Instant>,
 }
 
 /// IME preedit state. Nothing here reaches the PTY: only a commit does.
@@ -458,6 +466,12 @@ impl Render for TerminalPage {
         }
         let theme = self.theme;
         let has_terminal = self.target.is_some();
+        let panel_open = self.panel_progress();
+        let animating = self.panel_start.is_some();
+        if animating {
+            // 让 GPUI 在下一个显示帧再重绘一次，进度由 elapsed 连续插值。
+            window.request_animation_frame();
+        }
         let content = if self.form_open {
             self.host_form(cx).into_any_element()
         } else if has_terminal {
@@ -478,19 +492,21 @@ impl Render for TerminalPage {
                                 .flex_col()
                                 .flex_1()
                                 .min_w(px(0.))
-                                .child(self.terminal_area(cx)),
+                                .child(self.terminal_area(animating, cx)),
                         )
                         .when(self.auxiliary.mode != auxiliary::Mode::Terminal, |body| {
                             body.child(
                                 div()
                                     .flex()
                                     .flex_col()
-                                    .w(relative(0.32))
-                                    .min_w(px(320.))
+                                    .w(relative(0.32 * panel_open))
+                                    .min_w(px(320. * panel_open))
                                     .max_w(px(420.))
                                     .min_h(px(0.))
-                                    .border_l_1()
-                                    .border_color(theme.border)
+                                    .overflow_hidden()
+                                    .when(panel_open > 0.02, |panel| {
+                                        panel.border_l_1().border_color(theme.border)
+                                    })
                                     .when(
                                         self.auxiliary.mode != auxiliary::Mode::Monitor,
                                         |panel| panel.child(self.auxiliary_tabs(cx)),
@@ -498,31 +514,24 @@ impl Render for TerminalPage {
                                     .child(self.auxiliary_panel(cx)),
                             )
                         })
-                        .children(
-                            (self.auxiliary.mode == auxiliary::Mode::Terminal
-                                && self.auxiliary.collapsed.is_some())
-                            .then(|| {
-                                div()
-                                    .id("restore-shell-side-panel")
-                                    .absolute()
-                                    .right_0()
-                                    .top(relative(0.45))
-                                    .w(px(24.))
-                                    .h(px(64.))
-                                    .bg(theme.button)
-                                    .rounded_md()
-                                    .cursor_pointer()
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .child(icons::icon(
-                                        "shell/panel-left-close.svg",
-                                        14.,
-                                        theme.muted,
-                                    ))
-                                    .on_click(cx.listener(|this, _, _, cx| this.restore_panel(cx)))
-                            }),
-                        ),
+                        .children(self.auxiliary.collapsed.is_some().then(|| {
+                            div()
+                                .id("restore-shell-side-panel")
+                                .absolute()
+                                .right_0()
+                                .top(relative(0.45))
+                                .w(px(24.))
+                                .h(px(64.))
+                                .opacity(1. - panel_open)
+                                .bg(theme.button)
+                                .rounded_md()
+                                .cursor_pointer()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .child(icons::icon("shell/panel-left-close.svg", 14., theme.muted))
+                                .on_click(cx.listener(|this, _, _, cx| this.restore_panel(cx)))
+                        })),
                 )
                 .child(self.session_footer(cx))
                 .into_any_element()
@@ -534,17 +543,10 @@ impl Render for TerminalPage {
         div()
             .relative()
             .flex()
+            .flex_col()
             .size_full()
             .bg(theme.canvas)
-            .child(self.rail(cx))
-            .child(
-                div()
-                    .flex()
-                    .flex_col()
-                    .flex_1()
-                    .min_w(px(0.0))
-                    .child(content),
-            )
+            .child(content)
             .children(self.connect_dialog.then(|| self.connection_progress(cx)))
     }
 }

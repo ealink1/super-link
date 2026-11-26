@@ -1,8 +1,5 @@
 use super::*;
 impl TerminalPage {
-    pub(crate) fn set_terminal_handler(&mut self, handler: impl Fn(&mut App) + 'static) {
-        self.terminal_handler = Some(Box::new(handler));
-    }
     pub(crate) fn open_hosts(&mut self, cx: &mut Context<Self>) {
         self.close_host_form(cx);
         self.auxiliary.mode = auxiliary::Mode::Terminal;

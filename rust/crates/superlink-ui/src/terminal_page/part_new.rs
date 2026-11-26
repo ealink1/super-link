@@ -51,7 +51,6 @@ impl TerminalPage {
             settings,
             open_handler: None,
             back_handler: None,
-            terminal_handler: None,
             connect_cancel: CancelToken::new(),
             transport: None,
             auxiliary: auxiliary::Auxiliary::new(cx),
@@ -95,8 +94,10 @@ impl TerminalPage {
             attempts: 0,
             generation: 0,
             group: String::new(),
-            rail_expanded: false,
             notice: None,
+            panel_from: 0.,
+            panel_target: 0.,
+            panel_start: None,
         };
         page.refresh_hosts(cx);
         page
@@ -258,16 +259,6 @@ impl TerminalPage {
         self.connect_selected(cx);
         self.focus.focus(window);
         cx.notify();
-    }
-
-    pub(super) fn connect_local(&mut self, cx: &mut Context<Self>) {
-        if let Some(handler) = &self.open_handler {
-            handler(None, cx);
-            return;
-        }
-        self.attempts = 0;
-        self.auto_reconnect = true;
-        self.begin(Target::Local(None), true, cx);
     }
 
     pub(super) fn connect_selected(&mut self, cx: &mut Context<Self>) {

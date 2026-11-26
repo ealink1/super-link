@@ -1,7 +1,11 @@
 use super::*;
 
 impl TerminalPage {
-    pub(super) fn terminal_area(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    pub(super) fn terminal_area(
+        &self,
+        hold_size: bool,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
         let theme = self.theme;
         let mut area = div()
             .flex()
@@ -147,6 +151,7 @@ impl TerminalPage {
             rows: self.screen.rows(),
             scroll_offset: self.scroll_offset,
             focused: self.session.is_some(),
+            hold_size,
         })
     }
 }

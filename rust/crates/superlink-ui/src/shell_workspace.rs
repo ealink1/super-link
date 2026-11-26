@@ -69,15 +69,6 @@ impl ShellWorkspace {
                 });
             })
         });
-        let weak = cx.entity().downgrade();
-        picker.update(cx, |page, _| {
-            page.set_terminal_handler(move |app| {
-                let weak = weak.clone();
-                app.defer(move |app| {
-                    let _ = weak.update(app, |this, cx| this.show_terminals(cx));
-                });
-            })
-        });
         Self {
             settings,
             hosts,
@@ -196,185 +187,284 @@ impl ShellWorkspace {
 impl Render for ShellWorkspace {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
+        let rail_width = if self.rail_expanded { 144. } else { 64. };
+        // 图标栏由工作区统一绘制：切页时它不动，只有右侧内容区换。
         div()
             .relative()
             .flex()
-            .flex_col()
             .size_full()
             .bg(theme.canvas)
             .on_key_down(
                 cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| this.tab_key(event, cx)),
             )
-            .when(self.active.is_some() || self.home, |root| root.child(
+            .child(self.rail(rail_width, cx))
+            .child(
                 div()
                     .flex()
-                    .items_center()
-                    .gap_1()
-                    .h(px(34.0))
-                    .text_size(px(12.))
-                    .child(
-                        // 图标栏宽度占位，竖分隔线贯穿标签栏与下方内容区。
-                        div()
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .w(px(if self.home && self.rail_expanded {
-                                144.
-                            } else {
-                                64.
-                            }))
-                            .h_full()
-                            .border_r_1()
-                            .border_color(theme.border)
-                            .when(self.home, |row| {
-                                row.child(
-                                    div()
-                                        .id("welcome-toggle-navigation")
-                                        .cursor_pointer()
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .size(px(32.))
-                                        .child(crate::icons::icon(
-                                            "shell/chevron-right.svg",
-                                            16.,
-                                            theme.muted,
-                                        ))
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.rail_expanded = !this.rail_expanded;
-                                            cx.notify();
-                                        })),
-                                )
-                            }),
-                    )
-                    .child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap_1()
-                            .flex_1()
-                            .h_full()
-                            .min_w(px(0.))
-                            .border_b_1()
-                            .border_color(theme.border)
-                            .child(
-                                div()
-                                    .id("shell-tabs-scroll")
-                                    .flex()
-                                    .items_center()
-                                    .flex_1()
-                                    .h_full()
-                                    .min_w(px(0.))
-                                    .overflow_x_scroll()
-                                    .children(self.tabs.iter().enumerate().map(|(index, tab)| {
-                                        let active = self.active == Some(index);
-                                        let status = tab.page.read(cx).indicator_color();
-                                        div()
-                                            .id(SharedString::from(tab.id.clone()))
-                                            .group("shell-tab")
-                                            .flex()
-                                            .items_center()
-                                            .gap(px(6.))
-                                            .px_3()
-                                            .mr_2()
-                                            .h(px(28.))
-                                            .rounded_lg()
-                                            .flex_shrink_0()
-                                            .border_1()
-                                            .bg(if active {
-                                                status.opacity(0.10)
-                                            } else {
-                                                theme.muted.opacity(0.10)
-                                            })
-                                            .border_color(if active {
-                                                status.opacity(0.38)
-                                            } else {
-                                                gpui::transparent_black()
-                                            })
-                                            .text_size(px(12.0))
-                                            .text_color(if active { theme.text } else { theme.muted })
-                                            .cursor_pointer()
-                                            .hover(move |style| {
-                                                style.bg(if active {
-                                                    status.opacity(0.14)
-                                                } else {
-                                                    theme.muted.opacity(0.16)
-                                                })
-                                            })
-                                            .on_click(cx.listener(move |this, _event: &gpui::ClickEvent, _, cx| {
-                                                this.activate(index, cx);
-                                            }))
-                                            .on_mouse_down(
-                                                gpui::MouseButton::Right,
-                                                cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
-                                                    this.menu_left = px(f32::from(event.position.x).clamp(64., f32::from(window.viewport_size().width) - 200.));
-                                                    this.show_tab_menu(index, cx);
-                                                }),
-                                            )
-                                            .child(crate::icons::icon(
-                                                "shell/terminal.svg",
-                                                12.,
-                                                if active { theme.accent } else { theme.muted },
-                                            ))
-                                            .child(SharedString::from(tab.title.clone()))
-                                            .child(
-                                                div()
-                                                    .id(SharedString::from(format!("close-{}", tab.id)))
-                                                    .ml_1()
-                                                    .opacity(if active { 1.0 } else { 0.0 })
-                                                    .group_hover("shell-tab", |style| style.opacity(1.0))
-                                                    .on_click(cx.listener(move |this, _, _, cx| {
-                                                        cx.stop_propagation();
-                                                        this.close(index, cx);
-                                                    }))
-                                                    .child(crate::icons::icon(
-                                                        "shell/x.svg",
-                                                        10.,
-                                                        theme.muted,
-                                                    )),
-                                            )
-                                    })),
-                            )
-                            .child(
-                                div()
-                                    .id("shell-new-local")
-                                    .cursor_pointer()
-                                    .px_3()
-                                    .text_color(theme.text)
-                                    .child("+")
-                                    .on_click(cx.listener(|this, _, _, cx| this.open(None, cx))),
-                            )
-                            .child(
-                                div()
-                                    .id("shell-host-list")
-                                    .cursor_pointer()
-                                    .px_3()
-                                    .py_1()
-                                    .text_color(theme.text)
-                                    .flex()
-                                    .items_center()
-                                    .gap_1()
-                                    .child(crate::icons::icon("shell/server.svg", 16., theme.muted))
-                                    .child("主机")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                        this.manage_hosts(cx);
-                                    })),
-                            ),
-                    ),
-            ))
-            .child(div().flex().flex_1().min_h(px(0.0)).child(
-                if let Some(tab) = self.active.and_then(|i| self.tabs.get(i)) {
-                    tab.page.clone().into_any_element()
-                } else if self.home {
-                    self.welcome(cx)
-                } else {
-                    self.picker.clone().into_any_element()
-                },
-            ))
+                    .flex_col()
+                    .flex_1()
+                    .min_w(px(0.))
+                    .min_h(px(0.))
+                    .h_full()
+                    .child(self.tab_row(rail_width, cx))
+                    .child(div().flex().flex_1().min_h(px(0.0)).child(
+                        if let Some(tab) = self.active.and_then(|i| self.tabs.get(i)) {
+                            tab.page.clone().into_any_element()
+                        } else if self.home {
+                            self.welcome(cx)
+                        } else {
+                            self.picker.clone().into_any_element()
+                        },
+                    )),
+            )
             .children(
                 self.tab_menu
                     .as_ref()
                     .and_then(|id| self.tab_menu_panel(id, cx)),
             )
+    }
+}
+
+impl ShellWorkspace {
+    /// 标签栏只在有会话或首页时出现；主机管理页不显示，但图标栏始终固定。
+    fn tab_row(&mut self, _rail_width: f32, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        let visible = self.active.is_some() || self.home;
+        div()
+            .when(visible, |row| {
+                row.flex()
+                    .items_center()
+                    .gap_1()
+                    .h(px(34.0))
+                    .text_size(px(12.))
+                    .px_2()
+            })
+            .when(!visible, |row| row.h(px(0.)).overflow_hidden())
+            .when(visible, |row| {
+                row.child(
+                    div()
+                        .flex()
+                        .items_center()
+                        .gap_1()
+                        .flex_1()
+                        .h_full()
+                        .min_w(px(0.))
+                        .border_b_1()
+                        .border_color(theme.border)
+                        .child(
+                            div()
+                                .id("shell-tabs-scroll")
+                                .flex()
+                                .items_center()
+                                .flex_1()
+                                .h_full()
+                                .min_w(px(0.))
+                                .overflow_x_scroll()
+                                .children(self.tabs.iter().enumerate().map(|(index, tab)| {
+                                    let active = self.active == Some(index);
+                                    let status = tab.page.read(cx).indicator_color();
+                                    div()
+                                        .id(SharedString::from(tab.id.clone()))
+                                        .group("shell-tab")
+                                        .flex()
+                                        .items_center()
+                                        .gap(px(6.))
+                                        .px_3()
+                                        .mr_2()
+                                        .h(px(28.))
+                                        .rounded_lg()
+                                        .flex_shrink_0()
+                                        .border_1()
+                                        .bg(if active {
+                                            status.opacity(0.10)
+                                        } else {
+                                            theme.muted.opacity(0.10)
+                                        })
+                                        .border_color(if active {
+                                            status.opacity(0.38)
+                                        } else {
+                                            gpui::transparent_black()
+                                        })
+                                        .text_size(px(12.0))
+                                        .text_color(if active { theme.text } else { theme.muted })
+                                        .cursor_pointer()
+                                        .hover(move |style| {
+                                            style.bg(if active {
+                                                status.opacity(0.14)
+                                            } else {
+                                                theme.muted.opacity(0.16)
+                                            })
+                                        })
+                                        .on_click(cx.listener(move |this, _event: &gpui::ClickEvent, _, cx| {
+                                            this.activate(index, cx);
+                                        }))
+                                        .on_mouse_down(
+                                            gpui::MouseButton::Right,
+                                            cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                                                this.menu_left = px(f32::from(event.position.x).clamp(64., f32::from(window.viewport_size().width) - 200.));
+                                                this.show_tab_menu(index, cx);
+                                            }),
+                                        )
+                                        .child(crate::icons::icon(
+                                            "shell/terminal.svg",
+                                            12.,
+                                            if active { theme.accent } else { theme.muted },
+                                        ))
+                                        .child(SharedString::from(tab.title.clone()))
+                                        .child(
+                                            div()
+                                                .id(SharedString::from(format!("close-{}", tab.id)))
+                                                .ml_1()
+                                                .opacity(if active { 1.0 } else { 0.0 })
+                                                .group_hover("shell-tab", |style| style.opacity(1.0))
+                                                .on_click(cx.listener(move |this, _, _, cx| {
+                                                    cx.stop_propagation();
+                                                    this.close(index, cx);
+                                                }))
+                                                .child(crate::icons::icon(
+                                                    "shell/x.svg",
+                                                    10.,
+                                                    theme.muted,
+                                                )),
+                                        )
+                                })),
+                        )
+                        .child(
+                            div()
+                                .id("shell-new-local")
+                                .cursor_pointer()
+                                .px_3()
+                                .text_color(theme.text)
+                                .child("+")
+                                .on_click(cx.listener(|this, _, _, cx| this.open(None, cx))),
+                        )
+                        .child(
+                            div()
+                                .id("shell-host-list")
+                                .cursor_pointer()
+                                .px_3()
+                                .py_1()
+                                .text_color(theme.text)
+                                .flex()
+                                .items_center()
+                                .gap_1()
+                                .child(crate::icons::icon("shell/server.svg", 16., theme.muted))
+                                .child("主机")
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    this.manage_hosts(cx);
+                                })),
+                        ),
+                )
+            })
+    }
+
+    /// 工作区左侧图标栏，所有页面共用，位置恒定。
+    fn rail(&self, width: f32, cx: &mut Context<Self>) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        let expanded = width > 64.;
+        let session_visible = self.active.is_some() || self.home;
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .gap_2()
+            .w(px(width))
+            .h_full()
+            .py_3()
+            .bg(theme.sidebar)
+            .border_r_1()
+            .border_color(theme.border)
+            .child(self.rail_item(
+                "rail-toggle",
+                "shell/chevron-right.svg",
+                "",
+                false,
+                expanded,
+                cx,
+                |this, cx| {
+                    this.rail_expanded = !this.rail_expanded;
+                    cx.notify();
+                },
+            ))
+            .child(div().h(px(8.0)))
+            .child(self.rail_item(
+                "rail-hosts",
+                "shell/server.svg",
+                "主机",
+                !session_visible,
+                expanded,
+                cx,
+                |this, cx| this.manage_hosts(cx),
+            ))
+            .child(self.rail_item(
+                "rail-terminal",
+                "shell/terminal.svg",
+                "终端",
+                session_visible,
+                expanded,
+                cx,
+                |this, cx| this.show_terminals(cx),
+            ))
+            .child(div().flex_1())
+            .child(self.rail_item(
+                "rail-settings",
+                "shell/settings.svg",
+                "设置",
+                false,
+                expanded,
+                cx,
+                |this, cx| {
+                    this.home = false;
+                    this.picker
+                        .update(cx, |page, cx| page.open_terminal_settings(cx));
+                    cx.notify();
+                },
+            ))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn rail_item(
+        &self,
+        id: &'static str,
+        icon: &'static str,
+        label: &'static str,
+        active: bool,
+        expanded: bool,
+        cx: &mut Context<Self>,
+        handler: fn(&mut ShellWorkspace, &mut Context<ShellWorkspace>),
+    ) -> impl IntoElement + use<> {
+        let theme = self.theme;
+        div()
+            .id(id)
+            .flex()
+            .items_center()
+            .gap_2()
+            .when(expanded, |style| style.w_full().px_2().justify_start())
+            .when(!expanded, |style| style.size(px(40.0)).justify_center())
+            .h(px(40.0))
+            .rounded_md()
+            .cursor_pointer()
+            .bg(if active {
+                theme.accent_soft
+            } else {
+                theme.sidebar
+            })
+            .hover(move |style| style.bg(theme.accent_soft))
+            .on_click(cx.listener(move |this, _event, _window, cx| handler(this, cx)))
+            .child(crate::icons::icon(
+                icon,
+                22.0,
+                if active { theme.accent } else { theme.muted },
+            ))
+            .children(if label.is_empty() || !expanded {
+                None
+            } else {
+                Some(
+                    div()
+                        .text_size(px(crate::theme::TEXT_SIZE))
+                        .text_color(theme.text)
+                        .child(label),
+                )
+            })
     }
 }

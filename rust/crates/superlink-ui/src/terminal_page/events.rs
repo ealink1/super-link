@@ -125,8 +125,8 @@ impl TerminalPage {
                     self.needs_focus = true;
                     self.transport = client;
                     if self.transport.is_some() {
-                        self.auxiliary.mode = auxiliary::Mode::Monitor;
-                        self.refresh_monitor(cx);
+                        // 连上服务器后默认展开监控面板，并带滑动动画。
+                        self.open_panel(auxiliary::Mode::Monitor, cx);
                     }
                     let (writer_tx, writer_rx) = mpsc::sync_channel::<Vec<u8>>(64);
                     let writer = handle.clone();
