@@ -579,7 +579,8 @@ impl SqlTextEditor {
                         .unwrap_or(display))
                 .min(range.end)
             })
-            .unwrap_or(range.start);
+            // 点击落在文字右侧空白处时行内边界没有命中，光标应到本行末尾。
+            .unwrap_or(range.end);
         Some(offset)
     }
 }
