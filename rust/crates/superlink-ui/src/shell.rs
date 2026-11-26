@@ -134,6 +134,8 @@ pub struct SuperLinkApp {
     mode: ThemeMode,
     settings_open: bool,
     sql_search: Entity<SqlEditor>,
+    /// 对象页表头搜索框，只过滤当前对象的表列表。
+    object_search: Entity<SqlEditor>,
     queries: Arc<QueryService>,
     expanded_conns: HashSet<usize>,
     conn_dbs: HashMap<usize, Option<Vec<String>>>,

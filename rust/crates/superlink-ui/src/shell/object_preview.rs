@@ -48,6 +48,8 @@ impl SuperLinkApp {
         }
         self.last_object_scope = Some((conn, database.clone()));
         self.object_preview = Some((conn, database.clone()));
+        self.object_search
+            .update(cx, |editor, cx| editor.set_text("", cx));
         self.selected = conn;
         if let std::collections::hash_map::Entry::Vacant(entry) =
             self.db_tables.entry((conn, database.clone()))
@@ -126,7 +128,23 @@ impl SuperLinkApp {
                     .child(
                         div()
                             .flex()
-                            .gap_3()
+                            .items_center()
+                            .gap_2()
+                            .child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .w(px(220.))
+                                    .h(px(crate::theme::CONTROL_MIN))
+                                    .px_2()
+                                    .rounded_md()
+                                    .border_1()
+                                    .border_color(theme.border)
+                                    .bg(theme.surface)
+                                    .child(icons::icon("shell/search.svg", 13.0, theme.muted))
+                                    .child(self.object_search.clone()),
+                            )
                             .child(
                                 div()
                                     .id("refresh-object-preview")
@@ -148,6 +166,8 @@ impl SuperLinkApp {
                                     .child("返回查询")
                                     .on_click(cx.listener(|this, _, _, cx| {
                                         this.object_preview = None;
+                                        this.object_search
+                                            .update(cx, |editor, cx| editor.set_text("", cx));
                                         cx.notify();
                                     })),
                             ),
@@ -162,7 +182,7 @@ impl SuperLinkApp {
         }
         match self.db_tables.get(&key) {
             Some(Some(entries)) => {
-                let needle = self.sql_search.read(cx).text().to_lowercase();
+                let needle = self.object_search.read(cx).text().to_lowercase();
                 let tables: Vec<_> = entries
                     .iter()
                     .filter(|entry| {
@@ -177,10 +197,7 @@ impl SuperLinkApp {
                         .py_1()
                         .text_size(px(11.))
                         .text_color(theme.muted)
-                        .child(format!(
-                            "{} 个表 · 双击打开数据 · 左侧搜索可查找对象",
-                            tables.len()
-                        )),
+                        .child(format!("{} 个表 · 双击打开数据", tables.len())),
                 );
                 panel = panel.child(self.object_grid(conn, &database, &tables, cx));
             }

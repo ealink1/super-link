@@ -70,9 +70,15 @@ impl SuperLinkApp {
         sql_search.update(cx, |editor, cx| {
             editor.set_placeholder("搜索连接…", cx);
         });
+        let object_search = cx.new(SqlEditor::new);
+        object_search.update(cx, |editor, cx| {
+            editor.set_placeholder("搜索当前对象…", cx);
+        });
         // 过滤值直接读输入框文本，避免在回调里重入更新本实体。
-        cx.observe(&sql_search, |_this, _editor, cx| cx.notify())
-            .detach();
+        for search in [&sql_search, &object_search] {
+            cx.observe(search, |_this, _editor, cx| cx.notify())
+                .detach();
+        }
         let note_page = cx.new(|cx| NotePage::new(notebook, theme, cx));
         let terminal_page = cx.new(|cx| ShellWorkspace::new(hosts, settings.clone(), theme, cx));
         let chat_panel = cx.new(|cx| {
@@ -118,6 +124,7 @@ impl SuperLinkApp {
             mode,
             settings_open: false,
             sql_search: sql_search.clone(),
+            object_search: object_search.clone(),
             queries: queries.clone(),
             expanded_conns: HashSet::new(),
             conn_dbs: HashMap::new(),
