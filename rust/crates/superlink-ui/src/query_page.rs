@@ -5,7 +5,9 @@ mod part_saved_panel;
 mod part_toolbar;
 mod workspace_tabs;
 
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui::{
@@ -31,11 +33,14 @@ mod exporting;
 mod grid;
 mod library;
 mod protocols;
+mod scope_picker;
 
 const DISPLAY_ROWS: usize = 300;
 pub(crate) const COLUMN_WIDTH: f32 = 160.0;
 pub(crate) const ROW_NUMBER_WIDTH: f32 = 52.0;
 const HISTORY_WIDTH: f32 = 300.0;
+/// 工具栏库名按钮宽度；弹层共享同一左缘。
+pub(crate) const SCOPE_BUTTON_WIDTH: f32 = 210.0;
 const SAVED_WIDTH: f32 = 320.0;
 
 struct QueryTab {
@@ -101,11 +106,17 @@ pub struct QueryPage {
     library_busy: bool,
     profile_choices: Vec<Profile>,
     parameters: Entity<SqlEditor>,
-    scope_input: Entity<SqlEditor>,
-    schema_input: Entity<SqlEditor>,
+    /// 库选择器的搜索框（输入即过滤）。
+    scope_search: Entity<SqlEditor>,
+    /// 输入框上次绘制的屏幕区域，用来区分点击输入框与点击外部。
+    scope_input_bounds: Rc<RefCell<Option<gpui::Bounds<gpui::Pixels>>>>,
+    /// 候选弹层上次绘制的屏幕区域，同上。
+    scope_popup_bounds: Rc<RefCell<Option<gpui::Bounds<gpui::Pixels>>>>,
     scope_open: bool,
     profiles_open: bool,
     scope_options: Vec<String>,
+    /// 候选列表的键盘光标位置。
+    scope_cursor: usize,
     scope: String,
     schema: String,
     editor_height: f32,
@@ -207,10 +218,21 @@ impl Render for QueryPage {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = self.theme;
         div()
+            .relative()
             .flex()
             .flex_col()
             .size_full()
             .bg(theme.surface)
+            .capture_any_mouse_down(cx.listener(|this, event: &gpui::MouseDownEvent, _, cx| {
+                let popup = *this.scope_popup_bounds.borrow();
+                this.scope_mouse_down_out(event.position, popup, cx);
+            }))
+            // 库搜索框里的 Esc / Enter / ↑↓ 交给候选列表处理，其余按键照常编辑。
+            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
+                if this.scope_key_down(event, window, cx) {
+                    cx.stop_propagation();
+                }
+            }))
             .on_mouse_move(
                 cx.listener(|this, event: &gpui::MouseMoveEvent, window, cx| {
                     if let Some((column, origin, width)) = this.column_drag {
@@ -250,7 +272,6 @@ impl Render for QueryPage {
                     .flex_1()
                     .child(self.toolbar(cx))
                     .children(self.profiles_open.then(|| self.profile_options(cx)))
-                    .children(self.scope_open.then(|| self.scope_controls(cx)))
                     .children(self.protocol_controls(cx))
                     // The confirmation replaces the notice: two stacked amber bars are noise.
                     .children(

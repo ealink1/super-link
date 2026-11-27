@@ -138,6 +138,7 @@ impl QueryPage {
                         this.select_profile(profile, cx);
                         this.scope = item.scope;
                         this.schema = item.schema;
+                        this.sync_scope_input(cx);
                         this.editor
                             .update(cx, |editor, cx| editor.set_text(item.text, cx));
                         this.status = format!("已载入《{}》", item.title).into();

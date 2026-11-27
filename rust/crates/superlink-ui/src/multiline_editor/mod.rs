@@ -283,9 +283,30 @@ impl SqlTextEditor {
     }
 
     fn select_all(&mut self, cx: &mut Context<Self>) {
+        self.completion = None;
         self.selected_range = 0..self.content.len();
         self.selection_reversed = false;
         cx.notify();
+    }
+
+    /// 双击选词、三击全选；单击只移光标。
+    fn select_by_click(&mut self, offset: usize, click_count: usize, cx: &mut Context<Self>) {
+        match click_count {
+            n if n >= 3 => self.select_all(cx),
+            2 => {
+                let range = crate::text::word_range(&self.content, offset);
+                if range.is_empty() {
+                    self.move_to(offset, cx);
+                } else {
+                    self.completion = None;
+                    self.selected_range = range;
+                    self.selection_reversed = false;
+                    self.ensure_caret_visible();
+                    cx.notify();
+                }
+            }
+            _ => self.move_to(offset, cx),
+        }
     }
 
     fn caret_line(&self) -> usize {

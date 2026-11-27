@@ -450,7 +450,7 @@ impl Render for SqlTextEditor {
                     this.selecting = true;
                     this.completion = None;
                     if let Some(offset) = this.index_for_position(event.position) {
-                        this.move_to(offset, cx);
+                        this.select_by_click(offset, event.click_count, cx);
                     }
                     cx.notify();
                 }),

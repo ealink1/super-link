@@ -459,6 +459,7 @@ impl QueryPage {
     ) {
         self.select_profile(profile, cx);
         self.scope = database;
+        self.sync_scope_input(cx);
         self.load_sql(sql, cx);
     }
 

@@ -174,6 +174,31 @@ impl SqlEditor {
         cx.notify();
     }
 
+    /// 双击选词、三击全选；单击放光标，按住 Shift 单击扩选。
+    fn select_by_click(
+        &mut self,
+        offset: usize,
+        click_count: usize,
+        shift: bool,
+        cx: &mut Context<Self>,
+    ) {
+        match click_count {
+            n if n >= 3 => self.select_all(cx),
+            2 => {
+                let range = crate::text::word_range(&self.content, offset);
+                if range.is_empty() {
+                    self.move_to(offset, cx);
+                } else {
+                    self.selected_range = range;
+                    self.selection_reversed = false;
+                    cx.notify();
+                }
+            }
+            _ if shift => self.select_to(offset, cx),
+            _ => self.move_to(offset, cx),
+        }
+    }
+
     fn previous_boundary(&self, offset: usize) -> usize {
         self.content
             .grapheme_indices(true)
@@ -681,11 +706,12 @@ impl Render for SqlEditor {
                         this.focus_handle.focus(window);
                         this.selecting = true;
                         if let Some(offset) = this.index_for_position(event.position) {
-                            if event.modifiers.shift {
-                                this.select_to(offset, cx);
-                            } else {
-                                this.move_to(offset, cx);
-                            }
+                            this.select_by_click(
+                                offset,
+                                event.click_count,
+                                event.modifiers.shift,
+                                cx,
+                            );
                         }
                         cx.notify();
                     }

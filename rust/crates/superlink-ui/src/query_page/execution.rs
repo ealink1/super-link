@@ -32,6 +32,8 @@ impl QueryPage {
             self.scope = tab.scope.clone();
             self.schema = tab.schema.clone();
         }
+        self.scope_open = false;
+        self.sync_scope_input(cx);
         self.display_page = 0;
         self.column_page = 0;
         self.column_widths.clear();

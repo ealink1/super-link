@@ -40,11 +40,13 @@ impl QueryPage {
                 e.set_placeholder("参数 JSON，例如 {\"id\": 1} 或 [1]", cx);
                 e
             }),
-            scope_input: cx.new(SqlEditor::new),
-            schema_input: cx.new(SqlEditor::new),
+            scope_search: Self::new_scope_search(cx),
+            scope_input_bounds: Rc::new(RefCell::new(None)),
+            scope_popup_bounds: Rc::new(RefCell::new(None)),
             scope_open: false,
             profiles_open: false,
             scope_options: Vec::new(),
+            scope_cursor: 0,
             scope: String::new(),
             schema: String::new(),
             editor_height: 320.0,

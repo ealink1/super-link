@@ -13,16 +13,6 @@ impl QueryPage {
             .as_ref()
             .map(|profile| profile.sql_dialect().to_string())
             .unwrap_or_default();
-        let database = if !self.scope.is_empty() {
-            self.scope.clone()
-        } else {
-            self.profile
-                .as_ref()
-                .map(|p| p.config.database.clone())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "数据库 / Namespace".into())
-        };
-        // 行数上限轮换档位
         let limit = self.settings.row_limit();
         let next_limit = match limit {
             100 => 500,
@@ -99,27 +89,73 @@ impl QueryPage {
                     )
                     .child(icons::icon("superlink/pencil.svg", 14.0, theme.muted))
             }))
-            // 数据库 / Namespace
+            // 数据库 / Namespace：输入框兼作搜索框，候选弹层宽度与输入框一致。
             .child(
                 div()
-                    .id("query-scope")
-                    .w(px(210.))
-                    .min_w(px(100.))
-                    .overflow_hidden()
-                    .whitespace_nowrap()
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _, _, cx| this.open_scope(cx)))
-                    .px_2()
-                    .h(px(crate::theme::CONTROL_MIN))
-                    .flex()
-                    .items_center()
-                    .rounded_md()
-                    .border_1()
-                    .border_color(theme.border)
-                    .bg(theme.surface)
-                    .text_size(px(crate::theme::TEXT_SIZE))
-                    .text_color(theme.muted)
-                    .child(SharedString::from(crate::text::shorten(&database, 28))),
+                    .relative()
+                    .w(px(SCOPE_BUTTON_WIDTH))
+                    .flex_shrink_0()
+                    .child(
+                        div()
+                            .on_children_prepainted({
+                                let slot = self.scope_input_bounds.clone();
+                                move |bounds, _, _| {
+                                    if let Some(bounds) = bounds.first() {
+                                        *slot.borrow_mut() = Some(*bounds);
+                                    }
+                                }
+                            })
+                            .w_full()
+                            .h(px(crate::theme::CONTROL_MIN))
+                            .px_2()
+                            .flex()
+                            .items_center()
+                            .gap_1()
+                            .rounded_md()
+                            .border_1()
+                            .border_color(if self.scope_open {
+                                theme.accent
+                            } else {
+                                theme.border
+                            })
+                            .bg(theme.surface)
+                            .text_size(px(crate::theme::TEXT_SIZE))
+                            .text_color(theme.text)
+                            .child(
+                                div()
+                                    .id("query-scope-field")
+                                    .flex_1()
+                                    .min_w(px(0.0))
+                                    .h_full()
+                                    .flex()
+                                    .items_center()
+                                    .cursor(gpui::CursorStyle::IBeam)
+                                    .on_mouse_down(
+                                        gpui::MouseButton::Left,
+                                        cx.listener(|this, _, window, cx| {
+                                            this.focus_scope_editor(window, cx);
+                                        }),
+                                    )
+                                    .child(self.scope_search.clone()),
+                            )
+                            .child(
+                                div()
+                                    .id("query-scope-toggle")
+                                    .flex_shrink_0()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(
+                                        |this, _event: &gpui::ClickEvent, window, cx| {
+                                            this.toggle_scope(window, cx);
+                                        },
+                                    ))
+                                    .child(icons::icon(
+                                        "shell/chevron-down.svg",
+                                        12.0,
+                                        theme.muted,
+                                    )),
+                            ),
+                    )
+                    .children(self.scope_picker(cx)),
             )
             // 行数上限（点击轮换）
             .child(
