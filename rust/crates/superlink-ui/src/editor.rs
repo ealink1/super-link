@@ -174,6 +174,11 @@ impl SqlEditor {
         cx.notify();
     }
 
+    /// 选中全部文本，供外部控件（如库搜索框）在聚焦后直接改写。
+    pub fn select_all_text(&mut self, cx: &mut Context<Self>) {
+        self.select_all(cx);
+    }
+
     /// 双击选词、三击全选；单击放光标，按住 Shift 单击扩选。
     fn select_by_click(
         &mut self,

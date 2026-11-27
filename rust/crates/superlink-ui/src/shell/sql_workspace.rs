@@ -49,11 +49,17 @@ impl SuperLinkApp {
 
     fn sql_table_tabs(&self, cx: &mut Context<Self>) -> AnyElement {
         let theme = self.theme;
+        // 标签栏没有内容时收起，布局与 Shell 一致：空工作区不占一条空条。
+        let query_tabs = self.query_page.read(cx).workspace_tabs();
+        if query_tabs.is_empty() && self.table_tab_order.is_empty() && self.object_preview.is_none()
+        {
+            return div().h(px(0.)).overflow_hidden().into_any_element();
+        }
         let mut strip = div()
             .id("sql-table-tabs")
             .flex()
             .items_center()
-            .h(px(30.))
+            .h(px(34.))
             .flex_shrink_0()
             .overflow_x_scroll()
             .gap_1()
@@ -83,17 +89,35 @@ impl SuperLinkApp {
             strip = strip.child(
                 div()
                     .id(SharedString::from(format!("table-tab-{id}")))
+                    .group("sql-tab")
                     .flex()
                     .items_center()
                     .flex_shrink_0()
                     .w(px(170.))
                     .h(px(28.))
-                    .px_2()
-                    .gap_2()
-                    .border_r_1()
-                    .border_color(theme.border)
-                    .bg(if active { theme.surface } else { theme.canvas })
+                    .px_3()
+                    .mr_2()
+                    .gap(px(6.))
+                    .rounded_lg()
+                    .border_1()
+                    .bg(if active {
+                        theme.accent.opacity(0.10)
+                    } else {
+                        theme.muted.opacity(0.10)
+                    })
+                    .border_color(if active {
+                        theme.accent.opacity(0.38)
+                    } else {
+                        gpui::transparent_black()
+                    })
                     .cursor_pointer()
+                    .hover(move |style| {
+                        style.bg(if active {
+                            theme.accent.opacity(0.14)
+                        } else {
+                            theme.muted.opacity(0.16)
+                        })
+                    })
                     .on_mouse_down(
                         MouseButton::Right,
                         cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
@@ -104,7 +128,11 @@ impl SuperLinkApp {
                     .on_click(
                         cx.listener(move |this, _, _, cx| this.activate_table_tab(&switch, cx)),
                     )
-                    .child(icons::icon("superlink/table.svg", 12., theme.accent))
+                    .child(icons::icon(
+                        "superlink/table.svg",
+                        12.,
+                        if active { theme.accent } else { theme.muted },
+                    ))
                     .child(
                         div()
                             .flex()
@@ -136,8 +164,9 @@ impl SuperLinkApp {
                     .child(
                         div()
                             .id(SharedString::from(format!("close-table-tab-{id}")))
-                            .text_color(theme.muted)
-                            .child("×")
+                            .opacity(if active { 1.0 } else { 0.0 })
+                            .group_hover("sql-tab", |style| style.opacity(1.0))
+                            .child(icons::icon("shell/x.svg", 10., theme.muted))
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 cx.stop_propagation();
                                 this.close_table_tab(&close, cx);
@@ -149,38 +178,55 @@ impl SuperLinkApp {
             .flex()
             .w_full()
             .min_w(px(0.))
-            .h(px(30.))
+            .h(px(34.))
             .flex_shrink_0()
             .bg(theme.canvas)
             .border_b_1()
             .border_color(theme.border)
+            .gap_1()
+            .items_center()
+            .pr_2()
             .child(
                 div()
                     .id("sql-object-tab")
-                    .w(px(54.))
-                    .h_full()
+                    .ml_2()
+                    .mr_2()
+                    .px_3()
+                    .h(px(28.))
                     .flex_shrink_0()
                     .flex()
                     .items_center()
                     .justify_center()
+                    .rounded_lg()
+                    .border_1()
                     .text_size(px(12.))
                     .text_color(if self.object_preview.is_some() {
                         theme.accent
                     } else {
-                        theme.text
+                        theme.muted
                     })
                     .bg(if self.object_preview.is_some() {
-                        theme.surface
+                        theme.accent.opacity(0.10)
                     } else {
-                        theme.canvas
+                        theme.muted.opacity(0.10)
                     })
-                    .border_r_1()
-                    .border_color(theme.border)
+                    .border_color(if self.object_preview.is_some() {
+                        theme.accent.opacity(0.38)
+                    } else {
+                        gpui::transparent_black()
+                    })
                     .cursor_pointer()
+                    .hover(move |style| {
+                        style.bg(if self.object_preview.is_some() {
+                            theme.accent.opacity(0.14)
+                        } else {
+                            theme.muted.opacity(0.16)
+                        })
+                    })
                     .child("对象")
                     .on_click(cx.listener(|this, _, _, cx| this.show_object_tab(cx))),
             )
-            .child(strip.flex_1().min_w(px(0.)))
+            .child(strip.flex_1().min_w(px(0.)).h_full())
             .child(self.tab_overflow_button(cx))
             .into_any_element()
     }

@@ -118,7 +118,7 @@ impl SuperLinkApp {
                     .border_color(theme.border)
                     .text_size(px(12.))
                     .child(format!(
-                        "表对象 · {} · {}",
+                        "{} · {}",
                         self.profiles
                             .get(conn)
                             .map(|p| p.name.as_str())

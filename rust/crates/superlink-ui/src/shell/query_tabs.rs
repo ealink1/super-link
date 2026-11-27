@@ -14,17 +14,35 @@ impl SuperLinkApp {
             tabs.push(
                 div()
                     .id(SharedString::from(format!("query-workspace-{id}")))
+                    .group("sql-tab")
                     .flex()
                     .items_center()
                     .flex_shrink_0()
-                    .gap_2()
+                    .gap(px(6.))
                     .h(px(28.))
                     .w(px(150.))
-                    .px_2()
-                    .border_r_1()
-                    .border_color(theme.border)
-                    .bg(if active { theme.surface } else { theme.canvas })
+                    .px_3()
+                    .mr_2()
+                    .rounded_lg()
+                    .border_1()
+                    .bg(if active {
+                        theme.accent.opacity(0.10)
+                    } else {
+                        theme.muted.opacity(0.10)
+                    })
+                    .border_color(if active {
+                        theme.accent.opacity(0.38)
+                    } else {
+                        gpui::transparent_black()
+                    })
                     .cursor_pointer()
+                    .hover(move |style| {
+                        style.bg(if active {
+                            theme.accent.opacity(0.14)
+                        } else {
+                            theme.muted.opacity(0.16)
+                        })
+                    })
                     .on_mouse_down(
                         MouseButton::Right,
                         cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
@@ -39,7 +57,11 @@ impl SuperLinkApp {
                             cx.notify();
                         }
                     }))
-                    .child(icons::icon("superlink/table.svg", 12., theme.accent))
+                    .child(icons::icon(
+                        "superlink/table.svg",
+                        12.,
+                        if active { theme.accent } else { theme.muted },
+                    ))
                     .child(
                         div()
                             .flex_1()
@@ -55,14 +77,15 @@ impl SuperLinkApp {
                             .id(SharedString::from(format!(
                                 "close-query-workspace-{close_id}"
                             )))
-                            .cursor_pointer()
-                            .child(icons::icon("shell/x.svg", 10., theme.muted))
+                            .opacity(if active { 1.0 } else { 0.0 })
+                            .group_hover("sql-tab", |style| style.opacity(1.0))
                             .on_click(cx.listener(move |this, _, _, cx| {
                                 cx.stop_propagation();
                                 this.query_page
                                     .update(cx, |page, cx| page.close_workspace_tab(&close_id, cx));
                                 cx.notify();
-                            })),
+                            }))
+                            .child(icons::icon("shell/x.svg", 10., theme.muted)),
                     )
                     .into_any_element(),
             );

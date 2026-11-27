@@ -56,12 +56,7 @@ impl QueryPage {
                     // 回调发生在编辑器自身更新中，排队再改页面状态。
                     app.defer(move |app| {
                         let _ = weak.update(app, |this, cx| {
-                            if this.scope_open {
-                                this.scope_cursor = 0;
-                            } else {
-                                // 弹层收起时输入框只展示当前库，编辑后立即还原。
-                                this.sync_scope_input(cx);
-                            }
+                            this.scope_cursor = 0;
                             cx.notify();
                         });
                     });
@@ -92,11 +87,18 @@ impl QueryPage {
         cx.notify();
     }
 
-    /// 点击输入框：收起时展开候选列表；已展开时交给编辑器自己定位光标。
+    /// 点击输入框：收起状态下先展开候选列表，然后聚焦当前库名全选以便直接改写。
     pub(super) fn focus_scope_editor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.scope_open {
             self.toggle_scope(window, cx);
+            return;
         }
+        use gpui::Focusable as _;
+        let handle = self.scope_search.read(cx).focus_handle(cx);
+        window.focus(&handle);
+        self.scope_search
+            .update(cx, |editor, cx| editor.select_all_text(cx));
+        cx.notify();
     }
 
     /// 收起弹层，并把输入框恢复成当前库名。
@@ -109,16 +111,24 @@ impl QueryPage {
         cx.notify();
     }
 
-    /// 输入框空闲时显示当前库；弹层打开时不覆盖用户正在输入的搜索词。
+    /// 输入框空闲时显示当前库；弹层打开或正在输入时不覆盖用户输入。
+    ///
+    /// 关闭弹层时若用户在搜索框里输入过文字但没有应用，丢弃这段临时搜索词，
+    /// 避免把半截过滤词当成库名。
     pub(super) fn sync_scope_input(&mut self, cx: &mut Context<Self>) {
         if self.scope_open {
             return;
         }
         let scope = self.scope.clone();
         self.scope_search.update(cx, |editor, cx| {
-            editor.set_placeholder("数据库 / Namespace", cx);
-            if editor.text() != scope {
-                editor.set_text(scope, cx);
+            let placeholder = if scope.is_empty() {
+                "数据库 / Namespace".to_string()
+            } else {
+                scope.clone()
+            };
+            editor.set_placeholder(placeholder.clone(), cx);
+            if editor.text() != scope && editor.text() != placeholder {
+                editor.set_text(scope.clone(), cx);
             }
         });
     }
@@ -146,7 +156,7 @@ impl QueryPage {
         }
     }
 
-    /// 搜索框里按 Esc / Enter / 上下键时驱动候选列表；其余按键照常编辑。
+    /// 输入框里按 Esc / Enter / 上下键时驱动候选列表；其余按键照常编辑。
     ///
     /// 页面级监听会收到所有子树冒泡上来的按键，这里先确认焦点仍在搜索框，
     /// 避免在 SQL 编辑器里按回车/方向键时被弹层吞掉。
