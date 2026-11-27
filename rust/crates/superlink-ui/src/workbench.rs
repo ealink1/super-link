@@ -492,8 +492,10 @@ mod tests {
             ],
             ..Default::default()
         };
-        let mut find = FindState::default();
-        find.query = "alice".into();
+        let mut find = FindState {
+            query: "alice".into(),
+            ..Default::default()
+        };
         assert_eq!(find.matches(&result), vec![(0, 0), (1, 1)]);
         find.query = "  ".into();
         assert!(find.matches(&result).is_empty());
