@@ -29,6 +29,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # 手动触发时默认检出 default 分支，而发布 tag 可能在别的分支上；
+          # 这里检出全部历史与 tag，后续按解析出的 tag 提交构建。
+          ref: ${{ inputs.tag || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -49,8 +52,9 @@ jobs:
           sha = subprocess.check_output(
               ['git', 'rev-parse', '--verify', 'refs/tags/' + tag + '^{commit}'],
               text=True).strip()
-          if subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'HEAD']).returncode != 0:
-              raise SystemExit('tag is not on the checked out branch')
+          # 校验 tag 提交存在于本地历史即可；手动触发不再要求它在某个分支顶端。
+          if subprocess.run(['git', 'cat-file', '-e', sha + '^{commit}']).returncode != 0:
+              raise SystemExit('tag commit is unavailable in the checkout')
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write(f'tag={tag}\nversion={version}\nsha={sha}\n')
           PY
@@ -180,10 +184,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SUPERLINK_DRIVER_RELEASE_TOKEN: ${{ secrets.SUPERLINK_DRIVER_RELEASE_TOKEN }}
+          SUPERLINK_PUBLISH: ${{ inputs.publish || 'false' }}
         run: |
           python tools/publish_release.py \
             --version "${{ needs.prepare.outputs.version }}" \
             --tag "${{ needs.prepare.outputs.tag }}" \
             --source "${{ needs.prepare.outputs.sha }}" \
             --dist dist \
-            --publish "${{ inputs.publish || false }}"
+            --publish "$SUPERLINK_PUBLISH"

@@ -67,7 +67,7 @@ def main():
         agents = ROOT / 'bin/drivers'
         agents.mkdir(parents=True, exist_ok=True)
         system = {'Darwin': 'darwin', 'Windows': 'windows', 'Linux': 'linux'}[platform.system()]
-        arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'amd64', 'AMD64': 'amd64'}[platform.machine()]
+        arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'amd64', 'amd64': 'amd64'}[platform.machine().lower()]
         records = []
         for kind in platform_drivers(system, arch):
             output = agents / (kind + '-driver-agent' + ('.exe' if os.name == 'nt' else ''))
@@ -83,7 +83,7 @@ def main():
                 raise RuntimeError('development driver identity/protocol mismatch')
             records.append({'type': kind, 'sha256': agent_digest, 'revision': metadata['agentRevision'], 'protocol': metadata['protocolSchema'], 'source': 'application-bundle'})
         system = {'Darwin': 'darwin', 'Windows': 'windows', 'Linux': 'linux'}[platform.system()]
-        arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'amd64', 'AMD64': 'amd64'}[platform.machine()]
+        arch = {'arm64': 'arm64', 'aarch64': 'arm64', 'x86_64': 'amd64', 'amd64': 'amd64'}[platform.machine().lower()]
         (agents / 'bundle.json').write_text(json.dumps({'schema': 1, 'os': system, 'arch': arch, 'drivers': records}, indent=2) + '\n')
     source = ROOT / 'rust/target/debug' / ('superlink.exe' if os.name == 'nt' else 'superlink')
     DEV.mkdir(parents=True, exist_ok=True)

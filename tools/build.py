@@ -37,7 +37,9 @@ def main():
     if args.application_only and (args.all_drivers or args.driver or args.skip_app or not args.package):
         parser.error('--application-only requires --package and the default bundled SQLite')
     goos = {'Darwin':'darwin','Windows':'windows','Linux':'linux'}.get(platform.system())
-    arch = {'arm64':'arm64','aarch64':'arm64','x86_64':'amd64','AMD64':'amd64'}.get(platform.machine())
+    # Windows ARM64 runner 的 platform.machine() 返回大写 'ARM64'，统一小写后再映射。
+    machine = platform.machine().lower()
+    arch = {'arm64':'arm64','aarch64':'arm64','x86_64':'amd64','amd64':'amd64'}.get(machine)
     if not goos or not arch:
         raise SystemExit('unsupported native build platform')
     suffix = '.exe' if goos == 'windows' else ''
