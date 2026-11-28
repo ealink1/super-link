@@ -1,4 +1,6 @@
 //! Reproducible asset tools, replacing the retired build-time Go commands.
+mod sign;
+
 use std::{
     io::{Cursor, Write},
     path::Path,
@@ -10,17 +12,23 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = std::env::args().skip(1);
-    match args.next().as_deref() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    match args.first().map(String::as_str) {
         Some("app-icon") => icon(Path::new(
-            &args.next().unwrap_or_else(|| "assets/branding".into()),
+            args.get(1).map(String::as_str).unwrap_or("assets/branding"),
         )),
         Some("catalog-zip") => catalog(Path::new(
-            &args
-                .next()
-                .unwrap_or_else(|| "internal/upstream/i18n".into()),
+            args.get(1)
+                .map(String::as_str)
+                .unwrap_or("internal/upstream/i18n"),
         )),
-        _ => Err("usage: superlink-tools app-icon [directory] | catalog-zip [directory]".into()),
+        Some("sign") => sign::run(&args[1..]),
+        _ => Err(
+            "usage: superlink-tools app-icon [directory] | catalog-zip [directory] | \
+             sign --version <v> [--assets-dir <dir>] [--channel stable|preview] \
+             [--key-file <path>] | sign --generate-key-file <path>"
+                .into(),
+        ),
     }
 }
 fn icon(directory: &Path) -> Result<(), Box<dyn std::error::Error>> {

@@ -1,0 +1,189 @@
+name: Release SuperLink
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing immutable version tag, e.g. v0.2.0'
+        required: true
+        type: string
+      publish:
+        description: 'Publish publicly after validation (requires signing keys)'
+        default: false
+        type: boolean
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.source.outputs.version }}
+      sha: ${{ steps.source.outputs.sha }}
+      tag: ${{ steps.source.outputs.tag }}
+      signed: ${{ steps.keys.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Resolve immutable version tag
+        id: source
+        shell: bash
+        env:
+          SUPERLINK_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, subprocess, sys
+          sys.path.insert(0, 'tools')
+          from release_platforms import version_text
+          tag = os.environ['SUPERLINK_TAG']
+          if not tag.startswith('v'):
+              raise SystemExit('release tag must start with v')
+          version = version_text(tag)
+          sha = subprocess.check_output(
+              ['git', 'rev-parse', '--verify', 'refs/tags/' + tag + '^{commit}'],
+              text=True).strip()
+          if subprocess.run(['git', 'merge-base', '--is-ancestor', sha, 'HEAD']).returncode != 0:
+              raise SystemExit('tag is not on the checked out branch')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'tag={tag}\nversion={version}\nsha={sha}\n')
+          PY
+      - name: Report signing availability
+        id: keys
+        env:
+          SUPERLINK_RELEASE_PRIVATE_KEY: ${{ secrets.SUPERLINK_RELEASE_PRIVATE_KEY }}
+          SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
+        run: |
+          if [ -n "$SUPERLINK_RELEASE_PRIVATE_KEY" ] && [ -n "$SUPERLINK_RELEASE_PUBLIC_KEY" ]; then
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Release keys are not configured; the update manifest will not be published.' >&2
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: prepare
+    name: ${{ matrix.goos }} / ${{ matrix.goarch }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            goos: darwin
+            goarch: amd64
+          - runner: macos-15
+            goos: darwin
+            goarch: arm64
+          - runner: windows-2025
+            goos: windows
+            goarch: amd64
+          - runner: windows-11-arm
+            goos: windows
+            goarch: arm64
+    runs-on: ${{ matrix.runner }}
+    env:
+      CARGO_BUILD_JOBS: 2
+      PYTHONUTF8: '1'
+      SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
+      SUPERLINK_VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/target
+          key: release-${{ matrix.goos }}-${{ matrix.goarch }}-${{ hashFiles('rust/Cargo.lock') }}
+          restore-keys: release-${{ matrix.goos }}-${{ matrix.goarch }}-
+      - name: Build application package and drivers
+        shell: bash
+        run: python tools/build.py --package --all-drivers --version "$SUPERLINK_VERSION" --dist dist
+      - name: Verify this platform's release inputs
+        shell: bash
+        run: |
+          python tools/verify_release.py --version "$SUPERLINK_VERSION" \
+            --platform "${{ matrix.goos }}/${{ matrix.goarch }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          path: incoming
+          merge-multiple: true
+      - name: Collect platform products
+        run: |
+          mkdir -p dist
+          find incoming -type f -exec cp -n {} dist/ \;
+          ls -la dist
+      - name: Verify complete release matrix
+        env:
+          SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
+        run: |
+          python tools/verify_release.py --version "${{ needs.prepare.outputs.version }}" \
+            --public-key "$SUPERLINK_RELEASE_PUBLIC_KEY"
+      - name: Sign the update manifest
+        if: needs.prepare.outputs.signed == 'true'
+        env:
+          SUPERLINK_RELEASE_PRIVATE_KEY: ${{ secrets.SUPERLINK_RELEASE_PRIVATE_KEY }}
+          SUPERLINK_RELEASE_PUBLIC_KEY: ${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}
+        run: |
+          cargo run --locked --release --manifest-path rust/Cargo.toml -p superlink-tools -- \
+            sign --assets-dir dist --version "${{ needs.prepare.outputs.version }}" --channel stable
+      - name: Render release notes
+        env:
+          SUPERLINK_SOURCE: ${{ needs.prepare.outputs.sha }}
+        run: |
+          args=(--version "${{ needs.prepare.outputs.version }}"
+                --revision "$SUPERLINK_SOURCE"
+                --signed "${{ needs.prepare.outputs.signed }}")
+          previous=$(git describe --tags --match 'v*' --abbrev=0 "$SUPERLINK_SOURCE^" 2>/dev/null || true)
+          if [[ -n "$previous" ]]; then args+=(--previous "$previous"); fi
+          python tools/release_notes.py "${args[@]}"
+      - name: Write release checksums
+        run: |
+          python tools/verify_release.py --version "${{ needs.prepare.outputs.version }}" \
+            --public-key "${{ vars.SUPERLINK_RELEASE_PUBLIC_KEY }}" --checksums
+      - name: Create draft releases and upload verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUPERLINK_DRIVER_RELEASE_TOKEN: ${{ secrets.SUPERLINK_DRIVER_RELEASE_TOKEN }}
+        run: |
+          python tools/publish_release.py \
+            --version "${{ needs.prepare.outputs.version }}" \
+            --tag "${{ needs.prepare.outputs.tag }}" \
+            --source "${{ needs.prepare.outputs.sha }}" \
+            --dist dist \
+            --publish "${{ inputs.publish || false }}"

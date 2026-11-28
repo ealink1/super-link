@@ -3,8 +3,22 @@ import hashlib
 import re
 from pathlib import Path
 
+# 所有正式支持的平台；`RELEASE_PLATFORMS` 是本次发布实际构建的子集。
 PLATFORMS = [('darwin', 'amd64'), ('darwin', 'arm64'), ('windows', 'amd64'),
              ('windows', 'arm64'), ('linux', 'amd64'), ('linux', 'arm64')]
+# Linux 目前只以 headless 后端构建（gpui 未启用 x11/wayland），无法提供桌面窗口，
+# 因此暂不发布；回归时把 linux 两项加回来，同时给 gpui 打开窗口后端。
+RELEASE_PLATFORMS = [('darwin', 'amd64'), ('darwin', 'arm64'),
+                     ('windows', 'amd64'), ('windows', 'arm64')]
+
+RELEASE_RUNNERS = {
+    ('darwin', 'amd64'): 'macos-15-intel',
+    ('darwin', 'arm64'): 'macos-15',
+    ('windows', 'amd64'): 'windows-2025',
+    ('windows', 'arm64'): 'windows-11-arm',
+    ('linux', 'amd64'): 'ubuntu-22.04',
+    ('linux', 'arm64'): 'ubuntu-24.04-arm',
+}
 DRIVERS = ['mysql', 'postgres', 'oracle', 'goldendb', 'custom', 'redis', 'nacos',
            'chroma', 'qdrant', 'milvus', 'rocketmq', 'mqtt', 'kafka', 'rabbitmq', 'pulsar', 'mariadb', 'oceanbase', 'diros', 'starrocks', 'sphinx', 'sqlserver',
            'sqlite', 'duckdb', 'dameng', 'kingbase', 'highgo', 'vastbase',

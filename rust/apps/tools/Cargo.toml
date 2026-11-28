@@ -8,3 +8,8 @@ license.workspace = true
 image = { version = "0.25", default-features = false, features = ["png"] }
 zip = { version = "2.2", default-features = false, features = ["deflate"] }
 serde_json.workspace = true
+superlink-update = { path = "../../crates/superlink-update" }
+base64 = "0.22"
+ed25519-dalek = "2"
+getrandom.workspace = true
+chrono.workspace = true

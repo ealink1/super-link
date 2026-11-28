@@ -151,3 +151,7 @@ Shift+Y 只操作横向列；兼容平台已转换为 X 的 Shift 滚轮与触�
 ### 2026-11-24 新建连接表单对齐
 
 依据用户指出的「新建连接与 Fyne 版差距」，按 `main` 分支 `internal/ui/connection_forms.go`、`connection_network.go`、`connection_advanced.go`、`datasource_picker.go` 重建表单：新建先进入带分类计数与搜索的数据源选择器；表单分为「基本 / 网络与安全 / 外观 / 高级」，补回连接串解析/生成/复制、连接参数、数据库显示过滤、拓扑与节点地址、生产连接保护四项、SQLite/DuckDB 文件选择、类型说明、环境与分组、外观图标与颜色（侧栏使用 `iconType`），SSL 验证模式恢复 `required/preferred/disable/skip-verify` 并补充 CA 校验，超时上限改为连接 120 秒、查询 3600 秒，端口按旧版允许留空。原生驱动新增连接串/连接参数合并（MySQL charset、PostgreSQL application_name/options/connect_timeout）。纯 Rust/GPUI 自行实现，未复制 Fyne 代码或资源。
+
+### 2026-11-28 发布签名工具改为 Rust 实现
+
+`main` 分支的发布链路由 Go 的 `cmd/release-sign` 签出更新清单。本分支禁止 Go 源码与 Go 构建依赖，因此在 `superlink-tools` 中新增 `sign` 子命令等价实现：读取 `tools/build.py` 产出的 `assets-*.json`，用 `Manifest::to_signed_bytes()`（两空格缩进 JSON 加结尾换行）编码，以 Ed25519 签名并写出 `manifest.json` 与 `manifest.json.sig`。编码与 Go 工具逐字节一致，`sign::tests::matches_the_published_wire_format` 用固定密钥与固定清单的已知答案锁住这一格式，既有签名清单继续可验。签名前先核对每个文件的体积与 SHA256、下载地址版本，并与 `SUPERLINK_RELEASE_PUBLIC_KEY` 核对私钥推导出的公钥，签名后再用公钥自验一遍才落盘。同时补齐 `tools/verify_release.py`、`tools/release_notes.py`、`tools/publish_release.py` 与 `.github/workflows/release.yml`，把发布校验、说明渲染与草稿发布接到 Rust 产物上；受 GPUI 依赖配置限制，发布矩阵暂时只覆盖 macOS 与 Windows 各两种架构。
